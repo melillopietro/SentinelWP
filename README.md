@@ -77,4 +77,5 @@ SentinelWP is developed following safe security assessment practices:
 
 ## License
 
-Internal / Proprietary - Würth IT Security
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
