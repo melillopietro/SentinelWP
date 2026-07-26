@@ -1,0 +1,104 @@
+{% extends "base.html" %}
+{% block title %}Scan Detail - WSA Pro{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h2>Scan: {{ scan.target_url }}</h2>
+    <p>Scan ID: {{ scan.id[:8] }} | {{ scan.started_at[:16] }} | Mode: <span class="badge badge-info">{{ scan.scan_mode }}</span></p>
+</div>
+
+<div class="stats-grid">
+    <div class="stat-card">
+        <div class="label">Risk Score</div>
+        <div class="value">{{ scan.score if scan.score is not none else 'N/A' }}</div>
+    </div>
+    <div class="stat-card">
+        <div class="label">Grade</div>
+        <div class="value {% if scan.grade %}grade-{{ scan.grade[0]|lower }}{% endif %}">{{ scan.grade or 'N/A' }}</div>
+    </div>
+    <div class="stat-card">
+        <div class="label">Findings</div>
+        <div class="value">{{ scan.findings|length }}</div>
+    </div>
+    <div class="stat-card">
+        <div class="label">WordPress</div>
+        <div class="value" style="font-size:18px;">{{ 'Detected' if scan.is_wordpress else 'Not detected' }}{% if scan.wp_version %} (v{{ scan.wp_version }}){% endif %}</div>
+    </div>
+    <div class="stat-card">
+        <div class="label">Scan Mode</div>
+        <div class="value" style="font-size:16px;text-transform:capitalize;">{{ scan.scan_mode }}</div>
+    </div>
+</div>
+
+<!-- Reports download -->
+<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:24px;">
+    <h3 style="font-size:14px;margin-bottom:12px;color:var(--text-secondary);">Export Report</h3>
+    <div class="btn-group">
+        <a href="{{ url_for('download_report', scan_id=scan.id, fmt='pdf') }}" class="btn btn-primary btn-sm">PDF</a>
+        <a href="{{ url_for('download_report', scan_id=scan.id, fmt='html') }}" class="btn btn-secondary btn-sm">HTML</a>
+        <a href="{{ url_for('download_report', scan_id=scan.id, fmt='excel') }}" class="btn btn-secondary btn-sm">Excel</a>
+        <a href="{{ url_for('download_report', scan_id=scan.id, fmt='json') }}" class="btn btn-secondary btn-sm">JSON</a>
+    </div>
+</div>
+
+<!-- Category breakdown -->
+{% if breakdown %}
+<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:24px;">
+    <h3 style="font-size:14px;margin-bottom:12px;color:var(--text-secondary);">Category Breakdown</h3>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;">
+    {% for cat, info in breakdown.items() %}
+        <div style="background:var(--bg-primary);border-radius:6px;padding:12px;">
+            <div style="font-size:12px;color:var(--text-muted);text-transform:capitalize;">{{ cat }}</div>
+            <div style="font-size:18px;font-weight:600;margin-top:4px;">{{ info.count }} finding{{ 's' if info.count != 1 else '' }}</div>
+            <div style="font-size:11px;margin-top:2px;"><span class="badge badge-{{ info.max_severity }}">{{ info.max_severity }}</span></div>
+        </div>
+    {% endfor %}
+    </div>
+</div>
+{% endif %}
+
+<!-- Findings table -->
+<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:16px;">
+    <h3 style="font-size:14px;margin-bottom:12px;color:var(--text-secondary);">Findings ({{ scan.findings|length }})</h3>
+    {% if scan.findings %}
+    <div class="table-wrap" style="border:none;">
+    <table>
+    <thead><tr><th>Severity</th><th>Category</th><th>Title</th><th>Confidence</th><th>Description</th><th>Actions</th></tr></thead>
+    <tbody>
+    {% for f in scan.findings %}
+    <tr>
+        <td><span class="badge badge-{{ f.severity.value if f.severity.value is defined else f.severity }}">{{ f.severity.value if f.severity.value is defined else f.severity }}</span></td>
+        <td style="font-size:12px;color:var(--text-muted);">{{ f.category }}</td>
+        <td><strong>{{ f.title }}</strong></td>
+        <td>
+            <div style="display:flex;align-items:center;gap:6px;min-width:80px;">
+                <div style="flex:1;height:4px;background:var(--bg-primary);border-radius:2px;overflow:hidden;">
+                    <div style="width:{{ (f.confidence * 100)|int }}%;height:100%;background:{% if f.confidence >= 0.8 %}var(--success){% elif f.confidence >= 0.5 %}var(--warning){% else %}var(--danger){% endif %};border-radius:2px;"></div>
+                </div>
+                <span style="font-size:11px;color:var(--text-muted);">{{ (f.confidence * 100)|int }}%</span>
+            </div>
+        </td>
+        <td style="font-size:12px;max-width:300px;">{{ f.description[:150] }}{% if f.description|length > 150 %}...{% endif %}</td>
+        <td>
+            <div class="btn-group">
+                <form method="POST" action="{{ url_for('delete_finding', finding_id=f.id) }}" style="display:inline;" onsubmit="return confirm('Delete this finding?')">
+                    <button type="submit" class="btn btn-danger btn-sm">Del</button>
+                </form>
+            </div>
+        </td>
+    </tr>
+    {% endfor %}
+    </tbody>
+    </table>
+    </div>
+    {% else %}
+    <p style="color:var(--text-muted);text-align:center;padding:20px;">No findings.</p>
+    {% endif %}
+</div>
+
+<!-- Delete scan -->
+<div style="margin-top:24px;padding-top:16px;border-top:1px solid var(--border);">
+    <form method="POST" action="{{ url_for('delete_scan', scan_id=scan.id) }}" onsubmit="return confirm('Permanently delete this scan and all findings?')">
+        <button type="submit" class="btn btn-danger">Delete Scan</button>
+    </form>
+</div>
+{% endblock %}

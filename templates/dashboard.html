@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block title %}Dashboard - WSA Pro{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h2>Dashboard</h2>
+    <p>Security posture overview</p>
+</div>
+
+<div class="stats-grid">
+    <div class="stat-card">
+        <div class="label">Total Scans</div>
+        <div class="value">{{ total }}</div>
+    </div>
+    <div class="stat-card">
+        <div class="label">Completed</div>
+        <div class="value" style="color:var(--success)">{{ completed }}</div>
+    </div>
+    <div class="stat-card">
+        <div class="label">Avg Risk Score</div>
+        <div class="value">{{ avg_score }}</div>
+    </div>
+</div>
+
+<div class="page-header" style="margin-bottom:16px;">
+    <h2 style="font-size:18px;">Recent Scans</h2>
+</div>
+
+{% if scans %}
+<div class="table-wrap">
+<table>
+<thead><tr><th>Target</th><th>Score</th><th>Grade</th><th>Status</th><th>Date</th><th>Actions</th></tr></thead>
+<tbody>
+{% for s in scans %}
+<tr>
+    <td><a href="{{ url_for('scan_detail', scan_id=s.id) }}">{{ s.target_url }}</a></td>
+    <td>{{ s.score if s.score is not none else '-' }}</td>
+    <td>
+        {% if s.grade %}
+        <span class="badge {% if s.grade.startswith('A') %}badge-info{% elif s.grade.startswith('B') %}badge-low{% elif s.grade.startswith('C') %}badge-medium{% else %}badge-critical{% endif %}">{{ s.grade }}</span>
+        {% else %}-{% endif %}
+    </td>
+    <td><span class="badge badge-info">{{ s.status.value if s.status.value is defined else s.status }}</span></td>
+    <td style="color:var(--text-muted);font-size:12px;">{{ s.started_at[:16] }}</td>
+    <td><a href="{{ url_for('scan_detail', scan_id=s.id) }}" class="btn btn-secondary btn-sm">View</a></td>
+</tr>
+{% endfor %}
+</tbody>
+</table>
+</div>
+{% else %}
+<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:40px;text-align:center;">
+    <p style="color:var(--text-muted);">No scans yet. Start your first scan.</p>
+    <a href="{{ url_for('new_scan') }}" class="btn btn-primary" style="margin-top:16px;">New Scan</a>
+</div>
+{% endif %}
+{% endblock %}

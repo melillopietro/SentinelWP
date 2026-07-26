@@ -1,0 +1,33 @@
+# Python & Bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Environment & Virtualenvs
+.venv/
+venv/
+ENV/
+env/
+
+# Database & Runtime Data
+data/*.db
+data/*.sqlite
+data/*.sqlite3
+
+# Pytest / Cache
+.pytest_cache/
+.coverage
+htmlcov/
+
+# IDE & OS
+.DS_Store
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Zip / Archives
+*.zip
+*.tar.gz

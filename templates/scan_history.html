@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block title %}Scan History - WSA Pro{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h2>Scan History</h2>
+    <p>{{ scans|length }} scan(s) recorded</p>
+</div>
+
+{% if scans %}
+<div class="table-wrap">
+<table>
+<thead><tr><th>Target</th><th>Score</th><th>Grade</th><th>WordPress</th><th>Findings</th><th>Date</th><th>Actions</th></tr></thead>
+<tbody>
+{% for s in scans %}
+<tr>
+    <td><a href="{{ url_for('scan_detail', scan_id=s.id) }}">{{ s.target_url[:50] }}</a></td>
+    <td>{{ s.score if s.score is not none else '-' }}</td>
+    <td>{% if s.grade %}<span class="badge {% if s.grade.startswith('A') %}badge-info{% elif s.grade.startswith('B') %}badge-low{% elif s.grade.startswith('C') %}badge-medium{% else %}badge-critical{% endif %}">{{ s.grade }}</span>{% else %}-{% endif %}</td>
+    <td>{{ 'Yes' if s.is_wordpress else 'No' }}</td>
+    <td>-</td>
+    <td style="color:var(--text-muted);font-size:12px;">{{ s.started_at[:16] }}</td>
+    <td>
+        <div class="btn-group">
+            <a href="{{ url_for('scan_detail', scan_id=s.id) }}" class="btn btn-secondary btn-sm">View</a>
+            <form method="POST" action="{{ url_for('delete_scan', scan_id=s.id) }}" style="display:inline;" onsubmit="return confirm('Delete this scan?')">
+                <button type="submit" class="btn btn-danger btn-sm">Delete</button>
+            </form>
+        </div>
+    </td>
+</tr>
+{% endfor %}
+</tbody>
+</table>
+</div>
+{% else %}
+<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:40px;text-align:center;">
+    <p style="color:var(--text-muted);">No scans recorded yet.</p>
+</div>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block title %}Batch Scan - WSA Pro{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h2>Batch Scan</h2>
+    <p>Scan multiple targets concurrently</p>
+</div>
+
+<div style="max-width:600px;">
+<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:24px;">
+    <form method="POST">
+        <div class="form-group">
+            <label>Target URLs (one per line)</label>
+            <textarea name="targets" placeholder="https://site1.com&#10;https://site2.com&#10;https://site3.com" rows="8"></textarea>
+        </div>
+        <button type="submit" class="btn btn-primary">Start Batch</button>
+    </form>
+</div>
+</div>
+{% endblock %}

@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>{% block title %}SentinelWP{% endblock %}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+    --bg-primary: #0f1117;
+    --bg-secondary: #1a1d2e;
+    --bg-card: #1e2235;
+    --bg-hover: #252a3f;
+    --text-primary: #e4e7ec;
+    --text-secondary: #9ca3b4;
+    --text-muted: #6b7280;
+    --border: #2d3348;
+    --accent: #6366f1;
+    --accent-hover: #818cf8;
+    --success: #10b981;
+    --warning: #f59e0b;
+    --danger: #ef4444;
+    --info: #3b82f6;
+    --critical: #dc2626;
+    --high: #ea580c;
+    --medium: #d97706;
+    --low: #3b82f6;
+    --radius: 8px;
+    --shadow: 0 4px 6px -1px rgba(0,0,0,0.3);
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    min-height: 100vh;
+    display: flex;
+}
+a { color: var(--accent); text-decoration: none; }
+a:hover { color: var(--accent-hover); }
+
+/* Sidebar */
+.sidebar {
+    width: 260px;
+    background: var(--bg-secondary);
+    border-right: 1px solid var(--border);
+    padding: 24px 0;
+    position: fixed;
+    top: 0;
+    left: 0;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    z-index: 100;
+}
+.sidebar-brand {
+    padding: 0 24px 24px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 16px;
+}
+.sidebar-brand h1 {
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--text-primary);
+    letter-spacing: -0.5px;
+}
+.sidebar-brand p {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-top: 4px;
+}
+.sidebar-nav { flex: 1; padding: 0 12px; }
+.sidebar-nav a {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 12px;
+    border-radius: var(--radius);
+    color: var(--text-secondary);
+    font-size: 14px;
+    font-weight: 500;
+    transition: all 0.15s;
+    margin-bottom: 2px;
+}
+.sidebar-nav a:hover { background: var(--bg-hover); color: var(--text-primary); }
+.sidebar-nav a.active { background: var(--accent); color: #fff; }
+.sidebar-nav a svg { width: 18px; height: 18px; flex-shrink: 0; }
+.sidebar-footer {
+    padding: 16px 24px;
+    border-top: 1px solid var(--border);
+    font-size: 12px;
+    color: var(--text-muted);
+}
+.sidebar-footer .user-info { margin-bottom: 8px; color: var(--text-secondary); }
+
+/* Main content */
+.main {
+    margin-left: 260px;
+    flex: 1;
+    padding: 32px;
+    min-height: 100vh;
+}
+.page-header {
+    margin-bottom: 32px;
+}
+.page-header h2 {
+    font-size: 24px;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+.page-header p {
+    font-size: 14px;
+    color: var(--text-muted);
+    margin-top: 4px;
+}
+
+/* Cards */
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 16px;
+    margin-bottom: 32px;
+}
+.stat-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px;
+    transition: border-color 0.2s;
+}
+.stat-card:hover { border-color: var(--accent); }
+.stat-card .label { font-size: 12px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; }
+.stat-card .value { font-size: 28px; font-weight: 700; margin-top: 8px; }
+
+/* Tables */
+.table-wrap {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+}
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+th { background: var(--bg-secondary); padding: 12px 16px; text-align: left; font-weight: 600; color: var(--text-secondary); border-bottom: 1px solid var(--border); }
+td { padding: 12px 16px; border-bottom: 1px solid var(--border); color: var(--text-primary); }
+tr:hover td { background: var(--bg-hover); }
+tr:last-child td { border-bottom: none; }
+
+/* Badges */
+.badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+}
+.badge-critical { background: rgba(220,38,38,0.15); color: var(--critical); }
+.badge-high { background: rgba(234,88,12,0.15); color: var(--high); }
+.badge-medium { background: rgba(217,119,6,0.15); color: var(--medium); }
+.badge-low { background: rgba(59,130,246,0.15); color: var(--low); }
+.badge-info { background: rgba(107,114,128,0.15); color: var(--text-muted); }
+
+/* Forms */
+.form-group { margin-bottom: 16px; }
+.form-group label { display: block; font-size: 13px; font-weight: 500; color: var(--text-secondary); margin-bottom: 6px; }
+input[type="text"], input[type="password"], input[type="email"], input[type="url"],
+textarea, select {
+    width: 100%;
+    padding: 10px 14px;
+    background: var(--bg-primary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    color: var(--text-primary);
+    font-size: 14px;
+    font-family: inherit;
+    transition: border-color 0.2s;
+}
+input:focus, textarea:focus, select:focus { outline: none; border-color: var(--accent); }
+textarea { min-height: 120px; resize: vertical; }
+
+/* Buttons */
+.btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 20px;
+    border-radius: var(--radius);
+    font-size: 14px;
+    font-weight: 500;
+    border: none;
+    cursor: pointer;
+    transition: all 0.15s;
+    text-decoration: none;
+}
+.btn-primary { background: var(--accent); color: #fff; }
+.btn-primary:hover { background: var(--accent-hover); color: #fff; }
+.btn-danger { background: var(--danger); color: #fff; }
+.btn-danger:hover { background: #dc2626; }
+.btn-secondary { background: var(--bg-hover); color: var(--text-primary); border: 1px solid var(--border); }
+.btn-secondary:hover { border-color: var(--accent); }
+.btn-sm { padding: 6px 12px; font-size: 12px; }
+.btn-group { display: flex; gap: 8px; flex-wrap: wrap; }
+
+/* Flash messages */
+.flash { padding: 12px 16px; border-radius: var(--radius); margin-bottom: 16px; font-size: 13px; }
+.flash-success { background: rgba(16,185,129,0.1); border: 1px solid var(--success); color: var(--success); }
+.flash-error { background: rgba(239,68,68,0.1); border: 1px solid var(--danger); color: var(--danger); }
+
+/* Grade colors */
+.grade-a { color: var(--success); }
+.grade-b { color: #22d3ee; }
+.grade-c { color: var(--warning); }
+.grade-d { color: var(--high); }
+.grade-e, .grade-f { color: var(--danger); }
+
+/* Responsive */
+@media (max-width: 768px) {
+    .sidebar { display: none; }
+    .main { margin-left: 0; }
+}
+</style>
+</head>
+<body>
+{% if session.get('user_id') %}
+<aside class="sidebar">
+    <div class="sidebar-brand">
+        <h1>SentinelWP</h1>
+        <p>WordPress Security Sentinel</p>
+    </div>
+    <nav class="sidebar-nav">
+        <a href="{{ url_for('dashboard') }}" class="{% if request.endpoint == 'dashboard' %}active{% endif %}">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"/></svg>
+            Dashboard
+        </a>
+        <a href="{{ url_for('new_scan') }}" class="{% if request.endpoint == 'new_scan' %}active{% endif %}">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+            New Scan
+        </a>
+        <a href="{{ url_for('batch_scan') }}" class="{% if request.endpoint == 'batch_scan' %}active{% endif %}">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>
+            Batch Scan
+        </a>
+        <a href="{{ url_for('scan_history') }}" class="{% if request.endpoint == 'scan_history' %}active{% endif %}">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            Scan History
+        </a>
+        {% if session.get('role') == 'admin' %}
+        <a href="{{ url_for('user_management') }}" class="{% if request.endpoint == 'user_management' %}active{% endif %}">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
+            Users
+        </a>
+        {% endif %}
+    </nav>
+    <div class="sidebar-footer">
+        <div class="user-info">{{ session.get('username', '') }} ({{ session.get('role', '') }})</div>
+        <a href="{{ url_for('logout') }}" class="btn btn-secondary btn-sm" style="width:100%;justify-content:center;">Sign Out</a>
+    </div>
+</aside>
+{% endif %}
+
+<main class="main">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+    {% for category, message in messages %}
+    <div class="flash flash-{{ category }}">{{ message }}</div>
+    {% endfor %}
+    {% endwith %}
+    {% block content %}{% endblock %}
+</main>
+</body>
+</html>
