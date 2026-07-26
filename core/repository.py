@@ -7,7 +7,7 @@ from typing import Optional
 from config import DATABASE_PATH
 from core.models import (
     Finding, ScanResult, ScanStatus, Severity,
-    User, UserRole, UserStatus
+    User, UserRole, UserStatus, ScheduledScan
 )
 
 _conn: Optional[sqlite3.Connection] = None
@@ -66,6 +66,17 @@ def init_db():
         );
         CREATE INDEX IF NOT EXISTS idx_findings_scan ON findings(scan_id);
         CREATE INDEX IF NOT EXISTS idx_scans_status ON scans(status);
+        CREATE TABLE IF NOT EXISTS scheduled_scans (
+            id TEXT PRIMARY KEY,
+            target_url TEXT NOT NULL,
+            scan_mode TEXT DEFAULT 'passive',
+            interval_hours INTEGER DEFAULT 24,
+            last_run_at TEXT,
+            next_run_at TEXT,
+            enabled INTEGER DEFAULT 1,
+            created_by TEXT DEFAULT '',
+            created_at TEXT NOT NULL
+        );
     """)
     conn.commit()
 
@@ -266,3 +277,32 @@ def update_finding(finding_id: str, **kwargs):
         vals.append(finding_id)
         conn.execute(f"UPDATE findings SET {', '.join(sets)} WHERE id = ?", vals)
         conn.commit()
+
+
+# --- Scheduled Scans ---
+def save_scheduled_scan(sched: ScheduledScan):
+    conn = _get_conn()
+    conn.execute(
+        "INSERT OR REPLACE INTO scheduled_scans (id, target_url, scan_mode, interval_hours, last_run_at, next_run_at, enabled, created_by, created_at) VALUES (?,?,?,?,?,?,?,?,?)",
+        (sched.id, sched.target_url, sched.scan_mode, sched.interval_hours, sched.last_run_at, sched.next_run_at, 1 if sched.enabled else 0, sched.created_by, sched.created_at)
+    )
+    conn.commit()
+
+
+def list_scheduled_scans() -> list:
+    conn = _get_conn()
+    from core.models import ScheduledScan
+    rows = conn.execute("SELECT * FROM scheduled_scans ORDER BY created_at DESC").fetchall()
+    return [ScheduledScan(
+        id=r["id"], target_url=r["target_url"], scan_mode=r["scan_mode"],
+        interval_hours=r["interval_hours"], last_run_at=r["last_run_at"],
+        next_run_at=r["next_run_at"], enabled=bool(r["enabled"]),
+        created_by=r["created_by"], created_at=r["created_at"]
+    ) for r in rows]
+
+
+def delete_scheduled_scan(sched_id: str):
+    conn = _get_conn()
+    conn.execute("DELETE FROM scheduled_scans WHERE id = ?", (sched_id,))
+    conn.commit()
+

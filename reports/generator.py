@@ -1,5 +1,5 @@
 """
-Report generator - HTML, JSON, Excel, PDF (ReportLab - no system deps needed)
+Report generator - HTML, JSON, Excel, PDF, and SARIF v2.1.0 (CI/CD integration)
 """
 import io
 import json
@@ -30,6 +30,14 @@ SEVERITY_COLORS = {
     "medium": "#d97706",
     "low": "#2563eb",
     "info": "#6b7280",
+}
+
+SARIF_LEVEL_MAP = {
+    "critical": "error",
+    "high": "error",
+    "medium": "warning",
+    "low": "note",
+    "info": "note",
 }
 
 
@@ -113,6 +121,61 @@ def generate_json_report(scan) -> str:
         "findings": [f_to_dict(f) for f in scan.findings],
     }
     return json.dumps(obj, indent=2, ensure_ascii=False)
+
+
+def generate_sarif_report(scan) -> str:
+    """
+    Generate OASIS SARIF v2.1.0 format report for CI/CD integration (GitHub/GitLab).
+    """
+    rules = []
+    results = []
+    seen_rule_ids = set()
+
+    for idx, f in enumerate(getattr(scan, "findings", [])):
+        sev = f.severity.value if hasattr(f.severity, "value") else str(f.severity)
+        level = SARIF_LEVEL_MAP.get(sev, "note")
+        rule_id = f"SENTINEL-{f.category.upper()}-{abs(hash(f.title)) % 10000:04d}"
+
+        if rule_id not in seen_rule_ids:
+            seen_rule_ids.add(rule_id)
+            rules.append({
+                "id": rule_id,
+                "name": f.title.replace(" ", ""),
+                "shortDescription": {"text": f.title},
+                "fullDescription": {"text": f.description},
+                "help": {"text": f.remediation or "Refer to security hardening guidelines."},
+                "properties": {"tags": ["security", "wordpress", f.category]}
+            })
+
+        results.append({
+            "ruleId": rule_id,
+            "level": level,
+            "message": {"text": f"{f.title}: {f.description}"},
+            "locations": [{
+                "physicalLocation": {
+                    "artifactLocation": {"uri": scan.target_url},
+                    "region": {"startLine": 1}
+                }
+            }]
+        })
+
+    sarif_log = {
+        "$schema": "https://raw.githubusercontent.com/oasis-tcs/sarif-spec/master/Schemas/sarif-schema-2.1.0.json",
+        "version": "2.1.0",
+        "runs": [{
+            "tool": {
+                "driver": {
+                    "name": "SentinelWP",
+                    "version": "2.1.0",
+                    "informationUri": "https://github.com/melillopietro/SentinelWP",
+                    "rules": rules
+                }
+            },
+            "results": results
+        }]
+    }
+
+    return json.dumps(sarif_log, indent=2, ensure_ascii=False)
 
 
 def generate_excel_report(scan) -> bytes:

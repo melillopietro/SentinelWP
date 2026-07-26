@@ -1,5 +1,5 @@
 """
-Domain models for WSA Pro
+Domain models for SentinelWP
 """
 import uuid
 from dataclasses import dataclass, field
@@ -68,7 +68,6 @@ class ScanResult:
     is_wordpress: Optional[bool] = None
 
 
-
 @dataclass
 class User:
     id: str = field(default_factory=lambda: str(uuid.uuid4()))
@@ -77,4 +76,17 @@ class User:
     email: str = ""
     role: UserRole = UserRole.VIEWER
     status: UserStatus = UserStatus.PENDING
+    created_at: str = field(default_factory=lambda: datetime.utcnow().isoformat())
+
+
+@dataclass
+class ScheduledScan:
+    id: str = field(default_factory=lambda: str(uuid.uuid4()))
+    target_url: str = ""
+    scan_mode: str = "passive"
+    interval_hours: int = 24
+    last_run_at: Optional[str] = None
+    next_run_at: Optional[str] = None
+    enabled: bool = True
+    created_by: str = ""
     created_at: str = field(default_factory=lambda: datetime.utcnow().isoformat())

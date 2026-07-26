@@ -1,9 +1,20 @@
 {% extends "base.html" %}
-{% block title %}Scan Detail - WSA Pro{% endblock %}
+{% block title %}Scan Detail - SentinelWP{% endblock %}
 {% block content %}
 <div class="page-header">
     <h2>Scan: {{ scan.target_url }}</h2>
     <p>Scan ID: {{ scan.id[:8] }} | {{ scan.started_at[:16] }} | Mode: <span class="badge badge-info">{{ scan.scan_mode }}</span></p>
+</div>
+
+<!-- Live Progress Bar if scan is running -->
+<div id="progress-container" style="{% if (scan.status.value if scan.status.value is defined else scan.status) != 'running' %}display:none;{% endif %}background:var(--bg-card);border:1px solid var(--accent);border-radius:var(--radius);padding:20px;margin-bottom:24px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+        <span style="font-weight:600;color:var(--accent);" id="progress-step">Scan in progress...</span>
+        <span style="font-weight:700;" id="progress-pct">0%</span>
+    </div>
+    <div style="width:100%;height:8px;background:var(--bg-primary);border-radius:4px;overflow:hidden;">
+        <div id="progress-bar" style="width:0%;height:100%;background:var(--accent);transition:width 0.3s;"></div>
+    </div>
 </div>
 
 <div class="stats-grid">
@@ -37,6 +48,7 @@
         <a href="{{ url_for('download_report', scan_id=scan.id, fmt='html') }}" class="btn btn-secondary btn-sm">HTML</a>
         <a href="{{ url_for('download_report', scan_id=scan.id, fmt='excel') }}" class="btn btn-secondary btn-sm">Excel</a>
         <a href="{{ url_for('download_report', scan_id=scan.id, fmt='json') }}" class="btn btn-secondary btn-sm">JSON</a>
+        <a href="{{ url_for('download_report', scan_id=scan.id, fmt='sarif') }}" class="btn btn-secondary btn-sm" style="border-color:var(--accent);">SARIF (CI/CD)</a>
     </div>
 </div>
 
@@ -101,4 +113,30 @@
         <button type="submit" class="btn btn-danger">Delete Scan</button>
     </form>
 </div>
+
+<!-- Live polling script for running scans -->
+<script>
+(function() {
+    var scanId = "{{ scan.id }}";
+    var status = "{{ scan.status.value if scan.status.value is defined else scan.status }}";
+    
+    if (status === 'running' || status === 'pending') {
+        var interval = setInterval(function() {
+            fetch('/api/scan/' + scanId + '/status')
+                .then(function(res) { return res.json(); })
+                .then(function(data) {
+                    if (data.progress !== undefined) {
+                        document.getElementById('progress-bar').style.width = data.progress + '%';
+                        document.getElementById('progress-pct').innerText = data.progress + '%';
+                        document.getElementById('progress-step').innerText = data.current_step || 'Scanning...';
+                    }
+                    if (data.status === 'completed' || data.status === 'failed') {
+                        clearInterval(interval);
+                        window.location.reload();
+                    }
+                }).catch(function(err) {});
+        }, 1500);
+    }
+})();
+</script>
 {% endblock %}
