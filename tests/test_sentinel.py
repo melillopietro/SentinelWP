@@ -95,5 +95,15 @@ class TestBatchRunner(unittest.TestCase):
         self.assertEqual(job.scan_mode, "safe-active")
 
 
+class TestSetupWizard(unittest.TestCase):
+    def test_setup_wizard_flow(self):
+        from core import repository
+        from core.models import UserRole
+        
+        # Test count_users
+        cnt = repository.count_users()
+        self.assertIsInstance(cnt, int)
+
+
 if __name__ == "__main__":
     unittest.main()

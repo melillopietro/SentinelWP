@@ -61,23 +61,63 @@ def admin_required(f):
 @app.before_request
 def ensure_db_and_scheduler():
     repository.init_db()
-    # Ensure default admin user exists
-    admin = repository.get_user_by_username(ADMIN_USERNAME)
-    if not admin:
-        user = create_user(
-            username=ADMIN_USERNAME,
-            password=ADMIN_PASSWORD,
-            email="admin@sentinel.local",
-            role=UserRole.ADMIN,
-            status=UserStatus.ACTIVE,
-        )
-        repository.save_user(user)
 
     # Start background scheduler daemon
     try:
         start_scheduler()
     except Exception:
         pass
+
+    # Redirect to initial setup wizard if no users exist in database
+    if repository.count_users() == 0:
+        if request.endpoint not in ("setup", "static"):
+            return redirect(url_for("setup"))
+
+
+# --- Routes: Initial Setup Wizard ---
+@app.route("/setup", methods=["GET", "POST"])
+def setup():
+    if repository.count_users() > 0:
+        return redirect(url_for("login"))
+
+    if request.method == "POST":
+        username = request.form.get("username", "").strip()
+        email = request.form.get("email", "").strip()
+        password = request.form.get("password", "")
+        confirm_password = request.form.get("confirm_password", "")
+
+        if not username or len(username) < 3:
+            flash("Username must be at least 3 characters.", "error")
+            return render_template("setup.html")
+
+        if not password or len(password) < 6:
+            flash("Password must be at least 6 characters.", "error")
+            return render_template("setup.html")
+
+        if password != confirm_password:
+            flash("Passwords do not match.", "error")
+            return render_template("setup.html")
+
+        # Create primary administrator
+        user = create_user(
+            username=username,
+            password=password,
+            email=email,
+            role=UserRole.ADMIN,
+            status=UserStatus.ACTIVE,
+        )
+        repository.save_user(user)
+
+        # Log in automatically
+        session.permanent = True
+        session["user_id"] = user.id
+        session["username"] = user.username
+        session["role"] = "admin"
+
+        flash(f"Initial setup completed! Welcome to SentinelWP, {username}.", "success")
+        return redirect(url_for("dashboard"))
+
+    return render_template("setup.html")
 
 
 # --- Routes: Auth ---

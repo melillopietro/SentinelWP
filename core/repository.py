@@ -123,6 +123,12 @@ def list_users() -> list:
                  created_at=r["created_at"]) for r in rows]
 
 
+def count_users() -> int:
+    conn = _get_conn()
+    row = conn.execute("SELECT COUNT(*) as cnt FROM users").fetchone()
+    return row["cnt"] if row else 0
+
+
 def update_user(user_id: str, **kwargs):
     conn = _get_conn()
     allowed = {"username", "password_hash", "email", "role", "status"}
