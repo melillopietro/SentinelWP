@@ -12,9 +12,12 @@ ENV/
 env/
 
 # Database & Runtime Data
-data/*.db
-data/*.sqlite
-data/*.sqlite3
+data/
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
 
 # Pytest / Cache
 .pytest_cache/
