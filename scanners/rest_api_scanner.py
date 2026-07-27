@@ -127,7 +127,7 @@ class RESTAPIScanner(BaseScanner):
                 self._add_finding(
                     category="rest_api",
                     title="WordPress REST API Users Endpoint Accessible",
-                    description="Informational — esposizione di identificativi o nomi pubblici tramite REST API",
+                    description="Informational — Public user identifiers or display names exposed via REST API",
                     severity=Severity.INFO,
                     confidence=1.0,
                     remediation="Restrict access to /wp-json/wp/v2/users if user enumeration should be disabled.",
