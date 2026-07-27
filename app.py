@@ -162,13 +162,16 @@ def new_scan():
 def batch_scan():
     if request.method == "POST":
         targets_raw = request.form.get("targets", "").strip()
+        scan_mode = request.form.get("scan_mode", "passive").strip()
+        if scan_mode not in SCAN_PROFILES:
+            scan_mode = "passive"
         targets = [t.strip() for t in targets_raw.splitlines() if t.strip()]
         if not targets:
             flash("Enter at least one target URL.", "error")
             return render_template("batch_scan.html")
         try:
-            job = run_batch(targets, initiated_by=session.get("username", ""))
-            flash(f"Batch completed: {job.completed} successful, {job.failed} failed.", "success")
+            job = run_batch(targets, initiated_by=session.get("username", ""), scan_mode=scan_mode)
+            flash(f"Batch completed ({scan_mode}): {job.completed} successful, {job.failed} failed.", "success")
             return redirect(url_for("scan_history"))
         except Exception as e:
             flash(f"Batch failed: {str(e)[:200]}", "error")

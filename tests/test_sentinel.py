@@ -88,5 +88,12 @@ class TestSARIFGenerator(unittest.TestCase):
         self.assertEqual(sarif_json["runs"][0]["results"][0]["level"], "warning")
 
 
+class TestBatchRunner(unittest.TestCase):
+    def test_batch_runner_scan_mode(self):
+        from scanners.batch_runner import BatchJob, run_batch
+        job = BatchJob(targets=["https://example.com"], scan_mode="safe-active")
+        self.assertEqual(job.scan_mode, "safe-active")
+
+
 if __name__ == "__main__":
     unittest.main()

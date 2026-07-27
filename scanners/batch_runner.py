@@ -1,5 +1,5 @@
 """
-Batch scan runner with concurrent execution
+Batch scan runner with concurrent execution and scan mode support
 """
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -15,6 +15,7 @@ class BatchJob:
     id: str = ""
     targets: list = field(default_factory=list)
     results: list = field(default_factory=list)
+    scan_mode: str = "passive"
     started_at: str = field(default_factory=lambda: datetime.utcnow().isoformat())
     completed_at: Optional[str] = None
     total: int = 0
@@ -25,15 +26,16 @@ class BatchJob:
 def run_batch(
     targets: list,
     initiated_by: str = "",
+    scan_mode: str = "passive",
     max_workers: Optional[int] = None,
     progress_callback: Optional[Callable] = None,
 ) -> BatchJob:
-    job = BatchJob(targets=targets, total=len(targets))
+    job = BatchJob(targets=targets, total=len(targets), scan_mode=scan_mode)
     workers = max_workers or min(MAX_CONCURRENT_SCANS, len(targets))
 
     with ThreadPoolExecutor(max_workers=workers) as executor:
         future_map = {
-            executor.submit(run_scan, url, initiated_by): url
+            executor.submit(run_scan, url, initiated_by, scan_mode): url
             for url in targets
         }
         for future in as_completed(future_map):
