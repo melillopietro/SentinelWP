@@ -16,15 +16,16 @@ SentinelWP is an advanced security auditing and reconnaissance tool designed to 
   - **Safe-Active**: Non-destructive checks against known WordPress endpoints and public files.
   - **Full**: Includes audit of common default credentials (limited to a maximum of 20 attempts).
 - **Multi-Signal WordPress Detection**: Fingerprinting algorithm with aggregate confidence scoring (0.0 to 1.0) based on 8 independent signals (meta generator, asset paths, REST API, cookies, RSS feeds, etc.).
-- **Live Vulnerability Intelligence**: Automatic matching of detected plugins and themes against official CVE databases via OSV.dev REST API.
+- **Live Vulnerability Intelligence**: Automatic matching of detected plugins, themes, and WordPress Core versions against official CVE databases via OSV.dev REST API.
 - **Scheduled Recurring Audits**: Background scheduler for automated periodic security scans (every 12h, 24h, or 7 days).
 - **SMTP Email & Webhook Alerting**: Automated alert dispatching via SMTP email and Webhooks (Slack, Microsoft Teams, or custom endpoints) upon detecting Critical or High severity findings.
 - **REST API & Cookie Audit**:
   - Full route discovery and namespace inspection via /wp-json/ with privacy-first user endpoint auditing (no personal data stored).
   - Security flag analysis for HTTP response cookies (Secure, HttpOnly, SameSite).
+- **Passive DNS & WHOIS Audit**: Native domain WHOIS socket parser (expiration and registrar tracking) combined with secure DNS-over-HTTPS (DoH) audits for SPF and DMARC mail protection records.
 - **Passive Plugin & Theme Discovery**: Zero-request extraction of plugins and themes from HTML page source.
 - **Exposure & Hardening Checks**: Identification of backup files (wp-config.php.bak), debug logs, directory listing, HTTPS redirection, and visible PHP error messages.
-- **Executive Reporting & SARIF**: Automated report generation in PDF, HTML, Excel, JSON, and OASIS SARIF v2.1.0 formats for CI/CD integration.
+- **Executive Reporting & SARIF**: Automated report generation in PDF, HTML, Excel, JSON, and OASIS SARIF v2.1.0 formats, with a one-click CSV history export for easy collation.
 - **Rate Limiting & Anti-DDoS**: In-memory sliding window rate limiter per client IP address (HTTP 429).
 - **Role-Based Access Control (RBAC)**: Multi-user management (Admin, Analyst, Viewer) with secure sessions.
 
@@ -67,8 +68,8 @@ SentinelWP is an advanced security auditing and reconnaissance tool designed to 
 - **Backend & Web UI**: Python 3, Flask, Jinja2, Vanilla CSS (Dark Theme)
 - **Database**: SQLite3 (WAL mode enabled, automatic schema management)
 - **Async & Scheduling**: ThreadPoolExecutor, background daemon scheduler
-- **Reporting Engine**: ReportLab (PDF), OpenPyXL (Excel), SARIF v2.1.0 JSON generator
-- **Security Core**: Requests, Python ipaddress/socket validation, in-memory rate limiter
+- **Reporting Engine**: ReportLab (PDF), OpenPyXL (Excel), SARIF v2.1.0 JSON generator, CSV exporter
+- **Security Core**: Requests, native socket WHOIS client, Google DoH DNS-over-HTTPS client, Python ipaddress validation, in-memory rate limiter
 
 ---
 
