@@ -227,5 +227,19 @@ class TestEOLHeaders(unittest.TestCase):
         self.assertTrue(any("EOL Apache Version Detected" in t for t in titles))
 
 
+class TestChangelogRoute(unittest.TestCase):
+    def test_changelog_route_authenticated(self):
+        from app import app
+        app.config["TESTING"] = True
+        with app.test_client() as client:
+            with client.session_transaction() as sess:
+                sess["user_id"] = "test-user-id"
+                sess["username"] = "test-user"
+                sess["role"] = "admin"
+            resp = client.get("/changelog")
+            self.assertEqual(resp.status_code, 200)
+            self.assertTrue(b"Version &amp; Changelog" in resp.data or b"Version & Changelog" in resp.data)
+
+
 if __name__ == "__main__":
     unittest.main()

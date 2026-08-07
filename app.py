@@ -168,6 +168,12 @@ def dashboard():
                            completed=completed, avg_score=avg_score)
 
 
+@app.route("/changelog")
+@login_required
+def changelog():
+    return render_template("changelog.html")
+
+
 # --- Routes: New Scan ---
 @app.route("/scan/new", methods=["GET", "POST"])
 @login_required

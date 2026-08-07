@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+{% block title %}Version & Changelog - SentinelWP{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h2>Version & Changelog</h2>
+    <p>Detailed version information and release history for SentinelWP.</p>
+</div>
+
+<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:24px;margin-bottom:24px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--border);padding-bottom:16px;margin-bottom:20px;">
+        <div>
+            <h3 style="font-size:20px;color:var(--text-primary);">SentinelWP v3.2.0 (Stable)</h3>
+            <p style="font-size:12px;color:var(--text-muted);margin-top:4px;">Released: August 2026</p>
+        </div>
+        <span class="badge badge-success" style="padding:6px 12px;font-size:12px;">Active Version</span>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:24px;">
+        <div>
+            <h4 style="font-size:15px;color:var(--accent);margin-bottom:10px;text-transform:uppercase;letter-spacing:0.5px;">🚀 Nuove Funzionalità di Scansione (Passive & Safe)</h4>
+            <ul style="padding-left:20px;line-height:1.8;font-size:13px;color:var(--text-primary);">
+                <li><strong>Controllo Record DNS (SPF & DMARC)</strong>: Esegue controlli passivi utilizzando DNS-over-HTTPS (DoH) tramite le API di Google DNS per identificare l'assenza o la debolezza delle policy di sicurezza email del dominio.</li>
+                <li><strong>Policy File Security.txt (RFC 9116)</strong>: Verifica la presenza di percorsi standard per le segnalazioni di vulnerabilità da parte dei ricercatori in <code>/.well-known/security.txt</code> e <code>/security.txt</code>.</li>
+                <li><strong>Vulnerabilità Core WordPress (OSV.dev)</strong>: Estende la ricerca live dei CVE su OSV.dev anche alla versione principale rilevata di WordPress Core.</li>
+                <li><strong>Rilevamento Versioni software EOL (End-Of-Life)</strong>: Analizza gli header di risposta del server (PHP < 8.2, Apache < 2.4) per evidenziare l'esposizione di versioni non più supportate e prive di patch.</li>
+                <li><strong>Ottimizzazione User Enumeration</strong>: Scansiona il tag <code>dc:creator</code> dei feed RSS principali (<code>/feed/</code>) per intercettare username non protetti.</li>
+            </ul>
+        </div>
+
+        <div>
+            <h4 style="font-size:15px;color:var(--accent);margin-bottom:10px;text-transform:uppercase;letter-spacing:0.5px;">📊 Esportazione e UI Interattiva</h4>
+            <ul style="padding-left:20px;line-height:1.8;font-size:13px;color:var(--text-primary);">
+                <li><strong>Export in CSV</strong>: Aggiunto pulsante nella scheda di cronologia scansione per scaricare un foglio CSV completo con dominio, versione di WordPress, plugin rilevati e numero di findings.</li>
+                <li><strong>Visualizzazione Findings Espandibile</strong>: Le righe dei findings nella pagina di dettaglio scansione sono ora interattive. Un semplice click espande la visualizzazione mostrando descrizione completa, raccomandazioni di correzione (remediation), link a CVE/riferimenti e i metadati tecnici in formato JSON.</li>
+            </ul>
+        </div>
+
+        <div>
+            <h4 style="font-size:15px;color:var(--accent);margin-bottom:10px;text-transform:uppercase;letter-spacing:0.5px;">🔍 Miglioramenti WHOIS</h4>
+            <ul style="padding-left:20px;line-height:1.8;font-size:13px;color:var(--text-primary);">
+                <li><strong>Client WHOIS Nativo (Porta 43)</strong>: Gestione avanzata per i registrar ed expiry date dei domini <code>.com</code>, <code>.it</code> e <code>.eu</code>, con tolleranza d'errore e parsing a blocchi.</li>
+            </ul>
+        </div>
+    </div>
+</div>
+
+<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;">
+    <h3 style="font-size:16px;color:var(--text-primary);margin-bottom:12px;">Version History</h3>
+    <table style="width:100%;border-collapse:collapse;font-size:13px;">
+        <thead>
+            <tr style="border-bottom:1px solid var(--border);text-align:left;color:var(--text-secondary);">
+                <th style="padding:10px 0;">Version</th>
+                <th style="padding:10px 0;">Release Date</th>
+                <th style="padding:10px 0;">Status</th>
+                <th style="padding:10px 0;">Key Change</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr style="border-bottom:1px solid var(--border);color:var(--text-muted);">
+                <td style="padding:10px 0;font-weight:600;color:var(--text-secondary);">v3.2.0</td>
+                <td style="padding:10px 0;">August 2026</td>
+                <td style="padding:10px 0;"><span style="color:var(--success);">Current Stable</span></td>
+                <td style="padding:10px 0;">DNS scanner, CSV export, interactive findings drawer, EOL and security.txt auditing</td>
+            </tr>
+            <tr style="border-bottom:1px solid var(--border);color:var(--text-muted);">
+                <td style="padding:10px 0;">v3.1.0</td>
+                <td style="padding:10px 0;">June 2026</td>
+                <td style="padding:10px 0;">Archived</td>
+                <td style="padding:10px 0;">WHOIS scanner, registrar detection, db migration script</td>
+            </tr>
+            <tr style="border-bottom:1px solid var(--border);color:var(--text-muted);">
+                <td style="padding:10px 0;">v3.0.0</td>
+                <td style="padding:10px 0;">May 2026</td>
+                <td style="padding:10px 0;">Archived</td>
+                <td style="padding:10px 0;">Initial release, async scan engine, PDF reporting, SMTP alerts, setup wizard</td>
+            </tr>
+        </tbody>
+    </table>
+</div>
+{% endblock %}
