@@ -1,15 +1,20 @@
 {% extends "base.html" %}
 {% block title %}Scan History - WSA Pro{% endblock %}
 {% block content %}
-<div class="page-header">
-    <h2>Scan History</h2>
-    <p>{{ scans|length }} scan(s) recorded</p>
+<div class="page-header" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:32px;">
+    <div>
+        <h2>Scan History</h2>
+        <p>{{ scans|length }} scan(s) recorded</p>
+    </div>
+    <div>
+        <a href="{{ url_for('export_scans_csv') }}" class="btn btn-secondary">Export CSV</a>
+    </div>
 </div>
 
 {% if scans %}
 <div class="table-wrap">
 <table>
-<thead><tr><th>Target</th><th>Score</th><th>Grade</th><th>WordPress</th><th>Findings</th><th>Date</th><th>Actions</th></tr></thead>
+<thead><tr><th>Target</th><th>Score</th><th>Grade</th><th>WordPress</th><th>Findings</th><th>Date</th><th>WHOIS</th><th>Actions</th></tr></thead>
 <tbody>
 {% for s in scans %}
 <tr>
@@ -19,6 +24,7 @@
     <td>{{ 'Yes' if s.is_wordpress else 'No' }}</td>
     <td>-</td>
     <td style="color:var(--text-muted);font-size:12px;">{{ s.started_at[:16] }}</td>
+    <td style="font-size:12px;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="{{ s.whois_info or '-' }}">{{ s.whois_info or '-' }}</td>
     <td>
         <div class="btn-group">
             <a href="{{ url_for('scan_detail', scan_id=s.id) }}" class="btn btn-secondary btn-sm">View</a>

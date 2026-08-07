@@ -97,6 +97,8 @@ def _execute_async_scan(scan_id: str, target_url: str, initiated_by: str, scan_m
     is_wp = len(wp_findings) > 0
     wp_ver_findings = [f for f in all_findings if f.raw_data.get("version")]
     wp_ver = wp_ver_findings[0].raw_data["version"] if wp_ver_findings else None
+    whois_findings = [f for f in all_findings if f.raw_data.get("whois_info")]
+    whois_info = whois_findings[0].raw_data["whois_info"] if whois_findings else None
 
     # Load scan record and update
     scan = repository.get_scan(scan_id)
@@ -106,6 +108,7 @@ def _execute_async_scan(scan_id: str, target_url: str, initiated_by: str, scan_m
         scan.grade = grade
         scan.is_wordpress = is_wp
         scan.wp_version = wp_ver
+        scan.whois_info = whois_info
         scan.completed_at = datetime.utcnow().isoformat()
         scan.findings = all_findings
         repository.save_scan(scan)

@@ -28,7 +28,7 @@
 {% if scans %}
 <div class="table-wrap">
 <table>
-<thead><tr><th>Target</th><th>Score</th><th>Grade</th><th>Status</th><th>Date</th><th>Actions</th></tr></thead>
+<thead><tr><th>Target</th><th>Score</th><th>Grade</th><th>Status</th><th>Date</th><th>WHOIS</th><th>Actions</th></tr></thead>
 <tbody>
 {% for s in scans %}
 <tr>
@@ -41,6 +41,7 @@
     </td>
     <td><span class="badge badge-info">{{ s.status.value if s.status.value is defined else s.status }}</span></td>
     <td style="color:var(--text-muted);font-size:12px;">{{ s.started_at[:16] }}</td>
+    <td style="font-size:12px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="{{ s.whois_info or '-' }}">{{ s.whois_info or '-' }}</td>
     <td><a href="{{ url_for('scan_detail', scan_id=s.id) }}" class="btn btn-secondary btn-sm">View</a></td>
 </tr>
 {% endfor %}

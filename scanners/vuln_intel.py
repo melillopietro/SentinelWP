@@ -57,9 +57,13 @@ def enrich_findings_with_cves(findings: List[Finding]) -> List[Finding]:
     Enrich a list of findings with real CVE data from OSV.dev.
     """
     for f in findings:
-        if f.category in ("plugins", "information_disclosure"):
+        is_core = "WordPress CMS Detected" in f.title or "WordPress Version Exposed" in f.title
+        if f.category in ("plugins", "information_disclosure") or is_core:
             slug = f.raw_data.get("slug") or f.raw_data.get("plugin") or f.raw_data.get("theme")
             version = f.raw_data.get("version")
+            
+            if is_core and not slug and version:
+                slug = "wordpress"
             
             if slug and version:
                 cves = lookup_osv_vulnerabilities(slug, version)

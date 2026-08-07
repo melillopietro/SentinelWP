@@ -35,6 +35,10 @@
         <div class="value" style="font-size:18px;">{{ 'Detected' if scan.is_wordpress else 'Not detected' }}{% if scan.wp_version %} (v{{ scan.wp_version }}){% endif %}</div>
     </div>
     <div class="stat-card">
+        <div class="label">WHOIS Info</div>
+        <div class="value" style="font-size:13px;word-break:break-all;" title="{{ scan.whois_info or 'Unknown' }}">{{ scan.whois_info or 'Unknown/Not Checked' }}</div>
+    </div>
+    <div class="stat-card">
         <div class="label">Scan Mode</div>
         <div class="value" style="font-size:16px;text-transform:capitalize;">{{ scan.scan_mode }}</div>
     </div>

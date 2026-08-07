@@ -66,6 +66,7 @@ class ScanResult:
     initiated_by: str = ""
     wp_version: Optional[str] = None
     is_wordpress: Optional[bool] = None
+    whois_info: Optional[str] = None
 
 
 @dataclass

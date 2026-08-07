@@ -59,7 +59,7 @@ class EnumerationScanner(BaseScanner):
             )
 
     def _check_author_archives(self):
-        """Enumerate users via ?author=N parameter"""
+        """Enumerate users via ?author=N parameter and RSS feed leakage"""
         found_users = []
         for i in range(1, self.MAX_AUTHORS + 1):
             url = f"{self.target_url}/?author={i}"
@@ -78,11 +78,22 @@ class EnumerationScanner(BaseScanner):
                 if slug_match:
                     found_users.append(slug_match.group(1))
 
+        # Check main RSS feed for dc:creator username leakage
+        feed_url = f"{self.target_url}/feed/"
+        feed_resp = self._get(feed_url)
+        if feed_resp and feed_resp.status_code == 200:
+            creators = re.findall(r"<dc:creator><!\[CDATA\[([^\]]+)\]\]></dc:creator>", feed_resp.text)
+            creators.extend(re.findall(r"<dc:creator>([^<]+)</dc:creator>", feed_resp.text))
+            for creator in creators:
+                creator = creator.strip()
+                if creator and creator not in found_users:
+                    found_users.append(creator)
+
         if found_users:
             self._add_finding(
                 category="enumeration",
                 title="Author Archive User Enumeration",
-                description=f"User enumeration via author archives (?author=N) is possible. "
+                description=f"User enumeration via author archives or RSS feeds is possible. "
                             f"Found {len(found_users)} user(s): {', '.join(found_users[:10])}",
                 severity=Severity.HIGH,
                 confidence=0.9,
@@ -91,7 +102,7 @@ class EnumerationScanner(BaseScanner):
                             "RewriteRule .* - [F,L]. "
                             "Alternatively use a plugin to disable author enumeration.",
                 reference="https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/03-Identity_Management_Testing/04-Testing_for_Account_Enumeration_and_Guessable_User_Account",
-                raw_data={"users": found_users, "method": "author_archive"}
+                raw_data={"users": found_users, "method": "author_archive_or_feed"}
             )
 
     def _check_login_oracle(self):

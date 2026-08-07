@@ -285,6 +285,61 @@ def delete_schedule(sched_id):
     return redirect(url_for("schedules"))
 
 
+# --- Routes: Export CSV ---
+@app.route("/scans/export/csv")
+@login_required
+def export_scans_csv():
+    import csv
+    scans = repository.list_scans(limit=1000)
+    
+    output = io.StringIO()
+    writer = csv.writer(output, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
+    
+    writer.writerow([
+        "Scan ID", "Target URL", "WHOIS Info", "WordPress Version", 
+        "Detected Plugins", "Findings (Titles)", "Score", "Grade", "Status", "Started At"
+    ])
+    
+    for s in scans:
+        findings = repository.get_findings_for_scan(s.id)
+        
+        plugins_list = []
+        findings_list = []
+        for f in findings:
+            if f.category == "plugins":
+                slug = f.raw_data.get("slug") or f.title.replace("Plugin Detected: ", "")
+                ver = f.raw_data.get("version")
+                plugin_str = f"{slug} (v{ver})" if ver else slug
+                plugins_list.append(plugin_str)
+            else:
+                sev_val = f.severity.value if hasattr(f.severity, "value") else str(f.severity)
+                findings_list.append(f"[{sev_val.upper()}] {f.title}")
+                
+        plugins_str = ", ".join(plugins_list) if plugins_list else "None"
+        findings_str = "; ".join(findings_list) if findings_list else "None"
+        
+        writer.writerow([
+            s.id,
+            s.target_url,
+            s.whois_info or "Unknown/Not Checked",
+            s.wp_version or "Not Detected",
+            plugins_str,
+            findings_str,
+            s.score if s.score is not None else "N/A",
+            s.grade or "N/A",
+            s.status.value if hasattr(s.status, "value") else str(s.status),
+            s.started_at
+        ])
+        
+    output.seek(0)
+    return send_file(
+        io.BytesIO(output.getvalue().encode("utf-8")),
+        mimetype="text/csv",
+        as_attachment=True,
+        download_name="sentinelwp-scans-export.csv"
+    )
+
+
 # --- Routes: Reports ---
 @app.route("/scan/<scan_id>/report/<fmt>")
 @login_required

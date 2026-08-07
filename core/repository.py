@@ -48,7 +48,8 @@ def init_db():
             tags TEXT DEFAULT '',
             initiated_by TEXT DEFAULT '',
             wp_version TEXT,
-            is_wordpress INTEGER
+            is_wordpress INTEGER,
+            whois_info TEXT
         );
         CREATE TABLE IF NOT EXISTS findings (
             id TEXT PRIMARY KEY,
@@ -79,6 +80,14 @@ def init_db():
         );
     """)
     conn.commit()
+    
+    # Backward compatibility: try adding whois_info column if db already existed
+    try:
+        conn.execute("ALTER TABLE scans ADD COLUMN whois_info TEXT")
+        conn.commit()
+    except sqlite3.OperationalError:
+        pass
+
 
 
 # --- Users ---
@@ -156,10 +165,11 @@ def delete_user(user_id: str):
 def save_scan(scan: ScanResult):
     conn = _get_conn()
     conn.execute(
-        "INSERT OR REPLACE INTO scans (id, target_url, status, scan_mode, started_at, completed_at, score, grade, notes, tags, initiated_by, wp_version, is_wordpress) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
+        "INSERT OR REPLACE INTO scans (id, target_url, status, scan_mode, started_at, completed_at, score, grade, notes, tags, initiated_by, wp_version, is_wordpress, whois_info) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
         (scan.id, scan.target_url, scan.status.value if isinstance(scan.status, ScanStatus) else scan.status,
          scan.scan_mode, scan.started_at, scan.completed_at, scan.score, scan.grade, scan.notes, scan.tags,
-         scan.initiated_by, scan.wp_version, 1 if scan.is_wordpress else 0 if scan.is_wordpress is not None else None)
+         scan.initiated_by, scan.wp_version, 1 if scan.is_wordpress else 0 if scan.is_wordpress is not None else None,
+         scan.whois_info)
     )
     conn.commit()
 
@@ -175,7 +185,8 @@ def get_scan(scan_id: str) -> Optional[ScanResult]:
         started_at=row["started_at"], completed_at=row["completed_at"],
         score=row["score"], grade=row["grade"], notes=row["notes"], tags=row["tags"],
         initiated_by=row["initiated_by"], wp_version=row["wp_version"],
-        is_wordpress=bool(row["is_wordpress"]) if row["is_wordpress"] is not None else None
+        is_wordpress=bool(row["is_wordpress"]) if row["is_wordpress"] is not None else None,
+        whois_info=row["whois_info"] if "whois_info" in row.keys() else None
     )
     scan.findings = get_findings_for_scan(scan_id)
     return scan
@@ -192,7 +203,8 @@ def list_scans(limit: int = 100, offset: int = 0) -> list:
             started_at=row["started_at"], completed_at=row["completed_at"],
             score=row["score"], grade=row["grade"], notes=row["notes"], tags=row["tags"],
             initiated_by=row["initiated_by"], wp_version=row["wp_version"],
-            is_wordpress=bool(row["is_wordpress"]) if row["is_wordpress"] is not None else None
+            is_wordpress=bool(row["is_wordpress"]) if row["is_wordpress"] is not None else None,
+            whois_info=row["whois_info"] if "whois_info" in row.keys() else None
         )
         results.append(s)
     return results

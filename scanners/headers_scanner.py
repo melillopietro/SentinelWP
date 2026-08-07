@@ -140,6 +140,9 @@ class HeadersScanner(BaseScanner):
                 raw_data={"server_banner": server_value}
             )
 
+        # Check for EOL software
+        self._check_eol_software(headers)
+
         # HTTPS redirect check
         self._check_https_redirect()
 
@@ -147,6 +150,50 @@ class HeadersScanner(BaseScanner):
         self._check_php_errors(resp.text)
 
         return self.findings
+
+    def _check_eol_software(self, headers):
+        """Check for EOL PHP or Web Server versions exposed in headers."""
+        # 1. PHP Version check
+        php_val = headers.get("x-powered-by", "")
+        php_match = re.search(r"php/([\d.]+)", php_val, re.IGNORECASE)
+        if php_match:
+            version_str = php_match.group(1)
+            try:
+                major_minor = tuple(map(int, version_str.split(".")[:2]))
+                if major_minor < (8, 2):
+                    self._add_finding(
+                        category="configuration",
+                        title=f"Outdated/EOL PHP Version Detected: {version_str}",
+                        description=f"The site is running an outdated or End-Of-Life (EOL) version of PHP ({version_str}). "
+                                    "EOL versions no longer receive security updates, exposing the system to known vulnerabilities.",
+                        severity=Severity.HIGH,
+                        confidence=0.95,
+                        remediation="Upgrade the server's PHP version to PHP 8.2 or higher.",
+                        reference="https://www.php.net/supported-versions.php",
+                        raw_data={"php_version": version_str, "status": "EOL"}
+                    )
+            except ValueError:
+                pass
+
+        # 2. Apache Version check
+        server_val = headers.get("server", "")
+        apache_match = re.search(r"apache/([\d.]+)", server_val, re.IGNORECASE)
+        if apache_match:
+            version_str = apache_match.group(1)
+            try:
+                major_minor = tuple(map(int, version_str.split(".")[:2]))
+                if major_minor < (2, 4):
+                    self._add_finding(
+                        category="configuration",
+                        title=f"Outdated/EOL Apache Version Detected: {version_str}",
+                        description=f"The server is running an outdated or EOL version of Apache Web Server ({version_str}).",
+                        severity=Severity.HIGH,
+                        confidence=0.9,
+                        remediation="Upgrade Apache to the latest 2.4.x version.",
+                        raw_data={"apache_version": version_str, "status": "EOL"}
+                    )
+            except ValueError:
+                pass
 
     def _check_https_redirect(self):
         """Check if HTTP requests are properly redirected to HTTPS."""

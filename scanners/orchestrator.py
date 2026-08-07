@@ -22,6 +22,11 @@ from scanners.xmlrpc_scanner import XMLRPCScanner
 from scanners.bruteforce_scanner import BruteForceScanner
 from scanners.rest_api_scanner import RESTAPIScanner
 from scanners.cookie_scanner import CookieSecurityScanner
+from scanners.whois_scanner import WhoisScanner
+from scanners.security_txt_scanner import SecurityTxtScanner
+from scanners.dns_scanner import DNSScanner
+
+
 
 
 # ---------------------------------------------------------------------------
@@ -35,6 +40,9 @@ SCAN_PROFILES = {
         ThemeScanner,
         WAFScanner,
         CookieSecurityScanner,
+        WhoisScanner,
+        SecurityTxtScanner,
+        DNSScanner,
     ],
     "safe-active": [
         WordPressDetector,
@@ -50,6 +58,9 @@ SCAN_PROFILES = {
         XMLRPCScanner,
         RESTAPIScanner,
         CookieSecurityScanner,
+        WhoisScanner,
+        SecurityTxtScanner,
+        DNSScanner,
     ],
     "full": [
         WordPressDetector,
@@ -66,6 +77,9 @@ SCAN_PROFILES = {
         RESTAPIScanner,
         CookieSecurityScanner,
         BruteForceScanner,
+        WhoisScanner,
+        SecurityTxtScanner,
+        DNSScanner,
     ],
 }
 
@@ -138,6 +152,9 @@ def run_scan(
     wp_ver_findings = [f for f in all_findings if f.raw_data.get("version")]
     if wp_ver_findings:
         scan.wp_version = wp_ver_findings[0].raw_data["version"]
+    whois_findings = [f for f in all_findings if f.raw_data.get("whois_info")]
+    if whois_findings:
+        scan.whois_info = whois_findings[0].raw_data["whois_info"]
 
     # Compute risk score
     score, grade = compute_risk_score(all_findings)
