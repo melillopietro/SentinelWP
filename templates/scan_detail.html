@@ -81,10 +81,10 @@
     <thead><tr><th>Severity</th><th>Category</th><th>Title</th><th>Confidence</th><th>Description</th><th>Actions</th></tr></thead>
     <tbody>
     {% for f in scan.findings %}
-    <tr>
+    <tr class="finding-row" style="cursor: pointer; transition: background 0.2s;" onclick="toggleFindingDetails('details-{{ f.id }}')">
         <td><span class="badge badge-{{ f.severity.value if f.severity.value is defined else f.severity }}">{{ f.severity.value if f.severity.value is defined else f.severity }}</span></td>
-        <td style="font-size:12px;color:var(--text-muted);">{{ f.category }}</td>
-        <td><strong>{{ f.title }}</strong></td>
+        <td style="font-size:12px;color:var(--text-muted);text-transform:capitalize;">{{ f.category }}</td>
+        <td><strong style="color:var(--accent);">{{ f.title }}</strong></td>
         <td>
             <div style="display:flex;align-items:center;gap:6px;min-width:80px;">
                 <div style="flex:1;height:4px;background:var(--bg-primary);border-radius:2px;overflow:hidden;">
@@ -93,12 +93,41 @@
                 <span style="font-size:11px;color:var(--text-muted);">{{ (f.confidence * 100)|int }}%</span>
             </div>
         </td>
-        <td style="font-size:12px;max-width:300px;">{{ f.description[:150] }}{% if f.description|length > 150 %}...{% endif %}</td>
+        <td style="font-size:12px;max-width:300px;white-space: nowrap;overflow: hidden;text-overflow: ellipsis;">{{ f.description[:100] }}{% if f.description|length > 100 %}...{% endif %}</td>
         <td>
-            <div class="btn-group">
-                <form method="POST" action="{{ url_for('delete_finding', finding_id=f.id) }}" style="display:inline;" onsubmit="return confirm('Delete this finding?')">
+            <div style="display:flex;align-items:center;gap:8px;">
+                <button class="btn btn-secondary btn-sm" type="button" onclick="event.stopPropagation(); toggleFindingDetails('details-{{ f.id }}')">Details</button>
+                <form method="POST" action="{{ url_for('delete_finding', finding_id=f.id) }}" style="display:inline;" onsubmit="event.stopPropagation(); return confirm('Delete this finding?')">
                     <button type="submit" class="btn btn-danger btn-sm">Del</button>
                 </form>
+            </div>
+        </td>
+    </tr>
+    <tr id="details-{{ f.id }}" class="finding-details-row" style="display: none; background: rgba(255, 255, 255, 0.02);">
+        <td colspan="6" style="padding: 20px; border-top: none;">
+            <div style="display: flex; flex-direction: column; gap: 16px; text-align: left;">
+                <div>
+                    <h4 style="font-size: 12px; color: var(--accent); margin: 0 0 6px 0; text-transform: uppercase; letter-spacing: 0.5px;">Full Description</h4>
+                    <p style="font-size: 13px; margin: 0; line-height: 1.5; color: var(--text-primary);">{{ f.description }}</p>
+                </div>
+                {% if f.remediation %}
+                <div>
+                    <h4 style="font-size: 12px; color: var(--success); margin: 0 0 6px 0; text-transform: uppercase; letter-spacing: 0.5px;">Remediation</h4>
+                    <p style="font-size: 13px; margin: 0; line-height: 1.5; background: var(--bg-primary); padding: 12px; border-left: 3px solid var(--success); border-radius: 4px; font-family: monospace; white-space: pre-wrap; word-break: break-all;">{{ f.remediation }}</p>
+                </div>
+                {% endif %}
+                {% if f.reference %}
+                <div>
+                    <h4 style="font-size: 12px; color: var(--text-secondary); margin: 0 0 6px 0; text-transform: uppercase; letter-spacing: 0.5px;">Reference</h4>
+                    <a href="{{ f.reference }}" target="_blank" rel="noopener noreferrer" style="font-size: 13px; color: var(--accent); text-decoration: underline;">{{ f.reference }}</a>
+                </div>
+                {% endif %}
+                {% if f.raw_data %}
+                <div>
+                    <h4 style="font-size: 12px; color: var(--text-muted); margin: 0 0 6px 0; text-transform: uppercase; letter-spacing: 0.5px;">Technical Metadata</h4>
+                    <pre style="font-size: 11px; margin: 0; background: var(--bg-primary); padding: 12px; border-radius: 4px; overflow-x: auto; color: var(--text-muted); border: 1px solid var(--border); font-family: monospace;">{{ f.raw_data|tojson(indent=2) }}</pre>
+                </div>
+                {% endif %}
             </div>
         </td>
     </tr>
@@ -106,6 +135,21 @@
     </tbody>
     </table>
     </div>
+    <script>
+    function toggleFindingDetails(id) {
+        var el = document.getElementById(id);
+        if (el.style.display === "none") {
+            el.style.display = "table-row";
+        } else {
+            el.style.display = "none";
+        }
+    }
+    </script>
+    <style>
+    .finding-row:hover {
+        background: rgba(255, 255, 255, 0.04) !important;
+    }
+    </style>
     {% else %}
     <p style="color:var(--text-muted);text-align:center;padding:20px;">No findings.</p>
     {% endif %}
