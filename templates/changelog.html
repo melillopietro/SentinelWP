@@ -17,28 +17,28 @@
 
     <div style="display:flex;flex-direction:column;gap:24px;">
         <div>
-            <h4 style="font-size:15px;color:var(--accent);margin-bottom:10px;text-transform:uppercase;letter-spacing:0.5px;">🚀 Nuove Funzionalità di Scansione (Passive & Safe)</h4>
+            <h4 style="font-size:15px;color:var(--accent);margin-bottom:10px;text-transform:uppercase;letter-spacing:0.5px;">New Scanning Capabilities (Passive & Safe)</h4>
             <ul style="padding-left:20px;line-height:1.8;font-size:13px;color:var(--text-primary);">
-                <li><strong>Controllo Record DNS (SPF & DMARC)</strong>: Esegue controlli passivi utilizzando DNS-over-HTTPS (DoH) tramite le API di Google DNS per identificare l'assenza o la debolezza delle policy di sicurezza email del dominio.</li>
-                <li><strong>Policy File Security.txt (RFC 9116)</strong>: Verifica la presenza di percorsi standard per le segnalazioni di vulnerabilità da parte dei ricercatori in <code>/.well-known/security.txt</code> e <code>/security.txt</code>.</li>
-                <li><strong>Vulnerabilità Core WordPress (OSV.dev)</strong>: Estende la ricerca live dei CVE su OSV.dev anche alla versione principale rilevata di WordPress Core.</li>
-                <li><strong>Rilevamento Versioni software EOL (End-Of-Life)</strong>: Analizza gli header di risposta del server (PHP < 8.2, Apache < 2.4) per evidenziare l'esposizione di versioni non più supportate e prive di patch.</li>
-                <li><strong>Ottimizzazione User Enumeration</strong>: Scansiona il tag <code>dc:creator</code> dei feed RSS principali (<code>/feed/</code>) per intercettare username non protetti.</li>
+                <li><strong>DNS Security Record Check (SPF & DMARC)</strong>: Performs passive audits using DNS-over-HTTPS (DoH) via Google DNS APIs to identify the absence or weakness of domain email security policies.</li>
+                <li><strong>Security Policy File (security.txt)</strong>: Verifies the presence of standard security contact paths adhering to RFC 9116 at <code>/.well-known/security.txt</code> and <code>/security.txt</code>.</li>
+                <li><strong>WordPress Core Vulnerability Lookup (OSV.dev)</strong>: Extends live CVE matching via OSV.dev to include the detected WordPress Core CMS version.</li>
+                <li><strong>EOL Software Detection</strong>: Analyzes server response headers (PHP &lt; 8.2, Apache &lt; 2.4) to flag the exposure of unsupported and unpatched systems.</li>
+                <li><strong>Optimized User Enumeration</strong>: Scans the <code>&lt;dc:creator&gt;</code> tags within the main RSS <code>/feed/</code> to detect exposed usernames.</li>
             </ul>
         </div>
 
         <div>
-            <h4 style="font-size:15px;color:var(--accent);margin-bottom:10px;text-transform:uppercase;letter-spacing:0.5px;">📊 Esportazione e UI Interattiva</h4>
+            <h4 style="font-size:15px;color:var(--accent);margin-bottom:10px;text-transform:uppercase;letter-spacing:0.5px;">Reporting & Interactive UI</h4>
             <ul style="padding-left:20px;line-height:1.8;font-size:13px;color:var(--text-primary);">
-                <li><strong>Export in CSV</strong>: Aggiunto pulsante nella scheda di cronologia scansione per scaricare un foglio CSV completo con dominio, versione di WordPress, plugin rilevati e numero di findings.</li>
-                <li><strong>Visualizzazione Findings Espandibile</strong>: Le righe dei findings nella pagina di dettaglio scansione sono ora interattive. Un semplice click espande la visualizzazione mostrando descrizione completa, raccomandazioni di correzione (remediation), link a CVE/riferimenti e i metadati tecnici in formato JSON.</li>
+                <li><strong>CSV Export</strong>: Added a button to the Scan History view to download a complete CSV spreadsheet containing target domains, WordPress versions, detected plugins, and finding counts.</li>
+                <li><strong>Interactive Findings Detail View</strong>: Finding rows in the scan detail view are now clickable, expanding an inline drawer that displays the full description, remediation recommendations (formatted as code blocks), external reference links, and raw JSON metadata.</li>
             </ul>
         </div>
 
         <div>
-            <h4 style="font-size:15px;color:var(--accent);margin-bottom:10px;text-transform:uppercase;letter-spacing:0.5px;">🔍 Miglioramenti WHOIS</h4>
+            <h4 style="font-size:15px;color:var(--accent);margin-bottom:10px;text-transform:uppercase;letter-spacing:0.5px;">WHOIS Improvements</h4>
             <ul style="padding-left:20px;line-height:1.8;font-size:13px;color:var(--text-primary);">
-                <li><strong>Client WHOIS Nativo (Porta 43)</strong>: Gestione avanzata per i registrar ed expiry date dei domini <code>.com</code>, <code>.it</code> e <code>.eu</code>, con tolleranza d'errore e parsing a blocchi.</li>
+                <li><strong>Native WHOIS Client (Port 43)</strong>: Advanced handling and block-structured parsing for registrar and expiration dates across <code>.com</code>, <code>.it</code> and <code>.eu</code> domains, featuring error tolerance and fallback parsing.</li>
             </ul>
         </div>
     </div>
