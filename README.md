@@ -72,6 +72,29 @@ SentinelWP is an advanced security auditing and reconnaissance tool designed to 
 
 ---
 
+## Recent Updates & Changelog (v3.2)
+
+The platform has been enhanced with several powerful, non-destructive auditing capabilities and usability optimizations:
+
+- **Interactive Findings Detail View**: The scan detail page now features an interactive, expandable layout. Clicking any finding row smoothly expands a detailed section showing:
+  - Full vulnerability description.
+  - Formatted remediation instructions block (e.g., Apache/Nginx configuration snippets).
+  - Clickable external reference links (CVEs, OWASP guides).
+  - Pre-formatted technical raw JSON metadata for deep inspection.
+- **Native WHOIS Integration**:
+  - Automatically queries registry servers on port 43 to retrieve Registrar and Expiry Date details for `.com`, `.it`, and `.eu` domains.
+  - Features intelligent lookahead parser logic to handle diverse blocks and registry response formats.
+  - Displays WHOIS details on the Dashboard, Scan History, and Detail views.
+- **Advanced Scanning Capabilities**:
+  - **Core WordPress Vulnerability Lookup**: Integrates with OSV.dev to fetch and link active CVE matches for the exposed WordPress Core CMS version.
+  - **DNS Security Posture Audit**: Employs public DNS-over-HTTPS (DoH) JSON queries to check for domain SPF (`v=spf1`) and DMARC (`v=DMARC1`) configuration records and policies.
+  - **Security Policy File Scanner**: Passively audits target paths (`/security.txt` and `/.well-known/security.txt`) for compliance with RFC 9116.
+  - **EOL Software Detection**: Inspects `Server` and `X-Powered-By` response headers to flag End-Of-Life versions of PHP (< 8.2) and Apache (< 2.4).
+  - **Enhanced User Enumeration**: Optimizes author discovery by parsing `<dc:creator>` fields within the main RSS `/feed/` to detect username exposure.
+- **CSV Data Export**: Added a one-click **Export CSV** feature to the Scan History page that packages all collected metadata (domains, WordPress versions, plugins, and finding counts) into a structured spreadsheet.
+
+---
+
 ## Security & Ethical Guidelines
 
 SentinelWP is developed following safe security assessment practices:
