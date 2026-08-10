@@ -40,6 +40,21 @@
     </div>
 </div>
 
+{% if not wf_key %}
+<div style="background: rgba(59, 130, 246, 0.1); border: 1px solid #3b82f6; color: #60a5fa; padding: 12px 16px; border-radius: var(--radius); margin-bottom: 24px; display: flex; align-items: center; gap: 8px;">
+    <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+    <div>
+        <strong>Wordfence API Key Required:</strong> To sync the 38,000+ vulnerability feed, enter your free Wordfence API Key in the <b>API Keys & Source Configuration</b> card below and click <b>Save API Keys</b>. (CISA KEV catalog syncs automatically).
+    </div>
+</div>
+{% endif %}
+
+{% if sync_state and sync_state.wordfence and sync_state.wordfence.status == 'error' %}
+<div style="background: rgba(239, 68, 68, 0.1); border: 1px solid var(--critical); color: var(--critical); padding: 12px 16px; border-radius: var(--radius); margin-bottom: 24px;">
+    <strong>Sync Error:</strong> {{ sync_state.wordfence.error_summary or 'Failed to fetch vulnerability feed.' }}
+</div>
+{% endif %}
+
 <div style="background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); padding: 24px; margin-bottom: 24px;">
     <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px;">
         <div>
