@@ -156,6 +156,75 @@ def run_scan(
     if whois_findings:
         scan.whois_info = whois_findings[0].raw_data["whois_info"]
 
+    # Match findings against local vulnerability intelligence database
+    try:
+        from core.vulnerability_intelligence.service import match_scan_findings
+        from core.models import Finding, Severity
+        
+        # Collect detected plugins from findings
+        detected_plugins = []
+        for f in all_findings:
+            slug = f.raw_data.get("slug") or f.raw_data.get("plugin")
+            version = f.raw_data.get("version")
+            if slug and f.category in ("plugins",):
+                detected_plugins.append({"slug": slug, "version": version})
+        
+        # Get existing CVEs to avoid duplicates
+        existing_cves = set()
+        for f in all_findings:
+            if f.raw_data.get("cve_matches"):
+                for m in f.raw_data["cve_matches"]:
+                    if m.get("cve_id"):
+                        existing_cves.add(m["cve_id"])
+        
+        vuln_matches = match_scan_findings(scan.wp_version, detected_plugins)
+        for vm in vuln_matches:
+            if vm.get("cve") and vm["cve"] in existing_cves:
+                continue  # Skip duplicate CVE
+            
+            severity_map = {"critical": Severity.CRITICAL, "high": Severity.HIGH, "medium": Severity.MEDIUM}
+            cvss = vm.get("cvss_score", 0) or 0
+            if cvss >= 9.0:
+                sev = Severity.CRITICAL
+            elif cvss >= 7.0:
+                sev = Severity.HIGH
+            elif cvss >= 4.0:
+                sev = Severity.MEDIUM
+            else:
+                sev = Severity.LOW
+            
+            match_status = vm.get("match_status", "affected")
+            if match_status == "version_unknown":
+                title = f"Potential Exposure: {vm.get('cve', 'Unknown CVE')} — {vm.get('plugin_slug', 'unknown')}"
+                desc = f"Potential exposure — version not detected. {vm.get('cve', '')} affects {vm.get('plugin_slug', 'unknown')} ({vm.get('affected_range', 'unknown range')})."
+                sev = Severity.MEDIUM
+            else:
+                title = f"Vulnerability: {vm.get('cve', 'Unknown CVE')} — {vm.get('plugin_slug', 'unknown')} {vm.get('detected_version', '')}"
+                desc = f"{vm.get('cve', '')} affects {vm.get('plugin_slug', 'unknown')} version {vm.get('detected_version', 'unknown')} (range: {vm.get('affected_range', 'N/A')}). Patched in: {vm.get('patched_version', 'N/A')}."
+            
+            kev_label = "Listed in CISA KEV" if vm.get("kev_listed") else ""
+            if kev_label:
+                title += f" [{kev_label}]"
+            
+            remediation = f"Update to patched version: {vm.get('patched_version', 'N/A')}."
+            refs = vm.get("references", [])
+            reference = refs[0] if refs else ""
+            
+            intel_finding = Finding(
+                scan_id=scan.id,
+                category="vulnerability_intelligence",
+                title=title,
+                description=desc,
+                severity=sev,
+                confidence=0.95 if match_status == "affected" else 0.6,
+                remediation=remediation,
+                reference=reference,
+                raw_data=vm,
+            )
+            all_findings.append(intel_finding)
+    except Exception:
+        pass
+
     # Compute risk score
     score, grade = compute_risk_score(all_findings)
     scan.score = score

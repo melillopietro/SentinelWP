@@ -88,6 +88,13 @@ def init_db():
     except sqlite3.OperationalError:
         pass
 
+    # Initialize vulnerability intelligence tables
+    try:
+        from core.vulnerability_intelligence.repository import init_vuln_intel_db
+        init_vuln_intel_db()
+    except Exception:
+        pass
+
 
 
 # --- Users ---

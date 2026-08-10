@@ -1,4 +1,4 @@
-# SentinelWP — WordPress Security Sentinel
+# SentinelWP — WordPress Security Sentinel (v3.4.0)
 
 Enterprise-grade, non-destructive WordPress security assessment and posture management platform.
 
@@ -9,6 +9,10 @@ SentinelWP is an advanced security auditing and reconnaissance tool designed to 
 ## Key Features
 
 - **Initial Setup Wizard**: Zero default credentials. A guided setup wizard (/setup) forces the creation of a custom primary Administrator account on first launch.
+- **WordPress Vulnerability Intelligence Pipeline**: Background ingestion of official Wordfence v3 Threat Intel feeds, CISA KEV (Known Exploited Vulnerabilities) catalog, and WordPress.org plugin popularity data.
+- **GUI API Key Management**: Dedicated interface on `/vuln-intel` for Admin users to configure and persist external Wordfence and NVD API keys directly in the database.
+- **Enterprise PDF Report Engine**: Zero-overlap layout utilizing ReportLab `Paragraph` flowables inside table cells, dynamic two-pass page footers ("Page X of Y"), Executive Summary cards, and Risk Distribution matrices.
+- **Interactive HTML & Multi-Sheet Excel Reports**: Rich responsive HTML reports with live severity tabs and text search, alongside formatted multi-sheet Excel workbooks (`Executive Summary` and `Findings Detail`).
 - **SSRF Protection & Target Safety**: Integrated SSRF protection mechanism that automatically blocks requests to private IP subnets (127.0.0.0/8, 10.0.0.0/8, 192.168.0.0/16, etc.) and local hostnames.
 - **Async Background Scans & Live Progress**: Non-blocking thread-pool scan execution with real-time progress meter (0–100%) and AJAX status polling.
 - **3 Scan Modes**:
@@ -16,16 +20,14 @@ SentinelWP is an advanced security auditing and reconnaissance tool designed to 
   - **Safe-Active**: Non-destructive checks against known WordPress endpoints and public files.
   - **Full**: Includes audit of common default credentials (limited to a maximum of 20 attempts).
 - **Multi-Signal WordPress Detection**: Fingerprinting algorithm with aggregate confidence scoring (0.0 to 1.0) based on 8 independent signals (meta generator, asset paths, REST API, cookies, RSS feeds, etc.).
-- **Live Vulnerability Intelligence**: Automatic matching of detected plugins, themes, and WordPress Core versions against official CVE databases via OSV.dev REST API.
 - **Scheduled Recurring Audits**: Background scheduler for automated periodic security scans (every 12h, 24h, or 7 days).
 - **SMTP Email & Webhook Alerting**: Automated alert dispatching via SMTP email and Webhooks (Slack, Microsoft Teams, or custom endpoints) upon detecting Critical or High severity findings.
 - **REST API & Cookie Audit**:
   - Full route discovery and namespace inspection via /wp-json/ with privacy-first user endpoint auditing (no personal data stored).
   - Security flag analysis for HTTP response cookies (Secure, HttpOnly, SameSite).
 - **Passive DNS & WHOIS Audit**: Native domain WHOIS socket parser (expiration and registrar tracking) combined with secure DNS-over-HTTPS (DoH) audits for SPF and DMARC mail protection records.
-- **Passive Plugin & Theme Discovery**: Zero-request extraction of plugins and themes from HTML page source.
 - **Exposure & Hardening Checks**: Identification of backup files (wp-config.php.bak), debug logs, directory listing, HTTPS redirection, and visible PHP error messages.
-- **Executive Reporting & SARIF**: Automated report generation in PDF, HTML, Excel, JSON, and OASIS SARIF v2.1.0 formats, with a one-click CSV history export for easy collation.
+- **OASIS SARIF v2.1.0 Support**: Fully compliant SARIF exports for GitHub Actions and GitLab CI/CD pipeline integration.
 - **Rate Limiting & Anti-DDoS**: In-memory sliding window rate limiter per client IP address (HTTP 429).
 - **Role-Based Access Control (RBAC)**: Multi-user management (Admin, Analyst, Viewer) with secure sessions.
 
@@ -73,26 +75,39 @@ SentinelWP is an advanced security auditing and reconnaissance tool designed to 
 
 ---
 
-## Recent Updates & Changelog (v3.2)
+- **WordPress Vulnerability Intelligence Pipeline (v3.3)**: Integrated offline local database pipeline driven by Wordfence Intelligence v3, CISA Known Exploited Vulnerabilities (KEV), and WordPress.org Plugin Popularity enrichment. Features deterministic version matching (`1.9` < `1.10`), CISA KEV active exploitation badges, CVSS 3.1 scoring, formula injection-safe export, and a dedicated Threat Intelligence Dashboard.
 
-The platform has been enhanced with several powerful, non-destructive auditing capabilities and usability optimizations:
+---
 
-- **Interactive Findings Detail View**: The scan detail page now features an interactive, expandable layout. Clicking any finding row smoothly expands a detailed section showing:
-  - Full vulnerability description.
-  - Formatted remediation instructions block (e.g., Apache/Nginx configuration snippets).
-  - Clickable external reference links (CVEs, OWASP guides).
-  - Pre-formatted technical raw JSON metadata for deep inspection.
-- **Native WHOIS Integration**:
-  - Automatically queries registry servers on port 43 to retrieve Registrar and Expiry Date details for `.com`, `.it`, and `.eu` domains.
-  - Features intelligent lookahead parser logic to handle diverse blocks and registry response formats.
-  - Displays WHOIS details on the Dashboard, Scan History, and Detail views.
-- **Advanced Scanning Capabilities**:
-  - **Core WordPress Vulnerability Lookup**: Integrates with OSV.dev to fetch and link active CVE matches for the exposed WordPress Core CMS version.
-  - **DNS Security Posture Audit**: Employs public DNS-over-HTTPS (DoH) JSON queries to check for domain SPF (`v=spf1`) and DMARC (`v=DMARC1`) configuration records and policies.
-  - **Security Policy File Scanner**: Passively audits target paths (`/security.txt` and `/.well-known/security.txt`) for compliance with RFC 9116.
-  - **EOL Software Detection**: Inspects `Server` and `X-Powered-By` response headers to flag End-Of-Life versions of PHP (< 8.2) and Apache (< 2.4).
-  - **Enhanced User Enumeration**: Optimizes author discovery by parsing `<dc:creator>` fields within the main RSS `/feed/` to detect username exposure.
-- **CSV Data Export**: Added a one-click **Export CSV** feature to the Scan History page that packages all collected metadata (domains, WordPress versions, plugins, and finding counts) into a structured spreadsheet.
+## Environment Variables
+
+| Variable | Default | Description |
+|---|---|---|
+| `WORDFENCE_API_KEY` | *(empty)* | Optional API key for Wordfence Intelligence v3 Production Feed |
+| `NVD_API_KEY` | *(empty)* | Optional API key for NVD CVE enrichment |
+| `VULN_INTEL_ENABLED` | `true` | Enable/disable vulnerability intelligence subsystem |
+| `VULN_INTEL_SYNC_HOURS` | `24` | Refresh interval in hours for background feed sync |
+| `VULN_INTEL_RETENTION_MONTHS` | `24` | Retain vulnerability records published within N months |
+| `VULN_INTEL_STALE_AFTER_HOURS` | `48` | Display stale dataset warning if sync > N hours old |
+| `POPULAR_PLUGIN_MIN_ACTIVE_INSTALLS` | `100000` | Minimum active installs threshold for popularity view |
+
+---
+
+## Recent Updates & Changelog (v3.3)
+
+### v3.3.0 — WordPress Vulnerability Intelligence Pipeline
+- **Wordfence Intelligence v3 Integration**: Automated background feed ingestion for WordPress Core and plugin vulnerabilities with CVSS 3.1 scoring, CWE classification, and affected version ranges.
+- **CISA KEV Correlation**: Automatically flags vulnerabilities actively exploited in the wild with CISA Known Exploited Vulnerabilities badges and metadata.
+- **WordPress.org Popularity Enrichment**: Syncs active install counts for plugins to prioritize high-impact vulnerabilities on widely deployed software.
+- **Deterministic Version Matcher**: Custom version comparator supporting exact, open/closed intervals, unbounded ranges, and prerelease tags (`1.9` < `1.10`).
+- **Threat Intelligence Dashboard & Search**: Dedicated UI dashboard (`/vuln-intel`) with critical vulnerability statistics, stale dataset alerts, manual sync triggers (Admin only), and a paginated, filterable database table (`/vuln-intel/list`).
+- **Zero Network Impact During Scans**: All target scans execute version matching purely against the local SQLite database; zero external HTTP requests are performed during scan execution.
+- **Enhanced Export Security**: Added formula injection protection (`=`, `+`, `-`, `@`) across CSV and Excel exports, HTML content escaping for external vulnerability descriptions, and SARIF 2.1.0 rule tags.
+
+### v3.2.0 — Interactive Views & WHOIS Integration
+- **Interactive Findings Detail View**: Expandable finding rows showing descriptions, remediations, references, and raw JSON metadata.
+- **Native WHOIS Integration**: Registry server queries on port 43 for `.com`, `.it`, and `.eu` domains.
+- **DNS & EOL Audits**: SPF/DMARC DoH queries, PHP/Apache EOL version detection, and RFC 9116 `/security.txt` checks.
 
 ---
 

@@ -174,6 +174,97 @@ def changelog():
     return render_template("changelog.html")
 
 
+@app.route("/vuln-intel")
+@login_required
+def vuln_intel_dashboard():
+    """Vulnerability Intelligence dashboard."""
+    try:
+        from core.vulnerability_intelligence.service import get_status, is_stale
+        from core.vulnerability_intelligence.repository import get_dashboard_stats
+        from core.vulnerability_intelligence.wordfence_client import _get_api_key as get_wf_key
+        from core.vulnerability_intelligence.nvd_client import _get_nvd_api_key as get_nvd_key
+        stats = get_dashboard_stats()
+        status = get_status()
+        stale = is_stale()
+        wf_key = get_wf_key()
+        nvd_key = get_nvd_key()
+    except Exception:
+        stats = {"total_records": 0, "critical_recent": 0, "core_count": 0,
+                 "plugin_count": 0, "popular_plugin_vuln_count": 0, "kev_count": 0}
+        status = None
+        stale = False
+        wf_key = ""
+        nvd_key = ""
+    return render_template("vuln_intel_dashboard.html", stats=stats, sync_state=status, is_stale=stale, wf_key=wf_key, nvd_key=nvd_key)
+
+
+@app.route("/vuln-intel/list")
+@login_required
+def vuln_intel_list():
+    """Searchable vulnerability intelligence list with pagination."""
+    page = request.args.get("page", 1, type=int)
+    per_page = 50
+    filters = {
+        "cve_search": request.args.get("q", "").strip(),
+        "software_type": request.args.get("software_type", ""),
+        "min_cvss": request.args.get("min_cvss", 0, type=float),
+        "min_installs": request.args.get("min_installs", 0, type=int),
+        "kev_only": request.args.get("kev_only") == "on",
+    }
+    try:
+        from core.vulnerability_intelligence.repository import query_vulnerabilities
+        vulnerabilities, total_count = query_vulnerabilities(filters, page, per_page)
+    except Exception:
+        vulnerabilities, total_count = [], 0
+    total_pages = max(1, (total_count + per_page - 1) // per_page)
+    return render_template("vuln_intel_list.html",
+                           vulnerabilities=vulnerabilities, page=page,
+                           total_pages=total_pages, total_count=total_count,
+                           filters=filters)
+
+
+@app.route("/vuln-intel/sync", methods=["POST"])
+@admin_required
+def vuln_intel_sync():
+    """Trigger manual vulnerability intelligence synchronisation (Admin only)."""
+    try:
+        from core.vulnerability_intelligence.service import sync_all
+        import threading
+        t = threading.Thread(target=sync_all, daemon=True)
+        t.start()
+        flash("Vulnerability intelligence synchronisation started in background.", "success")
+    except Exception as e:
+        flash(f"Sync failed to start: {str(e)[:200]}", "error")
+    return redirect(url_for("vuln_intel_dashboard"))
+
+
+@app.route("/vuln-intel/settings", methods=["POST"])
+@admin_required
+def vuln_intel_save_settings():
+    """Save API Keys via GUI (Admin only)."""
+    wf_key = request.form.get("wordfence_api_key", "").strip()
+    nvd_key = request.form.get("nvd_api_key", "").strip()
+    try:
+        from core.vulnerability_intelligence.repository import set_setting
+        set_setting("WORDFENCE_API_KEY", wf_key)
+        set_setting("NVD_API_KEY", nvd_key)
+        flash("Vulnerability Intelligence API Keys updated successfully.", "success")
+    except Exception as e:
+        flash(f"Failed to update API Keys: {str(e)[:200]}", "error")
+    return redirect(url_for("vuln_intel_dashboard"))
+
+
+@app.route("/api/vuln-intel/status")
+@login_required
+def api_vuln_intel_status():
+    """API endpoint for vulnerability intelligence sync status."""
+    try:
+        from core.vulnerability_intelligence.service import get_status
+        return jsonify(get_status())
+    except Exception:
+        return jsonify({"enabled": False, "status": "unavailable"})
+
+
 # --- Routes: New Scan ---
 @app.route("/scan/new", methods=["GET", "POST"])
 @login_required

@@ -54,6 +54,16 @@ def _scheduler_loop():
         except Exception:
             pass
 
+        # Vulnerability Intelligence sync check
+        try:
+            from config import VULN_INTEL_ENABLED
+            if VULN_INTEL_ENABLED:
+                from core.vulnerability_intelligence.service import should_sync, sync_all
+                if should_sync():
+                    sync_all()
+        except Exception:
+            pass
+
         time.sleep(60)
 
 

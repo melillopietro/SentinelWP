@@ -84,7 +84,20 @@
     <tr class="finding-row" style="cursor: pointer; transition: background 0.2s;" onclick="toggleFindingDetails('details-{{ f.id }}')">
         <td><span class="badge badge-{{ f.severity.value if f.severity.value is defined else f.severity }}">{{ f.severity.value if f.severity.value is defined else f.severity }}</span></td>
         <td style="font-size:12px;color:var(--text-muted);text-transform:capitalize;">{{ f.category }}</td>
-        <td><strong style="color:var(--accent);">{{ f.title }}</strong></td>
+        <td>
+            <strong style="color:var(--accent);">{{ f.title }}</strong>
+            {% if f.category == 'vulnerability_intelligence' and f.raw_data %}
+                {% if f.raw_data.get('kev_listed') %}
+                    <span class="badge badge-critical" style="margin-left: 4px;">CISA KEV</span>
+                {% endif %}
+                {% if f.raw_data.get('cvss_score') %}
+                    <span class="badge badge-medium" style="margin-left: 4px; background: rgba(107,114,128,0.15); color: var(--text-muted);">CVSS: {{ f.raw_data.get('cvss_score') }}</span>
+                {% endif %}
+                {% if f.raw_data.get('match_status') == 'version_unknown' %}
+                    <span class="badge badge-warning" style="margin-left: 4px; background: rgba(245, 158, 11, 0.15); color: var(--warning);">Version Unknown</span>
+                {% endif %}
+            {% endif %}
+        </td>
         <td>
             <div style="display:flex;align-items:center;gap:6px;min-width:80px;">
                 <div style="flex:1;height:4px;background:var(--bg-primary);border-radius:2px;overflow:hidden;">

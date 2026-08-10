@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+{% block title %}Threat Intelligence Dashboard - SentinelWP{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h2>Vulnerability Intelligence Dashboard</h2>
+    <p>Database Freshness: {% if sync_state and sync_state.last_success_at %}{{ sync_state.last_success_at }}{% else %}Unknown{% endif %}</p>
+</div>
+
+{% if is_stale %}
+<div style="background: rgba(245, 158, 11, 0.1); border: 1px solid var(--warning); color: var(--warning); padding: 12px 16px; border-radius: var(--radius); margin-bottom: 24px; display: flex; align-items: center; gap: 8px;">
+    <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+    <strong>Warning:</strong> Vulnerability database is stale. Please sync to ensure accurate scans.
+</div>
+{% endif %}
+
+<div class="stats-grid">
+    <div class="stat-card">
+        <div class="label">Total Records</div>
+        <div class="value">{{ stats.total_records }}</div>
+    </div>
+    <div class="stat-card">
+        <div class="label">Critical Vulns (24mo)</div>
+        <div class="value">{{ stats.critical_recent }}</div>
+    </div>
+    <div class="stat-card">
+        <div class="label">Core Vulnerabilities</div>
+        <div class="value">{{ stats.core_count }}</div>
+    </div>
+    <div class="stat-card">
+        <div class="label">Plugin Vulnerabilities</div>
+        <div class="value">{{ stats.plugin_count }}</div>
+    </div>
+    <div class="stat-card">
+        <div class="label">Popular Plugin Vulns</div>
+        <div class="value">{{ stats.popular_plugin_vuln_count }}</div>
+    </div>
+    <div class="stat-card">
+        <div class="label">CISA KEV Matches</div>
+        <div class="value" style="color: var(--critical);">{{ stats.kev_count }}</div>
+    </div>
+</div>
+
+<div style="background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); padding: 24px; margin-bottom: 24px;">
+    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px;">
+        <div>
+            <h3 style="font-size: 16px; font-weight: 600; margin-bottom: 8px;">Synchronization Status</h3>
+            <p style="font-size: 14px; color: var(--text-muted);">
+                Last Sync: <strong>{% if sync_state and sync_state.last_success_at %}{{ sync_state.last_success_at }}{% else %}Never{% endif %}</strong><br>
+                Status: <span style="text-transform: capitalize;">{% if sync_state %}{{ sync_state.status }}{% else %}Unknown{% endif %}</span>
+            </p>
+        </div>
+        <div style="display: flex; gap: 12px; align-items: center;">
+            <a href="{{ url_for('vuln_intel_list') }}" class="btn btn-secondary">View Database</a>
+            {% if session.get('role') == 'admin' %}
+            <form method="POST" action="/vuln-intel/sync" style="margin: 0;">
+                <button type="submit" class="btn btn-primary">Manual Sync</button>
+            </form>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+{% if session.get('role') == 'admin' %}
+<div style="background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); padding: 24px;">
+    <h3 style="font-size: 16px; font-weight: 600; margin-bottom: 8px;">API Keys & Source Configuration</h3>
+    <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 20px;">
+        Configure external vulnerability intelligence API keys below. Keys saved via this interface are securely stored in the database and override environment variables.
+    </p>
+
+    <form method="POST" action="/vuln-intel/settings">
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; margin-bottom: 20px;">
+            <div>
+                <label style="display: block; font-size: 13px; font-weight: 600; margin-bottom: 6px; color: var(--text-primary);">
+                    Wordfence Intelligence v3 API Key
+                </label>
+                <input type="password" name="wordfence_api_key" value="{{ wf_key }}" placeholder="Enter Wordfence API Key" style="width: 100%; padding: 10px 12px; background: var(--bg-dark); border: 1px solid var(--border); border-radius: var(--radius); color: var(--text-primary); font-size: 13px;">
+                <p style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">Get a free API Key at <a href="https://www.wordfence.com/help/wordfence-intelligence/v3-accessing-and-consuming-the-vulnerability-data-feed/" target="_blank" rel="noopener" style="color: var(--accent);">Wordfence.com</a>.</p>
+            </div>
+            <div>
+                <label style="display: block; font-size: 13px; font-weight: 600; margin-bottom: 6px; color: var(--text-primary);">
+                    NVD API Key (Optional)
+                </label>
+                <input type="password" name="nvd_api_key" value="{{ nvd_key }}" placeholder="Enter NVD API Key" style="width: 100%; padding: 10px 12px; background: var(--bg-dark); border: 1px solid var(--border); border-radius: var(--radius); color: var(--text-primary); font-size: 13px;">
+                <p style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">Optional key to bypass NIST NVD rate limits.</p>
+            </div>
+        </div>
+        <div style="display: flex; justify-content: flex-end;">
+            <button type="submit" class="btn btn-primary">Save API Keys</button>
+        </div>
+    </form>
+</div>
+{% endif %}
+{% endblock %}
