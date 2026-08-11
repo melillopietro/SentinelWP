@@ -570,12 +570,37 @@ def delete_finding(finding_id):
     return redirect(request.referrer or url_for("scan_history"))
 
 
-# --- Routes: User Management ---
+# --- Routes: User & System Settings Panel ---
+@app.route("/settings", methods=["GET", "POST"])
+@login_required
+def settings():
+    user = repository.get_user_by_id(session.get("user_id"))
+    users = repository.list_users() if session.get("role") == "admin" else []
+
+    if request.method == "POST":
+        action = request.form.get("action")
+        if action == "change_password":
+            old_pass = request.form.get("old_password", "")
+            new_pass = request.form.get("new_password", "")
+            confirm_pass = request.form.get("confirm_password", "")
+            if not user or not verify_password(old_pass, user.password_hash):
+                flash("Current password incorrect.", "error")
+            elif len(new_pass) < 6:
+                flash("New password must be at least 6 characters.", "error")
+            elif new_pass != confirm_pass:
+                flash("New passwords do not match.", "error")
+            else:
+                repository.update_user(user.id, password_hash=hash_password(new_pass))
+                flash("Password successfully updated.", "success")
+            return redirect(url_for("settings"))
+
+    return render_template("settings.html", user=user, users=users)
+
+
 @app.route("/users")
 @admin_required
 def user_management():
-    users = repository.list_users()
-    return render_template("users.html", users=users)
+    return redirect(url_for("settings"))
 
 
 @app.route("/user/create", methods=["POST"])
@@ -587,16 +612,16 @@ def create_user_route():
     role = request.form.get("role", "viewer")
     if not username or not password:
         flash("Username and password required.", "error")
-        return redirect(url_for("user_management"))
+        return redirect(url_for("settings"))
     if repository.get_user_by_username(username):
         flash("Username already exists.", "error")
-        return redirect(url_for("user_management"))
+        return redirect(url_for("settings"))
 
     user = create_user(username=username, password=password, email=email,
                         role=UserRole(role), status=UserStatus.ACTIVE)
     repository.save_user(user)
-    flash(f"User {username} created.", "success")
-    return redirect(url_for("user_management"))
+    flash(f"User {username} created successfully.", "success")
+    return redirect(url_for("settings"))
 
 
 @app.route("/user/<user_id>/delete", methods=["POST"])
@@ -604,10 +629,10 @@ def create_user_route():
 def delete_user_route(user_id):
     if user_id == session.get("user_id"):
         flash("Cannot delete your own account.", "error")
-        return redirect(url_for("user_management"))
+        return redirect(url_for("settings"))
     repository.delete_user(user_id)
     flash("User deleted.", "success")
-    return redirect(url_for("user_management"))
+    return redirect(url_for("settings"))
 
 
 # --- API Endpoints ---

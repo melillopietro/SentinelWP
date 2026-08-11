@@ -1,4 +1,4 @@
-# SentinelWP — WordPress Security Sentinel (v3.5.0)
+# SentinelWP — WordPress Security Sentinel (v3.6.0)
 
 Enterprise-grade, non-destructive WordPress security assessment and posture management platform.
 
@@ -9,9 +9,12 @@ SentinelWP is an advanced security auditing and reconnaissance tool designed to 
 ## Key Features
 
 - **Initial Setup Wizard**: Zero default credentials. A guided setup wizard (`/setup`) forces the creation of a custom primary Administrator account on first launch.
+- **User Panel & Preferences (`/settings`)**: Dedicated user hub for account preferences, password changes, theme toggling, changelog access, and admin user management.
+- **Dark & Light Theme Switcher**: Instant switching between Dark Mode (default) and Light Mode (White) with automatic persistence.
+- **Streamlined Navigation UI**: Cleaned up navigation bar separating scanning tools from admin controls to streamline workflow.
 - **Non-WordPress Target Identification**: Automatically identifies domains without WordPress installed and labels them clearly as `"Not WordPress"` in database records, dashboards, and reports.
 - **Automated Threat Intel Auto-Sync**: Automatically syncs Wordfence & CISA KEV feeds on application startup and recurs every 30 minutes in the background.
-- **Field-by-Field Dashboard Filters**: Interactive filter card on dashboard and scan history allowing exact filtering by Target URL, Status, Scan Mode, Security Grade, CMS Type (WordPress / Non-WP), and Date Range.
+- **Column-by-Column Table Filters**: Real-time column header search and dropdown filters on dashboard and scan history.
 - **Admin Full Database Export**: One-click multi-sheet Excel export (`Scan History` & `All Findings Log`) available to Administrator accounts (`/admin/export-db`).
 - **Strategic Executive Summary (CISO / Board Ready)**: Executive risk ratings (*CRITICAL ATTENTION REQUIRED*, *MODERATE RISK*, *STRONG POSTURE*) and a 3-tier prioritized Action Plan with SLA windows (0-48h, 7-14d, Continuous) across PDF, HTML, and Excel reports.
 - **Enterprise PDF Report Engine**: Zero-overlap layout utilizing ReportLab `Paragraph` flowables inside table cells, dynamic two-pass page footers ("Page X of Y"), Executive Summary cards, and Risk Distribution matrices.
