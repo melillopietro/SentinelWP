@@ -28,7 +28,8 @@ from scanners.orchestrator import run_scan, ALL_SCANNERS, SCAN_PROFILES
 from scanners.batch_runner import run_batch
 from reports.generator import (
     generate_html_report, generate_json_report,
-    generate_excel_report, generate_pdf_report, generate_sarif_report
+    generate_excel_report, generate_pdf_report, generate_sarif_report,
+    generate_full_db_excel_export, import_full_db_excel
 )
 
 app = Flask(__name__)
@@ -632,6 +633,24 @@ def delete_user_route(user_id):
         return redirect(url_for("settings"))
     repository.delete_user(user_id)
     flash("User deleted.", "success")
+    return redirect(url_for("settings"))
+
+
+@app.route("/admin/import-db", methods=["POST"])
+@admin_required
+def admin_import_db():
+    if "db_file" not in request.files:
+        flash("No file selected for import.", "error")
+        return redirect(url_for("settings"))
+    file = request.files["db_file"]
+    if not file or not file.filename.endswith(".xlsx"):
+        flash("Invalid file. Please upload a valid SentinelWP Excel backup (.xlsx).", "error")
+        return redirect(url_for("settings"))
+    try:
+        scans_count, findings_count = import_full_db_excel(file.read(), repository)
+        flash(f"Database import complete! Successfully imported {scans_count} scan(s) and {findings_count} finding(s).", "success")
+    except Exception as e:
+        flash(f"Database import failed: {str(e)}", "error")
     return redirect(url_for("settings"))
 
 

@@ -149,7 +149,42 @@
             </tbody>
         </table>
     </div>
-    {% endif %}
+    <!-- Database Backup & Restoration (Admin Only) -->
+    <div style="margin-top:24px; border-top:1px solid var(--border); padding-top:20px;">
+        <h4 style="font-size:15px; font-weight:600; color:var(--text-primary); margin-bottom:12px; display:flex; align-items:center; gap:8px;">
+            <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="color:var(--accent);"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4"/></svg>
+            Database Backup &amp; Restoration
+        </h4>
+
+        <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap:16px;">
+            <!-- Export Box -->
+            <div style="background:var(--bg-dark); border:1px solid var(--border); border-radius:var(--radius); padding:16px;">
+                <h5 style="font-size:13px; font-weight:600; margin-bottom:6px; color:var(--text-primary);">Export Database Backup</h5>
+                <p style="font-size:12px; color:var(--text-muted); margin-bottom:14px; line-height:1.4;">
+                    Download the complete scan history and findings log into a multi-sheet Excel workbook (.xlsx).
+                </p>
+                <a href="{{ url_for('admin_export_db') }}" class="btn btn-primary btn-sm" style="width:100%; justify-content:center;">
+                    <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+                    Export Entire Database (.xlsx)
+                </a>
+            </div>
+
+            <!-- Import Box -->
+            <div style="background:var(--bg-dark); border:1px solid var(--border); border-radius:var(--radius); padding:16px;">
+                <h5 style="font-size:13px; font-weight:600; margin-bottom:6px; color:var(--text-primary);">Import Database Backup</h5>
+                <p style="font-size:12px; color:var(--text-muted); margin-bottom:10px; line-height:1.4;">
+                    Upload a previously exported SentinelWP Excel backup (.xlsx) to restore scans and findings.
+                </p>
+                <form method="POST" action="{{ url_for('admin_import_db') }}" enctype="multipart/form-data">
+                    <input type="file" name="db_file" accept=".xlsx" required style="width:100%; padding:6px; background:var(--bg-card); border:1px solid var(--border); border-radius:4px; font-size:11px; color:var(--text-primary); margin-bottom:10px;">
+                    <button type="submit" class="btn btn-secondary btn-sm" style="width:100%; justify-content:center;">
+                        <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
+                        Import Database (.xlsx)
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
 </div>
 {% endif %}
 

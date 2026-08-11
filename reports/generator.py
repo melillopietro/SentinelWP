@@ -7,7 +7,7 @@ import html
 import re
 from datetime import datetime
 from typing import Optional, Dict, Any, List
-from openpyxl import Workbook
+from openpyxl import Workbook, load_workbook
 from openpyxl.utils import get_column_letter
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 
@@ -1045,3 +1045,147 @@ def generate_pdf_report(scan) -> bytes:
 
     doc.build(elems, canvasmaker=NumberedCanvas)
     return buf.getvalue()
+
+
+def _unsanitize_excel_cell(val):
+    if val is None:
+        return ""
+    s = str(val)
+    if s.startswith("'"):
+        return s[1:]
+    return s
+
+
+def import_full_db_excel(file_bytes: bytes, repository) -> tuple[int, int]:
+    """
+    Imports a full database backup Excel workbook (.xlsx) into SQLite without distorting existing records.
+    Returns (imported_scans_count, imported_findings_count).
+    """
+    from core.models import ScanResult, Finding, ScanStatus, Severity
+    import uuid
+
+    wb = load_workbook(filename=io.BytesIO(file_bytes), data_only=True)
+
+    imported_scans = 0
+    imported_findings = 0
+
+    # 1. Parse Scan History sheet
+    if "Scan History" in wb.sheetnames:
+        ws_scans = wb["Scan History"]
+        rows = list(ws_scans.iter_rows(values_only=True))
+        if len(rows) > 1:
+            for row in rows[1:]:
+                if not row or not row[0]:
+                    continue
+                scan_id = str(row[0]).strip()
+                target_url = _unsanitize_excel_cell(row[1]) if len(row) > 1 else ""
+                status_str = str(row[2]).strip().lower() if len(row) > 2 and row[2] else "completed"
+                scan_mode = str(row[3]).strip().lower() if len(row) > 3 and row[3] else "passive"
+
+                raw_score = row[4] if len(row) > 4 else None
+                score = None
+                if raw_score not in (None, "", "N/A"):
+                    try:
+                        score = float(raw_score)
+                    except (ValueError, TypeError):
+                        score = None
+
+                grade = str(row[5]).strip() if len(row) > 5 and row[5] not in (None, "N/A") else None
+                is_wp_str = str(row[6]).strip().lower() if len(row) > 6 and row[6] else "no"
+                is_wordpress = is_wp_str in ("yes", "true", "1")
+                wp_ver = _unsanitize_excel_cell(row[7]) if len(row) > 7 and row[7] else "Not WordPress"
+                initiated_by = _unsanitize_excel_cell(row[8]) if len(row) > 8 and row[8] else "System"
+                started_at = str(row[9]).strip() if len(row) > 9 and row[9] else datetime.utcnow().isoformat()
+                completed_at = str(row[10]).strip() if len(row) > 10 and row[10] not in (None, "N/A") else None
+
+                try:
+                    status_enum = ScanStatus(status_str)
+                except ValueError:
+                    status_enum = ScanStatus.COMPLETED
+
+                existing = repository.get_scan(scan_id)
+                if not existing:
+                    new_scan = ScanResult(
+                        id=scan_id,
+                        target_url=target_url,
+                        status=status_enum,
+                        scan_mode=scan_mode,
+                        score=score,
+                        grade=grade,
+                        is_wordpress=is_wordpress,
+                        wp_version=wp_ver,
+                        initiated_by=initiated_by,
+                        started_at=started_at,
+                        completed_at=completed_at
+                    )
+                    repository.save_scan(new_scan)
+                    imported_scans += 1
+
+    # 2. Parse All Findings Log sheet
+    if "All Findings Log" in wb.sheetnames:
+        ws_findings = wb["All Findings Log"]
+        rows = list(ws_findings.iter_rows(values_only=True))
+        if len(rows) > 1:
+            for row in rows[1:]:
+                if not row or not row[0]:
+                    continue
+                scan_id = str(row[0]).strip()
+                sev_str = str(row[2]).strip().lower() if len(row) > 2 and row[2] else "info"
+                category = _unsanitize_excel_cell(row[3]) if len(row) > 3 and row[3] else "general"
+                title = _unsanitize_excel_cell(row[4]) if len(row) > 4 and row[4] else "Finding"
+                cve = _unsanitize_excel_cell(row[5]) if len(row) > 5 and row[5] else ""
+                raw_cvss = row[6] if len(row) > 6 else None
+                cvss_score = None
+                if raw_cvss not in (None, "", "N/A"):
+                    try:
+                        cvss_score = float(raw_cvss)
+                    except (ValueError, TypeError):
+                        cvss_score = None
+
+                kev_str = str(row[7]).strip().upper() if len(row) > 7 and row[7] else "NO"
+                kev_listed = kev_str in ("YES", "TRUE", "1")
+                software_type = _unsanitize_excel_cell(row[8]) if len(row) > 8 and row[8] else ""
+                detected_version = _unsanitize_excel_cell(row[9]) if len(row) > 9 and row[9] else ""
+                patched_version = _unsanitize_excel_cell(row[10]) if len(row) > 10 and row[10] else ""
+                description = _unsanitize_excel_cell(row[11]) if len(row) > 11 and row[11] else ""
+                remediation = _unsanitize_excel_cell(row[12]) if len(row) > 12 and row[12] else ""
+
+                try:
+                    sev_enum = Severity(sev_str)
+                except ValueError:
+                    sev_enum = Severity.INFO
+
+                raw_data = {}
+                if cve:
+                    raw_data["cve"] = cve
+                if cvss_score is not None:
+                    raw_data["cvss_score"] = cvss_score
+                if kev_listed:
+                    raw_data["kev_listed"] = True
+                if software_type:
+                    raw_data["software_type"] = software_type
+                if detected_version:
+                    raw_data["detected_version"] = detected_version
+                if patched_version:
+                    raw_data["patched_version"] = patched_version
+
+                existing_scan = repository.get_scan(scan_id)
+                if existing_scan:
+                    existing_findings = getattr(existing_scan, "findings", []) or []
+                    duplicate = any(f.title == title for f in existing_findings)
+                    if not duplicate:
+                        new_finding = Finding(
+                            id=str(uuid.uuid4()),
+                            scan_id=scan_id,
+                            severity=sev_enum,
+                            category=category,
+                            title=title,
+                            description=description,
+                            remediation=remediation,
+                            confidence=1.0,
+                            raw_data=raw_data
+                        )
+                        repository.save_finding(new_finding)
+                        imported_findings += 1
+
+    return imported_scans, imported_findings
