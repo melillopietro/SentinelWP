@@ -17,91 +17,138 @@
     </div>
 </div>
 
-<!-- Integrated Table & Filter Card -->
-<div style="background:var(--bg-card); border:1px solid var(--border); border-radius:var(--radius); padding:20px;">
-    <!-- Compact Inline Filter Toolbar -->
-    <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; margin-bottom:16px; padding-bottom:14px; border-bottom:1px solid var(--border);">
-        <div style="font-size:14px; font-weight:600; color:var(--text-primary);">Filter &amp; Search Scans</div>
-        <form method="GET" action="{{ url_for('scan_history') }}" style="display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin:0;">
-            <input type="text" name="target_url" value="{{ filters.target_url if filters else '' }}" placeholder="Search URL..." style="padding:6px 10px; background:var(--bg-dark); border:1px solid var(--border); border-radius:var(--radius); color:var(--text-primary); font-size:12px; min-width:140px;">
-            
-            <select name="is_wordpress" style="padding:6px 8px; background:var(--bg-dark); border:1px solid var(--border); border-radius:var(--radius); color:var(--text-primary); font-size:12px;">
-                <option value="">CMS: All</option>
-                <option value="1" {% if filters and filters.is_wordpress == '1' %}selected{% endif %}>WordPress Only</option>
-                <option value="0" {% if filters and filters.is_wordpress == '0' %}selected{% endif %}>Not WordPress</option>
-            </select>
-
-            <select name="grade" style="padding:6px 8px; background:var(--bg-dark); border:1px solid var(--border); border-radius:var(--radius); color:var(--text-primary); font-size:12px;">
-                <option value="">Grade: All</option>
-                <option value="A" {% if filters and filters.grade == 'A' %}selected{% endif %}>A</option>
-                <option value="B" {% if filters and filters.grade == 'B' %}selected{% endif %}>B</option>
-                <option value="C" {% if filters and filters.grade == 'C' %}selected{% endif %}>C</option>
-                <option value="D" {% if filters and filters.grade == 'D' %}selected{% endif %}>D</option>
-                <option value="E" {% if filters and filters.grade == 'E' %}selected{% endif %}>E</option>
-                <option value="F" {% if filters and filters.grade == 'F' %}selected{% endif %}>F</option>
-            </select>
-
-            <select name="status" style="padding:6px 8px; background:var(--bg-dark); border:1px solid var(--border); border-radius:var(--radius); color:var(--text-primary); font-size:12px;">
-                <option value="">Status: All</option>
-                <option value="completed" {% if filters and filters.status == 'completed' %}selected{% endif %}>Completed</option>
-                <option value="running" {% if filters and filters.status == 'running' %}selected{% endif %}>Running</option>
-                <option value="failed" {% if filters and filters.status == 'failed' %}selected{% endif %}>Failed</option>
-            </select>
-
-            <select name="scan_mode" style="padding:6px 8px; background:var(--bg-dark); border:1px solid var(--border); border-radius:var(--radius); color:var(--text-primary); font-size:12px;">
-                <option value="">Mode: All</option>
-                <option value="passive" {% if filters and filters.scan_mode == 'passive' %}selected{% endif %}>Passive</option>
-                <option value="safe-active" {% if filters and filters.scan_mode == 'safe-active' %}selected{% endif %}>Safe Active</option>
-                <option value="full" {% if filters and filters.scan_mode == 'full' %}selected{% endif %}>Full</option>
-            </select>
-
-            <input type="date" name="date_from" value="{{ filters.date_from if filters else '' }}" style="padding:5px 8px; background:var(--bg-dark); border:1px solid var(--border); border-radius:var(--radius); color:var(--text-primary); font-size:12px;">
-            <input type="date" name="date_to" value="{{ filters.date_to if filters else '' }}" style="padding:5px 8px; background:var(--bg-dark); border:1px solid var(--border); border-radius:var(--radius); color:var(--text-primary); font-size:12px;">
-
-            <button type="submit" class="btn btn-primary btn-sm" style="padding:5px 12px; font-size:12px;">Filter</button>
-            {% if filters and (filters.target_url or filters.status or filters.scan_mode or filters.grade or filters.is_wordpress or filters.date_from or filters.date_to) %}
-            <a href="{{ url_for('scan_history') }}" class="btn btn-secondary btn-sm" style="padding:5px 10px; font-size:12px;">Reset</a>
-            {% endif %}
-        </form>
+<div class="page-header" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:16px; margin-bottom:20px;">
+    <div>
+        <h2>Scan History</h2>
+        <p>{{ scans|length }} scan(s) recorded</p>
     </div>
-
-    {% if scans %}
-    <div class="table-wrap" style="margin:0;">
-    <table>
-    <thead><tr><th>Target</th><th>Score</th><th>Grade</th><th>WordPress / Version</th><th>Status</th><th>Date</th><th>WHOIS</th><th>Actions</th></tr></thead>
-    <tbody>
-    {% for s in scans %}
-    <tr>
-        <td><a href="{{ url_for('scan_detail', scan_id=s.id) }}">{{ s.target_url[:50] }}</a></td>
-        <td>{{ s.score if s.score is not none else '-' }}</td>
-        <td>{% if s.grade %}<span class="badge {% if s.grade.startswith('A') %}badge-info{% elif s.grade.startswith('B') %}badge-low{% elif s.grade.startswith('C') %}badge-medium{% else %}badge-critical{% endif %}">{{ s.grade }}</span>{% else %}-{% endif %}</td>
-        <td>
-            {% if s.is_wordpress %}
-                <span class="badge badge-info">WP {{ s.wp_version or 'Detected' }}</span>
-            {% else %}
-                <span class="badge" style="background:var(--border); color:var(--text-muted);">{{ s.wp_version or 'Not WordPress' }}</span>
-            {% endif %}
-        </td>
-        <td><span class="badge badge-info">{{ s.status.value if s.status.value is defined else s.status }}</span></td>
-        <td style="color:var(--text-muted);font-size:12px;">{{ s.started_at[:16] }}</td>
-        <td style="font-size:12px;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="{{ s.whois_info or '-' }}">{{ s.whois_info or '-' }}</td>
-        <td>
-            <div class="btn-group">
-                <a href="{{ url_for('scan_detail', scan_id=s.id) }}" class="btn btn-secondary btn-sm">View</a>
-                <form method="POST" action="{{ url_for('delete_scan', scan_id=s.id) }}" style="display:inline;" onsubmit="return confirm('Delete this scan?')">
-                    <button type="submit" class="btn btn-danger btn-sm">Delete</button>
-                </form>
-            </div>
-        </td>
-    </tr>
-    {% endfor %}
-    </tbody>
-    </table>
+    <div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
+        <a href="{{ url_for('export_scans_csv') }}" class="btn btn-secondary">Export CSV</a>
+        {% if session.get('role') == 'admin' %}
+        <a href="{{ url_for('admin_export_db') }}" class="btn btn-primary" title="Export entire scan database as multi-sheet Excel">
+            <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="vertical-align:middle;margin-right:4px;"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+            Export Entire Database
+        </a>
+        {% endif %}
     </div>
-    {% else %}
-    <div style="background:var(--bg-dark);border:1px solid var(--border);border-radius:var(--radius);padding:30px;text-align:center;">
-        <p style="color:var(--text-muted);margin:0;">No scans matching the selected criteria.</p>
-    </div>
-    {% endif %}
 </div>
+
+{% if scans %}
+<div class="table-wrap">
+<table id="scan-history-table">
+<thead>
+    <tr>
+        <th>Target</th>
+        <th>Score</th>
+        <th>Grade</th>
+        <th>WordPress / Version</th>
+        <th>Status</th>
+        <th>Date</th>
+        <th>WHOIS</th>
+        <th style="text-align:right;">Actions</th>
+    </tr>
+    <tr class="filter-row" style="background: rgba(15, 23, 42, 0.4);">
+        <th style="padding:6px 8px;"><input type="text" data-col="0" placeholder="Filter target..." onkeyup="filterHistoryColumns()" style="width:100%; padding:4px 8px; background:var(--bg-dark); border:1px solid var(--border); border-radius:4px; color:var(--text-primary); font-size:11px;"></th>
+        <th style="padding:6px 8px;"><input type="text" data-col="1" placeholder="Score..." onkeyup="filterHistoryColumns()" style="width:100%; padding:4px 6px; background:var(--bg-dark); border:1px solid var(--border); border-radius:4px; color:var(--text-primary); font-size:11px;"></th>
+        <th style="padding:6px 8px;">
+            <select data-col="2" onchange="filterHistoryColumns()" style="width:100%; padding:4px 4px; background:var(--bg-dark); border:1px solid var(--border); border-radius:4px; color:var(--text-primary); font-size:11px;">
+                <option value="">All</option>
+                <option value="A">A</option>
+                <option value="B">B</option>
+                <option value="C">C</option>
+                <option value="D">D</option>
+                <option value="E">E</option>
+                <option value="F">F</option>
+            </select>
+        </th>
+        <th style="padding:6px 8px;">
+            <select data-col="3" onchange="filterHistoryColumns()" style="width:100%; padding:4px 4px; background:var(--bg-dark); border:1px solid var(--border); border-radius:4px; color:var(--text-primary); font-size:11px;">
+                <option value="">All</option>
+                <option value="WP">WP Only</option>
+                <option value="Not WordPress">Not WP</option>
+            </select>
+        </th>
+        <th style="padding:6px 8px;">
+            <select data-col="4" onchange="filterHistoryColumns()" style="width:100%; padding:4px 4px; background:var(--bg-dark); border:1px solid var(--border); border-radius:4px; color:var(--text-primary); font-size:11px;">
+                <option value="">All</option>
+                <option value="completed">Completed</option>
+                <option value="running">Running</option>
+                <option value="failed">Failed</option>
+                <option value="pending">Pending</option>
+            </select>
+        </th>
+        <th style="padding:6px 8px;"><input type="text" data-col="5" placeholder="Filter date..." onkeyup="filterHistoryColumns()" style="width:100%; padding:4px 6px; background:var(--bg-dark); border:1px solid var(--border); border-radius:4px; color:var(--text-primary); font-size:11px;"></th>
+        <th style="padding:6px 8px;"><input type="text" data-col="6" placeholder="Filter WHOIS..." onkeyup="filterHistoryColumns()" style="width:100%; padding:4px 6px; background:var(--bg-dark); border:1px solid var(--border); border-radius:4px; color:var(--text-primary); font-size:11px;"></th>
+        <th style="padding:6px 8px; text-align:right;">
+            <button type="button" onclick="clearHistoryColumnFilters()" class="btn btn-secondary btn-sm" style="padding:3px 8px; font-size:11px;">Reset</button>
+        </th>
+    </tr>
+</thead>
+<tbody>
+{% for s in scans %}
+<tr>
+    <td><a href="{{ url_for('scan_detail', scan_id=s.id) }}">{{ s.target_url[:50] }}</a></td>
+    <td>{{ s.score if s.score is not none else '-' }}</td>
+    <td>{% if s.grade %}<span class="badge {% if s.grade.startswith('A') %}badge-info{% elif s.grade.startswith('B') %}badge-low{% elif s.grade.startswith('C') %}badge-medium{% else %}badge-critical{% endif %}">{{ s.grade }}</span>{% else %}-{% endif %}</td>
+    <td>
+        {% if s.is_wordpress %}
+            <span class="badge badge-info">WP {{ s.wp_version or 'Detected' }}</span>
+        {% else %}
+            <span class="badge" style="background:var(--border); color:var(--text-muted);">{{ s.wp_version or 'Not WordPress' }}</span>
+        {% endif %}
+    </td>
+    <td><span class="badge badge-info">{{ s.status.value if s.status.value is defined else s.status }}</span></td>
+    <td style="color:var(--text-muted);font-size:12px;">{{ s.started_at[:16] }}</td>
+    <td style="font-size:12px;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="{{ s.whois_info or '-' }}">{{ s.whois_info or '-' }}</td>
+    <td style="text-align:right;">
+        <div class="btn-group">
+            <a href="{{ url_for('scan_detail', scan_id=s.id) }}" class="btn btn-secondary btn-sm">View</a>
+            <form method="POST" action="{{ url_for('delete_scan', scan_id=s.id) }}" style="display:inline;" onsubmit="return confirm('Delete this scan?')">
+                <button type="submit" class="btn btn-danger btn-sm">Delete</button>
+            </form>
+        </div>
+    </td>
+</tr>
+{% endfor %}
+</tbody>
+</table>
+</div>
+{% else %}
+<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:40px;text-align:center;">
+    <p style="color:var(--text-muted);">No scans recorded yet.</p>
+</div>
+{% endif %}
+
+<script>
+function filterHistoryColumns() {
+    const table = document.getElementById("scan-history-table");
+    if (!table) return;
+    const rows = table.querySelectorAll("tbody tr");
+    const inputs = table.querySelectorAll("thead tr.filter-row input, thead tr.filter-row select");
+    
+    rows.forEach(row => {
+        let show = true;
+        inputs.forEach(input => {
+            const colIdx = parseInt(input.getAttribute("data-col"));
+            const val = input.value.trim().toLowerCase();
+            if (val && !isNaN(colIdx)) {
+                const cell = row.children[colIdx];
+                if (cell) {
+                    const text = cell.textContent.trim().toLowerCase();
+                    if (!text.includes(val)) {
+                        show = false;
+                    }
+                }
+            }
+        });
+        row.style.display = show ? "" : "none";
+    });
+}
+
+function clearHistoryColumnFilters() {
+    const inputs = document.querySelectorAll("thead tr.filter-row input, thead tr.filter-row select");
+    inputs.forEach(i => i.value = "");
+    filterHistoryColumns();
+}
+</script>
 {% endblock %}
