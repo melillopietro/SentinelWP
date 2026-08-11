@@ -189,20 +189,61 @@
 </div>
 {% endif %}
 
-<!-- Card 4: Changelog & System Release Info -->
+<!-- Card 4: System Updates & Repository Status -->
 <div style="background:var(--bg-card); border:1px solid var(--border); border-radius:var(--radius); padding:24px;">
-    <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border); padding-bottom:16px; margin-bottom:16px; flex-wrap:wrap; gap:12px;">
+    <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border); padding-bottom:16px; margin-bottom:20px; flex-wrap:wrap; gap:12px;">
         <div style="display:flex; align-items:center; gap:12px;">
-            <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="color:var(--accent);"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
-            <h3 style="font-size:16px; font-weight:600; color:var(--text-primary);">SentinelWP Release Notes</h3>
+            <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="color:var(--accent);"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+            <h3 style="font-size:16px; font-weight:600; color:var(--text-primary);">GitHub Repository &amp; Update Checker</h3>
         </div>
-        <a href="{{ url_for('changelog') }}" class="btn btn-secondary btn-sm">View Full Changelog</a>
+        <div style="display:flex; gap:8px;">
+            <button type="button" onclick="checkRepositoryUpdates(true)" id="btn-check-updates" class="btn btn-primary btn-sm">
+                <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                Check for Updates
+            </button>
+            <a href="{{ url_for('changelog') }}" class="btn btn-secondary btn-sm">View Changelog</a>
+        </div>
     </div>
 
-    <p style="font-size:13px; color:var(--text-secondary); line-height:1.6;">
-        Active Version: <strong style="color:var(--text-primary);">SentinelWP v3.5.0 (Stable)</strong><br>
-        Features: Non-WP target detection, 30-min Threat Intel sync, column-by-column interactive table filters, Executive Summaries, Admin database exports, and light/dark theme customizer.
-    </p>
+    <div id="update-status-box" style="background:var(--bg-dark); border:1px solid var(--border); border-radius:var(--radius); padding:16px;">
+        <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px;">
+            <div>
+                <div style="font-size:13px; color:var(--text-muted); margin-bottom:4px;">Installed Version</div>
+                <strong style="font-size:16px; color:var(--text-primary);">SentinelWP v3.6.0</strong>
+                <span style="font-size:12px; color:var(--text-muted); margin-left:6px;">(Commit: <code id="local-commit">{{ update_info.local_commit if update_info else 'unknown' }}</code>)</span>
+            </div>
+            
+            <div id="update-badge-container">
+                {% if update_info and update_info.error %}
+                <span class="badge badge-warning">Check Failed</span>
+                {% elif update_info and update_info.is_latest %}
+                <span class="badge badge-success" style="padding:6px 12px; font-size:12px;">🟢 Up to Date (Latest Release)</span>
+                {% else %}
+                <span class="badge badge-critical" style="padding:6px 12px; font-size:12px;">🟡 Update Available on GitHub</span>
+                {% endif %}
+            </div>
+        </div>
+
+        <div id="update-details-block" style="margin-top:14px; border-top:1px solid var(--border); padding-top:12px; font-size:12px; color:var(--text-secondary);">
+            {% if update_info and update_info.error %}
+            <p style="color:var(--warning);">⚠️ {{ update_info.error }}</p>
+            {% elif update_info and not update_info.is_latest %}
+            <p style="color:var(--critical); font-weight:600; margin-bottom:6px;">
+                🚀 A new update is available on GitHub! (Latest Commit: <code>{{ update_info.remote_commit }}</code>)
+            </p>
+            <p style="color:var(--text-muted); margin-bottom:8px;">
+                Latest Commit Message: <em>"{{ update_info.latest_commit_message }}"</em>
+            </p>
+            <div style="background:var(--bg-card); padding:10px; border-radius:4px; font-family:monospace; color:var(--accent);">
+                git pull origin main
+            </div>
+            {% else %}
+            <p style="color:var(--text-muted);">
+                Your installation is synchronized with the official repository on GitHub (<strong><a href="https://github.com/melillopietro/SentinelWP" target="_blank" rel="noopener" style="color:var(--accent);">melillopietro/SentinelWP</a></strong>).
+            </p>
+            {% endif %}
+        </div>
+    </div>
 </div>
 
 <script>
@@ -211,6 +252,38 @@ function toggleUserCreateForm() {
     if (card) {
         card.style.display = card.style.display === "none" ? "block" : "none";
     }
+}
+
+function checkRepositoryUpdates(force) {
+    const btn = document.getElementById("btn-check-updates");
+    const container = document.getElementById("update-badge-container");
+    const details = document.getElementById("update-details-block");
+    if (btn) btn.disabled = true;
+    if (container) container.innerHTML = '<span class="badge badge-info">Checking GitHub...</span>';
+
+    fetch('/api/check-update' + (force ? '?force=true' : ''))
+        .then(r => r.json())
+        .then(data => {
+            if (btn) btn.disabled = false;
+            if (data.error) {
+                container.innerHTML = '<span class="badge badge-warning">Check Error</span>';
+                details.innerHTML = `<p style="color:var(--warning);">⚠️ ${data.error}</p>`;
+            } else if (data.is_latest) {
+                container.innerHTML = '<span class="badge badge-success" style="padding:6px 12px; font-size:12px;">🟢 Up to Date (Latest Release)</span>';
+                details.innerHTML = `<p style="color:var(--text-muted);">Your installation is synchronized with the official repository on GitHub (<strong><a href="${data.repo_url}" target="_blank" style="color:var(--accent);">${data.repo_url}</a></strong>).</p>`;
+            } else {
+                container.innerHTML = '<span class="badge badge-critical" style="padding:6px 12px; font-size:12px;">🟡 Update Available on GitHub</span>';
+                details.innerHTML = `
+                    <p style="color:var(--critical); font-weight:600; margin-bottom:6px;">🚀 A new update is available on GitHub! (Remote Commit: <code>${data.remote_commit}</code>)</p>
+                    <p style="color:var(--text-muted); margin-bottom:8px;">Latest Commit: <em>"${data.latest_commit_message}"</em></p>
+                    <div style="background:var(--bg-card); padding:10px; border-radius:4px; font-family:monospace; color:var(--accent);">git pull origin main</div>
+                `;
+            }
+        })
+        .catch(err => {
+            if (btn) btn.disabled = false;
+            if (container) container.innerHTML = '<span class="badge badge-warning">Network Error</span>';
+        });
 }
 
 function updateThemeUI(theme) {

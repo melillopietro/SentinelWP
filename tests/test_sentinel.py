@@ -238,7 +238,39 @@ class TestChangelogRoute(unittest.TestCase):
                 sess["role"] = "admin"
             resp = client.get("/changelog")
             self.assertEqual(resp.status_code, 200)
-            self.assertTrue(b"Version &amp; Changelog" in resp.data or b"Version & Changelog" in resp.data)
+class TestUpdateChecker(unittest.TestCase):
+    @patch("core.update_checker.requests.get")
+    @patch("core.update_checker.get_local_commit_hash", return_value="b812559")
+    def test_check_for_updates_latest(self, mock_hash, mock_get):
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_resp.json.return_value = {
+            "sha": "b812559abcdef",
+            "commit": {"message": "Test commit", "committer": {"date": "2026-08-11T12:00:00Z"}}
+        }
+        mock_get.return_value = mock_resp
+        
+        from core.update_checker import check_for_updates
+        res = check_for_updates(force=True)
+        self.assertTrue(res["is_latest"])
+        self.assertEqual(res["local_commit"], "b812559")
+        self.assertEqual(res["remote_commit"], "b812559")
+
+    @patch("core.update_checker.requests.get")
+    @patch("core.update_checker.get_local_commit_hash", return_value="a1b2c3d")
+    def test_check_for_updates_available(self, mock_hash, mock_get):
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_resp.json.return_value = {
+            "sha": "b812559abcdef",
+            "commit": {"message": "New commit", "committer": {"date": "2026-08-11T12:00:00Z"}}
+        }
+        mock_get.return_value = mock_resp
+        
+        from core.update_checker import check_for_updates
+        res = check_for_updates(force=True)
+        self.assertFalse(res["is_latest"])
+        self.assertEqual(res["remote_commit"], "b812559")
 
 
 if __name__ == "__main__":

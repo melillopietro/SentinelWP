@@ -31,6 +31,7 @@ from reports.generator import (
     generate_excel_report, generate_pdf_report, generate_sarif_report,
     generate_full_db_excel_export, import_full_db_excel
 )
+from core.update_checker import check_for_updates
 
 app = Flask(__name__)
 app.secret_key = SECRET_KEY
@@ -595,7 +596,16 @@ def settings():
                 flash("Password successfully updated.", "success")
             return redirect(url_for("settings"))
 
-    return render_template("settings.html", user=user, users=users)
+    update_info = check_for_updates(force=False)
+    return render_template("settings.html", user=user, users=users, update_info=update_info)
+
+
+@app.route("/api/check-update")
+@login_required
+def api_check_update():
+    """API endpoint to query GitHub repository update status."""
+    force = request.args.get("force", "false").lower() in ("true", "1")
+    return jsonify(check_for_updates(force=force))
 
 
 @app.route("/users")
