@@ -149,9 +149,15 @@ def run_scan(
     # Determine WP status from findings
     wp_findings = [f for f in all_findings if f.raw_data.get("is_wordpress")]
     scan.is_wordpress = len(wp_findings) > 0
-    wp_ver_findings = [f for f in all_findings if f.raw_data.get("version")]
-    if wp_ver_findings:
-        scan.wp_version = wp_ver_findings[0].raw_data["version"]
+    if scan.is_wordpress:
+        wp_ver_findings = [f for f in all_findings if f.raw_data.get("version")]
+        if wp_ver_findings:
+            scan.wp_version = wp_ver_findings[0].raw_data["version"]
+        elif not scan.wp_version:
+            scan.wp_version = "Unknown"
+    else:
+        scan.wp_version = "Not WordPress"
+
     whois_findings = [f for f in all_findings if f.raw_data.get("whois_info")]
     if whois_findings:
         scan.whois_info = whois_findings[0].raw_data["whois_info"]

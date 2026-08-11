@@ -1,4 +1,4 @@
-# SentinelWP — WordPress Security Sentinel (v3.4.0)
+# SentinelWP — WordPress Security Sentinel (v3.5.0)
 
 Enterprise-grade, non-destructive WordPress security assessment and posture management platform.
 
@@ -8,9 +8,12 @@ SentinelWP is an advanced security auditing and reconnaissance tool designed to 
 
 ## Key Features
 
-- **Initial Setup Wizard**: Zero default credentials. A guided setup wizard (/setup) forces the creation of a custom primary Administrator account on first launch.
-- **WordPress Vulnerability Intelligence Pipeline**: Background ingestion of official Wordfence v3 Threat Intel feeds, CISA KEV (Known Exploited Vulnerabilities) catalog, and WordPress.org plugin popularity data.
-- **GUI API Key Management**: Dedicated interface on `/vuln-intel` for Admin users to configure and persist external Wordfence and NVD API keys directly in the database.
+- **Initial Setup Wizard**: Zero default credentials. A guided setup wizard (`/setup`) forces the creation of a custom primary Administrator account on first launch.
+- **Non-WordPress Target Identification**: Automatically identifies domains without WordPress installed and labels them clearly as `"Not WordPress"` in database records, dashboards, and reports.
+- **Automated Threat Intel Auto-Sync**: Automatically syncs Wordfence & CISA KEV feeds on application startup and recurs every 30 minutes in the background.
+- **Field-by-Field Dashboard Filters**: Interactive filter card on dashboard and scan history allowing exact filtering by Target URL, Status, Scan Mode, Security Grade, CMS Type (WordPress / Non-WP), and Date Range.
+- **Admin Full Database Export**: One-click multi-sheet Excel export (`Scan History` & `All Findings Log`) available to Administrator accounts (`/admin/export-db`).
+- **Strategic Executive Summary (CISO / Board Ready)**: Executive risk ratings (*CRITICAL ATTENTION REQUIRED*, *MODERATE RISK*, *STRONG POSTURE*) and a 3-tier prioritized Action Plan with SLA windows (0-48h, 7-14d, Continuous) across PDF, HTML, and Excel reports.
 - **Enterprise PDF Report Engine**: Zero-overlap layout utilizing ReportLab `Paragraph` flowables inside table cells, dynamic two-pass page footers ("Page X of Y"), Executive Summary cards, and Risk Distribution matrices.
 - **Interactive HTML & Multi-Sheet Excel Reports**: Rich responsive HTML reports with live severity tabs and text search, alongside formatted multi-sheet Excel workbooks (`Executive Summary` and `Findings Detail`).
 - **SSRF Protection & Target Safety**: Integrated SSRF protection mechanism that automatically blocks requests to private IP subnets (127.0.0.0/8, 10.0.0.0/8, 192.168.0.0/16, etc.) and local hostnames.
@@ -23,45 +26,129 @@ SentinelWP is an advanced security auditing and reconnaissance tool designed to 
 - **Scheduled Recurring Audits**: Background scheduler for automated periodic security scans (every 12h, 24h, or 7 days).
 - **SMTP Email & Webhook Alerting**: Automated alert dispatching via SMTP email and Webhooks (Slack, Microsoft Teams, or custom endpoints) upon detecting Critical or High severity findings.
 - **REST API & Cookie Audit**:
-  - Full route discovery and namespace inspection via /wp-json/ with privacy-first user endpoint auditing (no personal data stored).
-  - Security flag analysis for HTTP response cookies (Secure, HttpOnly, SameSite).
+  - Full route discovery and namespace inspection via `/wp-json/` with privacy-first user endpoint auditing (no personal data stored).
+  - Security flag analysis for HTTP response cookies (`Secure`, `HttpOnly`, `SameSite`).
 - **Passive DNS & WHOIS Audit**: Native domain WHOIS socket parser (expiration and registrar tracking) combined with secure DNS-over-HTTPS (DoH) audits for SPF and DMARC mail protection records.
-- **Exposure & Hardening Checks**: Identification of backup files (wp-config.php.bak), debug logs, directory listing, HTTPS redirection, and visible PHP error messages.
 - **OASIS SARIF v2.1.0 Support**: Fully compliant SARIF exports for GitHub Actions and GitLab CI/CD pipeline integration.
-- **Rate Limiting & Anti-DDoS**: In-memory sliding window rate limiter per client IP address (HTTP 429).
 - **Role-Based Access Control (RBAC)**: Multi-user management (Admin, Analyst, Viewer) with secure sessions.
 
 ---
 
-## Quick Start
+## Installation Guide (Cross-Platform)
 
-### Requirements
-- Python 3.10+
-- Virtual environment (`venv`)
+SentinelWP requires **Python 3.10+** and runs seamlessly across **macOS**, **Linux**, and **Windows**.
 
-### Installation & Execution
+---
 
-1. Clone the repository:
-   ```bash
-   git clone https://github.com/melillopietro/SentinelWP.git
-   cd SentinelWP
-   ```
+### 1. macOS Installation
 
-2. Activate virtual environment and install dependencies:
-   ```bash
-   python3 -m venv .venv
-   source .venv/bin/activate
-   pip install -r requirements.txt
-   ```
+#### Prerequisites
+- macOS 12+ (Intel or Apple Silicon)
+- Homebrew & Python 3.10+
 
-3. Launch the platform:
-   ```bash
-   python3 app.py
-   ```
+```bash
+# Install Python 3 & Git via Homebrew
+brew install python3 git
 
-4. Complete Initial Setup:
-   - Access: http://localhost:8080
-   - Follow the Initial Setup Wizard (/setup) to create your custom Administrator username and password.
+# Clone repository
+git clone https://github.com/melillopietro/SentinelWP.git
+cd SentinelWP
+
+# Create virtual environment and install dependencies
+python3 -m venv .venv
+source .venv/bin/activate
+pip install --upgrade pip
+pip install -r requirements.txt
+
+# Launch SentinelWP
+python3 app.py
+```
+
+---
+
+### 2. Linux Installation
+
+#### Ubuntu / Debian
+
+```bash
+# Update repositories and install prerequisites
+sudo apt-get update
+sudo apt-get install -y python3 python3-venv python3-pip git build-essential
+
+# Clone repository
+git clone https://github.com/melillopietro/SentinelWP.git
+cd SentinelWP
+
+# Create virtual environment and install dependencies
+python3 -m venv .venv
+source .venv/bin/activate
+pip install --upgrade pip
+pip install -r requirements.txt
+
+# Launch SentinelWP
+python3 app.py
+```
+
+#### RHEL / Fedora / AlmaLinux / Rocky Linux
+
+```bash
+# Install Python 3, Git, and build tools
+sudo dnf install -y python3 python3-pip git gcc
+
+# Clone repository
+git clone https://github.com/melillopietro/SentinelWP.git
+cd SentinelWP
+
+# Create virtual environment and install dependencies
+python3 -m venv .venv
+source .venv/bin/activate
+pip install --upgrade pip
+pip install -r requirements.txt
+
+# Launch SentinelWP
+python3 app.py
+```
+
+---
+
+### 3. Windows Installation
+
+#### Prerequisites
+- Windows 10 / 11 / Windows Server 2019+
+- [Python 3.10+](https://www.python.org/downloads/) (Make sure to check **"Add python.exe to PATH"** during installation)
+- [Git for Windows](https://git-scm.com/download/win)
+
+#### PowerShell / Command Prompt (CMD)
+
+```powershell
+# Clone repository
+git clone https://github.com/melillopietro/SentinelWP.git
+cd SentinelWP
+
+# Create virtual environment
+python -m venv .venv
+
+# Activate virtual environment
+# PowerShell:
+.\.venv\Scripts\Activate.ps1
+# OR Command Prompt (CMD):
+# .\.venv\Scripts\activate.bat
+
+# Upgrade pip and install dependencies
+python -m pip install --upgrade pip
+pip install -r requirements.txt
+
+# Launch SentinelWP
+python app.py
+```
+
+---
+
+### Accessing the Platform
+
+1. Open your Web Browser and navigate to:
+   `http://localhost:8080` (or `http://<SERVER_IP>:8080`)
+2. Complete the initial setup wizard (`/setup`) to configure your primary Administrator account.
 
 ---
 

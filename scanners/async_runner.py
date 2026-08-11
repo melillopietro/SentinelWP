@@ -169,8 +169,12 @@ def _execute_async_scan(scan_id: str, target_url: str, initiated_by: str, scan_m
     score, grade = compute_risk_score(all_findings)
     wp_findings = [f for f in all_findings if f.raw_data.get("is_wordpress")]
     is_wp = len(wp_findings) > 0
-    wp_ver_findings = [f for f in all_findings if f.raw_data.get("version")]
-    wp_ver = wp_ver_findings[0].raw_data["version"] if wp_ver_findings else None
+    if is_wp:
+        wp_ver_findings = [f for f in all_findings if f.raw_data.get("version")]
+        wp_ver = wp_ver_findings[0].raw_data["version"] if wp_ver_findings else "Unknown"
+    else:
+        wp_ver = "Not WordPress"
+
     whois_findings = [f for f in all_findings if f.raw_data.get("whois_info")]
     whois_info = whois_findings[0].raw_data["whois_info"] if whois_findings else None
 

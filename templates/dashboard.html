@@ -21,6 +21,62 @@
     </div>
 </div>
 
+<!-- Multi-Field Filter Panel -->
+<div style="background:var(--bg-card); border:1px solid var(--border); border-radius:var(--radius); padding:20px; margin-bottom:24px;">
+    <h3 style="font-size:14px; font-weight:600; margin-bottom:12px; color:var(--text-primary);">Filter Scans</h3>
+    <form method="GET" action="{{ url_for('dashboard') }}">
+        <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap:12px; margin-bottom:16px;">
+            <div>
+                <label style="display:block; font-size:11px; text-transform:uppercase; color:var(--text-muted); margin-bottom:4px; font-weight:600;">Target URL</label>
+                <input type="text" name="target_url" value="{{ filters.target_url if filters else '' }}" placeholder="Search URL..." style="width:100%; padding:8px 10px; background:var(--bg-dark); border:1px solid var(--border); border-radius:var(--radius); color:var(--text-primary); font-size:13px;">
+            </div>
+            <div>
+                <label style="display:block; font-size:11px; text-transform:uppercase; color:var(--text-muted); margin-bottom:4px; font-weight:600;">Status</label>
+                <select name="status" style="width:100%; padding:8px 10px; background:var(--bg-dark); border:1px solid var(--border); border-radius:var(--radius); color:var(--text-primary); font-size:13px;">
+                    <option value="">All Statuses</option>
+                    <option value="completed" {% if filters and filters.status == 'completed' %}selected{% endif %}>Completed</option>
+                    <option value="running" {% if filters and filters.status == 'running' %}selected{% endif %}>Running</option>
+                    <option value="pending" {% if filters and filters.status == 'pending' %}selected{% endif %}>Pending</option>
+                    <option value="failed" {% if filters and filters.status == 'failed' %}selected{% endif %}>Failed</option>
+                </select>
+            </div>
+            <div>
+                <label style="display:block; font-size:11px; text-transform:uppercase; color:var(--text-muted); margin-bottom:4px; font-weight:600;">Scan Mode</label>
+                <select name="scan_mode" style="width:100%; padding:8px 10px; background:var(--bg-dark); border:1px solid var(--border); border-radius:var(--radius); color:var(--text-primary); font-size:13px;">
+                    <option value="">All Modes</option>
+                    <option value="passive" {% if filters and filters.scan_mode == 'passive' %}selected{% endif %}>Passive</option>
+                    <option value="safe-active" {% if filters and filters.scan_mode == 'safe-active' %}selected{% endif %}>Safe Active</option>
+                    <option value="full" {% if filters and filters.scan_mode == 'full' %}selected{% endif %}>Full</option>
+                </select>
+            </div>
+            <div>
+                <label style="display:block; font-size:11px; text-transform:uppercase; color:var(--text-muted); margin-bottom:4px; font-weight:600;">Security Grade</label>
+                <select name="grade" style="width:100%; padding:8px 10px; background:var(--bg-dark); border:1px solid var(--border); border-radius:var(--radius); color:var(--text-primary); font-size:13px;">
+                    <option value="">All Grades</option>
+                    <option value="A" {% if filters and filters.grade == 'A' %}selected{% endif %}>Grade A</option>
+                    <option value="B" {% if filters and filters.grade == 'B' %}selected{% endif %}>Grade B</option>
+                    <option value="C" {% if filters and filters.grade == 'C' %}selected{% endif %}>Grade C</option>
+                    <option value="D" {% if filters and filters.grade == 'D' %}selected{% endif %}>Grade D</option>
+                    <option value="E" {% if filters and filters.grade == 'E' %}selected{% endif %}>Grade E</option>
+                    <option value="F" {% if filters and filters.grade == 'F' %}selected{% endif %}>Grade F</option>
+                </select>
+            </div>
+            <div>
+                <label style="display:block; font-size:11px; text-transform:uppercase; color:var(--text-muted); margin-bottom:4px; font-weight:600;">CMS Type</label>
+                <select name="is_wordpress" style="width:100%; padding:8px 10px; background:var(--bg-dark); border:1px solid var(--border); border-radius:var(--radius); color:var(--text-primary); font-size:13px;">
+                    <option value="">All Types</option>
+                    <option value="1" {% if filters and filters.is_wordpress == '1' %}selected{% endif %}>WordPress Only</option>
+                    <option value="0" {% if filters and filters.is_wordpress == '0' %}selected{% endif %}>Not WordPress</option>
+                </select>
+            </div>
+        </div>
+        <div style="display:flex; justify-content:flex-end; gap:8px;">
+            <a href="{{ url_for('dashboard') }}" class="btn btn-secondary btn-sm">Reset</a>
+            <button type="submit" class="btn btn-primary btn-sm">Apply Filters</button>
+        </div>
+    </form>
+</div>
+
 <div class="page-header" style="margin-bottom:16px;">
     <h2 style="font-size:18px;">Recent Scans</h2>
 </div>
@@ -28,7 +84,7 @@
 {% if scans %}
 <div class="table-wrap">
 <table>
-<thead><tr><th>Target</th><th>Score</th><th>Grade</th><th>Status</th><th>Date</th><th>WHOIS</th><th>Actions</th></tr></thead>
+<thead><tr><th>Target</th><th>Score</th><th>Grade</th><th>WordPress / Version</th><th>Status</th><th>Date</th><th>WHOIS</th><th>Actions</th></tr></thead>
 <tbody>
 {% for s in scans %}
 <tr>
@@ -38,6 +94,13 @@
         {% if s.grade %}
         <span class="badge {% if s.grade.startswith('A') %}badge-info{% elif s.grade.startswith('B') %}badge-low{% elif s.grade.startswith('C') %}badge-medium{% else %}badge-critical{% endif %}">{{ s.grade }}</span>
         {% else %}-{% endif %}
+    </td>
+    <td>
+        {% if s.is_wordpress %}
+            <span class="badge badge-info">WP {{ s.wp_version or 'Detected' }}</span>
+        {% else %}
+            <span class="badge" style="background:var(--border); color:var(--text-muted);">{{ s.wp_version or 'Not WordPress' }}</span>
+        {% endif %}
     </td>
     <td><span class="badge badge-info">{{ s.status.value if s.status.value is defined else s.status }}</span></td>
     <td style="color:var(--text-muted);font-size:12px;">{{ s.started_at[:16] }}</td>
@@ -50,7 +113,7 @@
 </div>
 {% else %}
 <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:40px;text-align:center;">
-    <p style="color:var(--text-muted);">No scans yet. Start your first scan.</p>
+    <p style="color:var(--text-muted);">No scans matching the selected filters.</p>
     <a href="{{ url_for('new_scan') }}" class="btn btn-primary" style="margin-top:16px;">New Scan</a>
 </div>
 {% endif %}

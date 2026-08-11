@@ -57,9 +57,12 @@ def admin_required(f):
     return wrapper
 
 
+_startup_sync_done = False
+
 # --- Init & Middleware ---
 @app.before_request
 def ensure_db_and_scheduler():
+    global _startup_sync_done
     repository.init_db()
 
     # Start background scheduler daemon
@@ -67,6 +70,18 @@ def ensure_db_and_scheduler():
         start_scheduler()
     except Exception:
         pass
+
+    # Trigger Threat Intelligence sync on app startup (once)
+    if not _startup_sync_done:
+        _startup_sync_done = True
+        try:
+            from config import VULN_INTEL_ENABLED
+            if VULN_INTEL_ENABLED:
+                from core.vulnerability_intelligence.service import sync_all
+                import threading
+                threading.Thread(target=sync_all, daemon=True).start()
+        except Exception:
+            pass
 
     # Redirect to initial setup wizard if no users exist in database
     if repository.count_users() == 0:
@@ -156,16 +171,26 @@ def logout():
 @app.route("/")
 @login_required
 def dashboard():
-    scans = repository.list_scans(limit=50)
-    total = len(scans)
-    completed = len([s for s in scans if (s.status.value if hasattr(s.status, "value") else str(s.status)) == "completed"])
+    filters = {
+        "target_url": request.args.get("target_url", "").strip(),
+        "status": request.args.get("status", "").strip(),
+        "scan_mode": request.args.get("scan_mode", "").strip(),
+        "grade": request.args.get("grade", "").strip(),
+        "is_wordpress": request.args.get("is_wordpress", "").strip(),
+        "date_from": request.args.get("date_from", "").strip(),
+        "date_to": request.args.get("date_to", "").strip(),
+    }
+    scans = repository.list_scans(limit=100, filters=filters)
+    all_scans = repository.list_scans(limit=1000)
+    total = len(all_scans)
+    completed = len([s for s in all_scans if (s.status.value if hasattr(s.status, "value") else str(s.status)) == "completed"])
     avg_score = 0
     if completed > 0:
-        scores = [s.score for s in scans if s.score is not None]
+        scores = [s.score for s in all_scans if s.score is not None]
         avg_score = round(sum(scores) / len(scores), 1) if scores else 0
     return render_template("dashboard.html",
-                           scans=scans[:10], total=total,
-                           completed=completed, avg_score=avg_score)
+                           scans=scans, total=total,
+                           completed=completed, avg_score=avg_score, filters=filters)
 
 
 @app.route("/changelog")
@@ -319,8 +344,39 @@ def batch_scan():
 @app.route("/scans")
 @login_required
 def scan_history():
-    scans = repository.list_scans(limit=200)
-    return render_template("scan_history.html", scans=scans)
+    filters = {
+        "target_url": request.args.get("target_url", "").strip(),
+        "status": request.args.get("status", "").strip(),
+        "scan_mode": request.args.get("scan_mode", "").strip(),
+        "grade": request.args.get("grade", "").strip(),
+        "is_wordpress": request.args.get("is_wordpress", "").strip(),
+        "date_from": request.args.get("date_from", "").strip(),
+        "date_to": request.args.get("date_to", "").strip(),
+    }
+    scans = repository.list_scans(limit=200, filters=filters)
+    return render_template("scan_history.html", scans=scans, filters=filters)
+
+
+@app.route("/admin/export-db")
+@admin_required
+def admin_export_db():
+    """Export full unique scan database as a multi-sheet Excel file (Admin only)."""
+    try:
+        from reports.generator import generate_full_db_excel_export
+        scans = repository.list_scans(limit=5000)
+        for s in scans:
+            s.findings = repository.get_findings_for_scan(s.id)
+        excel_bytes = generate_full_db_excel_export(scans)
+        filename = f"SentinelWP_Database_Export_{datetime.utcnow().strftime('%Y%m%d_%H%M')}.xlsx"
+        return send_file(
+            io.BytesIO(excel_bytes),
+            mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            as_attachment=True,
+            download_name=filename
+        )
+    except Exception as e:
+        flash(f"Database export failed: {str(e)[:200]}", "error")
+        return redirect(url_for("dashboard"))
 
 
 # --- Routes: Scan Detail ---

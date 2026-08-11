@@ -592,14 +592,6 @@ if HAS_REPORTLAB:
             self._saved_page_states.append(dict(self.__dict__))
             self._startPage()
 
-        def save(self):
-            num_pages = len(self._saved_page_states)
-            for state in self._saved_page_states:
-                self.__dict__.update(state)
-                self.draw_page_decorations(num_pages)
-                super().showPage()
-            super().save()
-
         def draw_page_decorations(self, page_count):
             self.saveState()
             self.setFont("Helvetica", 8)
@@ -617,12 +609,107 @@ if HAS_REPORTLAB:
             self.setLineWidth(0.5)
             self.line(2 * cm, 1.8 * cm, 19.0 * cm, 1.8 * cm)
 
-            footer_text = "SentinelWP v3.4.0 — Confidential Security Assessment Report"
+            footer_text = "SentinelWP v3.5.0 — Confidential Security Assessment Report"
             page_text = f"Page {self._pageNumber} of {page_count}"
             
             self.drawString(2 * cm, 1.3 * cm, footer_text)
             self.drawRightString(19.0 * cm, 1.3 * cm, page_text)
             self.restoreState()
+
+        def save(self):
+            num_pages = len(self._saved_page_states)
+            for state in self._saved_page_states:
+                self.__dict__.update(state)
+                self.draw_page_decorations(num_pages)
+                super().showPage()
+            super().save()
+
+
+def generate_full_db_excel_export(scans: List[Any]) -> bytes:
+    """
+    Generates a comprehensive multi-sheet Excel workbook containing
+    all unique scans and findings across the entire database.
+    """
+    wb = Workbook()
+    
+    # Sheet 1: All Unique Scans
+    ws_scans = wb.active
+    ws_scans.title = "Scan History"
+    
+    header_fill = PatternFill(start_color="1E293B", end_color="1E293B", fill_type="solid")
+    header_font = Font(name="Segoe UI", size=11, bold=True, color="FFFFFF")
+    
+    scan_headers = [
+        "Scan ID", "Target URL", "Status", "Scan Mode", "Risk Score",
+        "Security Grade", "WordPress Installed", "Core WP Version",
+        "Initiated By", "Started At", "Completed At", "Total Findings"
+    ]
+    ws_scans.append(scan_headers)
+    for cell in ws_scans[1]:
+        cell.fill = header_fill
+        cell.font = header_font
+        cell.alignment = Alignment(horizontal="center", vertical="center")
+        
+    ws_findings = wb.create_sheet(title="All Findings Log")
+    finding_headers = [
+        "Scan ID", "Target URL", "Severity", "Category", "Title", "CVE",
+        "CVSS Score", "CISA KEV Listed", "Software Type", "Detected Version",
+        "Patched Version", "Description", "Remediation Action"
+    ]
+    ws_findings.append(finding_headers)
+    for cell in ws_findings[1]:
+        cell.fill = header_fill
+        cell.font = header_font
+        cell.alignment = Alignment(horizontal="center", vertical="center")
+        
+    for scan in scans:
+        findings_count = len(scan.findings) if hasattr(scan, "findings") and scan.findings else 0
+        ws_scans.append([
+            str(scan.id),
+            _sanitize_excel_cell(str(scan.target_url)),
+            str(scan.status.value if hasattr(scan.status, "value") else scan.status),
+            str(scan.scan_mode),
+            scan.score if scan.score is not None else "N/A",
+            scan.grade or "N/A",
+            "Yes" if scan.is_wordpress else "No",
+            scan.wp_version or "Not WordPress",
+            _sanitize_excel_cell(str(scan.initiated_by or "System")),
+            str(scan.started_at),
+            str(scan.completed_at or "N/A"),
+            findings_count
+        ])
+        
+        if hasattr(scan, "findings") and scan.findings:
+            for f in scan.findings:
+                sev = _get_severity_str(f)
+                rd = _get_raw_data(f)
+                ws_findings.append([
+                    str(scan.id),
+                    _sanitize_excel_cell(str(scan.target_url)),
+                    sev.upper(),
+                    _sanitize_excel_cell(str(f.category or "general")),
+                    _sanitize_excel_cell(str(f.title)),
+                    _sanitize_excel_cell(rd.get("cve", "")),
+                    rd.get("cvss_score", ""),
+                    "YES" if rd.get("kev_listed") else "NO",
+                    _sanitize_excel_cell(rd.get("software_type", "")),
+                    _sanitize_excel_cell(rd.get("detected_version", "")),
+                    _sanitize_excel_cell(rd.get("patched_version", "")),
+                    _sanitize_excel_cell(str(f.description or "")),
+                    _sanitize_excel_cell(str(f.remediation or ""))
+                ])
+
+    # Auto-fit columns
+    for ws in [ws_scans, ws_findings]:
+        ws.views.sheetView[0].showGridLines = True
+        for col in ws.columns:
+            max_len = max(len(str(cell.value or '')) for cell in col)
+            col_letter = get_column_letter(col[0].column)
+            ws.column_dimensions[col_letter].width = min(max(max_len + 3, 12), 60)
+
+    buf = io.BytesIO()
+    wb.save(buf)
+    return buf.getvalue()
 
 
 def generate_pdf_report(scan) -> bytes:

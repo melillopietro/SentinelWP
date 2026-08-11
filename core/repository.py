@@ -199,9 +199,41 @@ def get_scan(scan_id: str) -> Optional[ScanResult]:
     return scan
 
 
-def list_scans(limit: int = 100, offset: int = 0) -> list:
+def list_scans(limit: int = 100, offset: int = 0, filters: Optional[dict] = None) -> list:
     conn = _get_conn()
-    rows = conn.execute("SELECT * FROM scans ORDER BY started_at DESC LIMIT ? OFFSET ?", (limit, offset)).fetchall()
+    query = "SELECT * FROM scans WHERE 1=1"
+    params = []
+
+    if filters:
+        if filters.get("target_url"):
+            query += " AND target_url LIKE ?"
+            params.append(f"%{filters['target_url']}%")
+        if filters.get("status"):
+            query += " AND status = ?"
+            params.append(filters["status"])
+        if filters.get("scan_mode"):
+            query += " AND scan_mode = ?"
+            params.append(filters["scan_mode"])
+        if filters.get("grade"):
+            query += " AND grade = ?"
+            params.append(filters["grade"])
+        if filters.get("is_wordpress") is not None and str(filters["is_wordpress"]).strip() != "":
+            val = str(filters["is_wordpress"]).lower()
+            if val in ("1", "true", "yes"):
+                query += " AND is_wordpress = 1"
+            elif val in ("0", "false", "no"):
+                query += " AND (is_wordpress = 0 OR is_wordpress IS NULL)"
+        if filters.get("date_from"):
+            query += " AND started_at >= ?"
+            params.append(filters["date_from"])
+        if filters.get("date_to"):
+            query += " AND started_at <= ?"
+            params.append(filters["date_to"] + "T23:59:59")
+
+    query += " ORDER BY started_at DESC LIMIT ? OFFSET ?"
+    params.extend([limit, offset])
+
+    rows = conn.execute(query, params).fetchall()
     results = []
     for row in rows:
         s = ScanResult(
