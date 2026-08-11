@@ -517,6 +517,8 @@ def _sanitize_cell(value):
         return "'" + value
     return value
 
+_sanitize_excel_cell = _sanitize_cell
+
 
 def generate_excel_report(scan) -> bytes:
     wb = Workbook()
