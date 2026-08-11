@@ -281,17 +281,58 @@ function setTheme(theme) {
             <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
             Threat Intel
         </a>
-        <a href="{{ url_for('settings') }}" class="{% if request.endpoint == 'settings' %}active{% endif %}">
-            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
-            User Panel &amp; Settings
-        </a>
     </nav>
-    <div class="sidebar-footer">
-        <div class="user-info">{{ session.get('username', '') }} ({{ session.get('role', '') }})</div>
-        <a href="{{ url_for('logout') }}" class="btn btn-secondary btn-sm" style="width:100%;justify-content:center;">Sign Out</a>
+    <div class="sidebar-footer" style="position:relative; padding:16px;">
+        <div id="user-dropdown-btn" onclick="toggleUserDropdown(event)" style="display:flex; align-items:center; justify-content:space-between; padding:10px 12px; border-radius:var(--radius); background:var(--bg-card); border:1px solid var(--border); cursor:pointer; user-select:none; transition:all 0.15s;">
+            <div style="display:flex; align-items:center; gap:10px; min-width:0;">
+                <div style="width:32px; height:32px; border-radius:50%; background:var(--accent); color:#fff; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:13px; text-transform:uppercase; flex-shrink:0;">
+                    {{ (session.get('username') or 'U')[0] }}
+                </div>
+                <div style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
+                    <div style="font-weight:600; font-size:13px; color:var(--text-primary); line-height:1.2; text-overflow:ellipsis; overflow:hidden;">{{ session.get('username', 'User') }}</div>
+                    <div style="font-size:11px; color:var(--text-muted); text-transform:capitalize;">{{ session.get('role', 'user') }}</div>
+                </div>
+            </div>
+            <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="color:var(--text-muted); flex-shrink:0; margin-left:6px;"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+        </div>
+
+        <!-- User Options Dropdown -->
+        <div id="user-menu-dropdown" style="display:none; position:absolute; bottom:calc(100% + 8px); left:16px; right:16px; background:var(--bg-card); border:1px solid var(--border); border-radius:var(--radius); box-shadow:0 10px 25px -5px rgba(0,0,0,0.5); z-index:200; padding:6px; flex-direction:column; gap:2px;">
+            <a href="{{ url_for('settings') }}" style="display:flex; align-items:center; gap:10px; padding:10px 12px; font-size:13px; color:var(--text-primary); border-radius:4px; text-decoration:none; transition:background 0.15s;" onmouseover="this.style.background='var(--bg-hover)'" onmouseout="this.style.background='transparent'">
+                <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="color:var(--accent);"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                User Panel &amp; Settings
+            </a>
+            <a href="{{ url_for('changelog') }}" style="display:flex; align-items:center; gap:10px; padding:10px 12px; font-size:13px; color:var(--text-primary); border-radius:4px; text-decoration:none; transition:background 0.15s;" onmouseover="this.style.background='var(--bg-hover)'" onmouseout="this.style.background='transparent'">
+                <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="color:var(--text-muted);"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                Changelog &amp; Notes
+            </a>
+            <div style="height:1px; background:var(--border); margin:4px 0;"></div>
+            <a href="{{ url_for('logout') }}" style="display:flex; align-items:center; gap:10px; padding:10px 12px; font-size:13px; color:var(--danger); border-radius:4px; text-decoration:none; transition:background 0.15s;" onmouseover="this.style.background='rgba(239,68,68,0.12)'" onmouseout="this.style.background='transparent'">
+                <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
+                Sign Out
+            </a>
+        </div>
     </div>
 </aside>
 {% endif %}
+
+<script>
+function toggleUserDropdown(e) {
+    if (e) e.stopPropagation();
+    const dropdown = document.getElementById("user-menu-dropdown");
+    if (!dropdown) return;
+    const isHidden = dropdown.style.display === "none" || dropdown.style.display === "";
+    dropdown.style.display = isHidden ? "flex" : "none";
+}
+
+document.addEventListener("click", function(e) {
+    const dropdown = document.getElementById("user-menu-dropdown");
+    const btn = document.getElementById("user-dropdown-btn");
+    if (dropdown && btn && !btn.contains(e.target) && !dropdown.contains(e.target)) {
+        dropdown.style.display = "none";
+    }
+});
+</script>
 
 <main class="main">
     {% with messages = get_flashed_messages(with_categories=true) %}
