@@ -64,6 +64,82 @@ def _get_raw_data(f) -> Dict[str, Any]:
     return {}
 
 
+def _build_executive_summary_details(scan, counts) -> Dict[str, Any]:
+    """Generates a highly descriptive, speaking executive narrative and prioritized SLA action plan."""
+    findings = getattr(scan, "findings", [])
+    has_kev = any(_get_raw_data(f).get("kev_listed") for f in findings)
+    cve_count = sum(1 for f in findings if _get_raw_data(f).get("cve"))
+    score_val = scan.score if scan.score is not None else 100
+    total_findings = len(findings)
+    target = scan.target_url
+
+    if has_kev or counts["critical"] > 0:
+        posture_title = "CRITICAL EXECUTIVE ATTENTION REQUIRED"
+        posture_color = "#dc2626"
+        posture_html_color = "#ef4444"
+        posture_bg_pdf = "#fef2f2"
+        posture_bg_html = "rgba(239, 68, 68, 0.1)"
+        posture_border_html = "#dc2626"
+        narrative = (
+            f"L'audit di sicurezza sul target <b>{html.escape(str(target))}</b> ha rilevato una condizione di "
+            f"<b>elevata esposizione al rischio</b>. Sono state identificate <b>{total_findings} vulnerabilità complessive</b>, "
+            f"tra cui <b>{counts['critical']} critiche</b> e <b>{counts['high']} ad alto impatto</b>. "
+        )
+        if has_kev:
+            narrative += (
+                "In particolare, sono presenti falle elencate nel catalogo <b>CISA KEV (Known Exploited Vulnerabilities)</b>, "
+                "attivamente sfruttate in attacchi informatici a livello globale. "
+            )
+        narrative += (
+            "Si raccomanda l'attivazione immediata delle procedure di mitigazione e l'applicazione delle patch "
+            "entro 48 ore per prevenire la compromissione del sistema e dei dati aziendali."
+        )
+    elif counts["high"] > 0 or score_val < 75:
+        posture_title = "MODERATE SECURITY RISK — ACTION RECOMMENDED"
+        posture_color = "#ea580c"
+        posture_html_color = "#f97316"
+        posture_bg_pdf = "#fff7ed"
+        posture_bg_html = "rgba(249, 115, 22, 0.1)"
+        posture_border_html = "#ea580c"
+        narrative = (
+            f"L'analisi del target <b>{html.escape(str(target))}</b> evidenzia un <b>rischio di sicurezza moderato</b> "
+            f"con <b>{total_findings} rilievi identificati</b> ({counts['high']} ad alto impatto, {counts['medium']} a medio impatto). "
+            f"Punteggio di sicurezza calcolato: <b>{score_val}/100</b> (Grado <b>{scan.grade or 'N/A'}</b>). "
+            "Si raccomanda l'aggiornamento dei componenti obsoleti e l'implementazione delle contromisure nei tempi di SLA standard (7-14 giorni)."
+        )
+    else:
+        posture_title = "STRONG SECURITY POSTURE"
+        posture_color = "#16a34a"
+        posture_html_color = "#22c55e"
+        posture_bg_pdf = "#f0fdf4"
+        posture_bg_html = "rgba(34, 197, 94, 0.1)"
+        posture_border_html = "#16a34a"
+        narrative = (
+            f"L'analisi effettuata sul dominio <b>{html.escape(str(target))}</b> ha riscontrato un'<b>ottima postura di sicurezza complessiva</b>, "
+            f"con un punteggio di <b>{score_val}/100</b> (Grado <b>{scan.grade or 'N/A'}</b>). Non sono state rilevate minacce critiche attive. "
+            "Si suggerisce di mantenere attivo il monitoraggio periodico e l'allineamento automatico dei feed di Threat Intelligence."
+        )
+
+    action_plan = [
+        "<b>FASE 1 — Intervento Immediato (SLA 0 - 48 ore):</b> Applicare le patch per le falle CISA KEV e le vulnerabilità con CVSS &ge; 9.0.",
+        "<b>FASE 2 — Messa in Sicurezza &amp; Hardening (SLA 7 - 14 giorni):</b> Aggiornare i plugin/temi obsoleti ed applicare le intestazioni HTTP di sicurezza (CSP, HSTS, X-Frame-Options).",
+        "<b>FASE 3 — Monitoraggio Continuo &amp; Compliance (SLA Continuo):</b> Eseguire scansioni schedulate automatiche integrate con i feed ufficiali Wordfence e CISA KEV."
+    ]
+
+    return {
+        "title": posture_title,
+        "color": posture_color,
+        "html_color": posture_html_color,
+        "bg_pdf": posture_bg_pdf,
+        "bg_html": posture_bg_html,
+        "border_html": posture_border_html,
+        "narrative": narrative,
+        "action_plan": action_plan,
+        "has_kev": has_kev,
+        "cve_count": cve_count,
+    }
+
+
 def generate_html_report(scan) -> str:
     findings = getattr(scan, "findings", [])
     
@@ -73,6 +149,8 @@ def generate_html_report(scan) -> str:
         s = _get_severity_str(f)
         if s in counts:
             counts[s] += 1
+
+    exec_info = _build_executive_summary_details(scan, counts)
             
     findings_cards = ""
     for idx, f in enumerate(findings, 1):
@@ -98,25 +176,22 @@ def generate_html_report(scan) -> str:
         patched_ver = html.escape(str(rd.get('patched_version', '') or ''))
         
         meta_items = []
-        if soft_type:
-            meta_items.append(f"<strong>Type:</strong> {soft_type}")
-        if plugin_slug:
-            meta_items.append(f"<strong>Slug:</strong> {plugin_slug}")
+        if soft_type or plugin_slug:
+            meta_items.append(f"Component: <strong>{soft_type} {plugin_slug}</strong>")
         if det_ver:
-            meta_items.append(f"<strong>Detected Version:</strong> {det_ver}")
+            meta_items.append(f"Detected Ver: <strong>{det_ver}</strong>")
         if patched_ver:
-            meta_items.append(f"<strong>Patched Version:</strong> {patched_ver}")
+            meta_items.append(f"Patched Ver: <strong>{patched_ver}</strong>")
         if cvss_vec:
-            meta_items.append(f"<strong>CVSS Vector:</strong> {cvss_vec}")
+            meta_items.append(f"Vector: <code>{cvss_vec}</code>")
             
-        meta_html = " | ".join(meta_items)
-        meta_block = f'<div class="finding-meta">{meta_html}</div>' if meta_items else ''
-
+        meta_block = f'<div class="finding-meta">{" | ".join(meta_items)}</div>' if meta_items else ''
+        
         findings_cards += f"""
-        <div class="finding-card severity-{sev}" data-severity="{sev}" data-search="{safe_title.lower()} {safe_desc.lower()} {cve_val.lower()} {safe_cat.lower()}">
+        <div class="finding-card" data-severity="{sev}">
             <div class="finding-header">
                 <div class="finding-title-group">
-                    <span class="badge-sev" style="background:{color}">{sev.upper()}</span>
+                    <span class="badge-sev" style="background:{color};">{sev.upper()}</span>
                     <span class="finding-cat">{safe_cat}</span>
                     <h3 class="finding-title">{safe_title}</h3>
                 </div>
@@ -138,42 +213,19 @@ def generate_html_report(scan) -> str:
     score_display = scan.score if scan.score is not None else 'N/A'
     grade_display = scan.grade or 'N/A'
     wp_display = 'Yes' if scan.is_wordpress else 'No'
-    wp_ver_display = html.escape(str(scan.wp_version or 'Unknown'))
+    wp_ver_display = html.escape(str(scan.wp_version or 'Not WordPress'))
     created_at_str = datetime.utcnow().strftime('%Y-%m-%d %H:%M UTC')
 
-    # Strategic Posture Calculation for Decision-Makers
-    has_kev = any(_get_raw_data(f).get("kev_listed") for f in findings)
-    score_val = scan.score if scan.score is not None else 100
-
-    if has_kev or counts["critical"] > 0:
-        posture_title = "CRITICAL EXECUTIVE ATTENTION REQUIRED"
-        posture_color = "#ef4444"
-        posture_bg = "rgba(239, 68, 68, 0.1)"
-        posture_border = "#dc2626"
-        posture_desc = "The asset exhibits critical security exposures, including actively exploited vulnerabilities (CISA KEV) or flaws with CVSS &ge; 9.0. Immediate remediation is required to prevent business disruption or data compromise."
-    elif counts["high"] > 0 or score_val < 75:
-        posture_title = "MODERATE SECURITY RISK — ACTION RECOMMENDED"
-        posture_color = "#f97316"
-        posture_bg = "rgba(249, 115, 22, 0.1)"
-        posture_border = "#ea580c"
-        posture_desc = "The asset exhibits moderate security risks and outdated components. Remediation of High and Medium severity issues is recommended within standard SLA windows to maintain compliance."
-    else:
-        posture_title = "STRONG SECURITY POSTURE"
-        posture_color = "#22c55e"
-        posture_bg = "rgba(34, 197, 94, 0.1)"
-        posture_border = "#16a34a"
-        posture_desc = "The asset demonstrates a solid baseline security posture with minimal exposed risk. Routine maintenance and automated vulnerability intelligence monitoring should be maintained."
+    action_items_html = "".join(f"<li>{step}</li>" for step in exec_info["action_plan"])
 
     strategic_html = f"""
-    <div style="background: {posture_bg}; border: 1px solid {posture_border}; border-radius: 10px; padding: 20px; margin-bottom: 32px;">
-        <h3 style="font-size: 16px; font-weight: 700; color: {posture_color}; margin-bottom: 8px;">STRATEGIC RISK ASSESSMENT: {posture_title}</h3>
-        <p style="font-size: 14px; color: var(--text-main); margin-bottom: 12px;">{posture_desc}</p>
-        <div style="font-size: 13px; color: var(--text-muted); border-top: 1px solid var(--border); padding-top: 10px;">
-            <strong style="color: #fff;">RECOMMENDED ACTION PLAN FOR DECISION-MAKERS:</strong>
-            <ul style="margin-left: 20px; margin-top: 6px; line-height: 1.6;">
-                <li><strong style="color: {posture_color};">Immediate Patching (0-48h):</strong> Remediate all components flagged in CISA KEV or with Critical CVSS &ge; 9.0.</li>
-                <li><strong>Hardening &amp; Upgrades (7-14 days):</strong> Apply updates for High/Medium vulnerabilities and enforce HTTPS/headers.</li>
-                <li><strong>Continuous Intelligence:</strong> Maintain automated daily/weekly scans integrated with Wordfence &amp; CISA KEV feeds.</li>
+    <div style="background: {exec_info['bg_html']}; border: 1px solid {exec_info['border_html']}; border-radius: 10px; padding: 24px; margin-bottom: 32px;">
+        <h3 style="font-size: 16px; font-weight: 700; color: {exec_info['html_color']}; margin-bottom: 12px; text-transform: uppercase;">EXECUTIVE NARRATIVE: {exec_info['title']}</h3>
+        <p style="font-size: 14px; color: var(--text-main); line-height: 1.7; margin-bottom: 16px;">{exec_info['narrative']}</p>
+        <div style="font-size: 13px; color: var(--text-muted); border-top: 1px solid var(--border); padding-top: 14px;">
+            <strong style="color: #fff; text-transform: uppercase; font-size: 12px; letter-spacing: 0.5px;">PIANO DI BONIFICA PRIORITIZZATO PER IL MANAGEMENT &amp; TEAM TECNICO:</strong>
+            <ul style="margin-left: 20px; margin-top: 8px; line-height: 1.8; color: var(--text-main);">
+                {action_items_html}
             </ul>
         </div>
     </div>
@@ -511,20 +563,16 @@ def generate_excel_report(scan) -> bytes:
     for sev, count in counts.items():
         ws_sum.append([sev.upper(), count])
 
-    # Strategic Action Plan for Excel Executive Summary
-    score_val = scan.score if scan.score is not None else 100
-    if has_kev or counts["critical"] > 0:
-        posture_title = "CRITICAL EXECUTIVE ATTENTION REQUIRED"
-    elif counts["high"] > 0 or score_val < 75:
-        posture_title = "MODERATE SECURITY RISK — ACTION RECOMMENDED"
-    else:
-        posture_title = "STRONG SECURITY POSTURE"
+    exec_info = _build_executive_summary_details(scan, counts)
 
     ws_sum.append([])
-    ws_sum.append(["Strategic Risk Assessment", posture_title])
-    ws_sum.append(["Immediate Action Plan (0-48h)", "Remediate all CISA KEV or Critical CVSS >= 9.0 flaws"])
-    ws_sum.append(["Hardening Action Plan (7-14d)", "Update High/Medium components and enforce security headers"])
-    ws_sum.append(["Continuous Threat Intelligence", "Enable automated daily/weekly scans with Wordfence & CISA KEV feeds"])
+    ws_sum.append(["Executive Strategic Assessment", exec_info["title"]])
+    clean_narrative = re.sub(r"<[^>]+>", "", exec_info["narrative"])
+    ws_sum.append(["Executive Narrative Summary", clean_narrative])
+    
+    for idx, plan_item in enumerate(exec_info["action_plan"], 1):
+        clean_step = re.sub(r"<[^>]+>", "", plan_item)
+        ws_sum.append([f"Action Plan Phase {idx}", clean_step])
 
     # Sheet 2: Findings Detail
     ws_detail = wb.create_sheet(title="Findings Detail")
@@ -894,49 +942,20 @@ def generate_pdf_report(scan) -> bytes:
     elems.append(Spacer(1, 10))
 
     # Strategic Executive Risk Assessment Box (Decision-Maker Section)
-    has_kev = any(_get_raw_data(f).get("kev_listed") for f in scan.findings)
-    score_val = scan.score if scan.score is not None else 100
-
-    if has_kev or counts["critical"] > 0:
-        posture_title = "CRITICAL EXECUTIVE ATTENTION REQUIRED"
-        posture_color = "#dc2626"
-        posture_bg = "#fef2f2"
-        posture_desc = (
-            "The assessed asset exhibits critical security exposures, including actively exploited "
-            "vulnerabilities (CISA KEV) or flaws with CVSS &ge; 9.0. High risk of unauthorized access, "
-            "data compromise, or service disruption."
-        )
-    elif counts["high"] > 0 or score_val < 75:
-        posture_title = "MODERATE SECURITY RISK — ACTION RECOMMENDED"
-        posture_color = "#ea580c"
-        posture_bg = "#fff7ed"
-        posture_desc = (
-            "The asset exhibits moderate security risks and outdated components. Remediation of High "
-            "and Medium severity issues is recommended within standard SLA windows to maintain compliance."
-        )
-    else:
-        posture_title = "STRONG SECURITY POSTURE"
-        posture_color = "#16a34a"
-        posture_bg = "#f0fdf4"
-        posture_desc = (
-            "The asset demonstrates a solid baseline security posture with minimal exposed risk. "
-            "Routine maintenance and automated vulnerability intelligence monitoring should be maintained."
-        )
+    exec_info = _build_executive_summary_details(scan, counts)
+    action_bullets = "<br/>".join(f"&bull; {step}" for step in exec_info["action_plan"])
 
     exec_box_data = [
-        [Paragraph(f"<font color='{posture_color}'><b>STRATEGIC RISK ASSESSMENT: {posture_title}</b></font>", cell_body_bold)],
-        [Paragraph(posture_desc, cell_body_style)],
-        [Paragraph("<b>RECOMMENDED EXECUTIVE ACTION PLAN:</b><br/>"
-                   "&bull; <b>Immediate Patching (0-48h):</b> Remediate all flaws flagged in CISA KEV or with Critical CVSS &ge; 9.0.<br/>"
-                   "&bull; <b>Hardening &amp; Upgrades (7-14 days):</b> Apply updates for High/Medium vulnerabilities and enforce HTTPS/headers.<br/>"
-                   "&bull; <b>Continuous Threat Intelligence:</b> Maintain automated daily/weekly scans integrated with Wordfence &amp; CISA KEV feeds.", cell_body_style)]
+        [Paragraph(f"<font color='{exec_info['color']}'><b>EXECUTIVE NARRATIVE: {exec_info['title']}</b></font>", cell_body_bold)],
+        [Paragraph(exec_info["narrative"], cell_body_style)],
+        [Paragraph(f"<b>PIANO DI BONIFICA PRIORITIZZATO PER IL MANAGEMENT &amp; TEAM TECNICO:</b><br/>{action_bullets}", cell_body_style)]
     ]
     exec_box = Table(exec_box_data, colWidths=[17.0*cm])
     exec_box.setStyle(TableStyle([
-        ("BACKGROUND", (0, 0), (-1, -1), colors.HexColor(posture_bg)),
-        ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor(posture_color)),
-        ("TOPPADDING", (0, 0), (-1, -1), 6),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+        ("BACKGROUND", (0, 0), (-1, -1), colors.HexColor(exec_info["bg_pdf"])),
+        ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor(exec_info["color"])),
+        ("TOPPADDING", (0, 0), (-1, -1), 7),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 7),
         ("LEFTPADDING", (0, 0), (-1, -1), 8),
         ("RIGHTPADDING", (0, 0), (-1, -1), 8),
     ]))
