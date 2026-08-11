@@ -65,7 +65,7 @@ def _get_raw_data(f) -> Dict[str, Any]:
 
 
 def _build_executive_summary_details(scan, counts) -> Dict[str, Any]:
-    """Generates a highly descriptive, speaking executive narrative and prioritized SLA action plan."""
+    """Generates a highly descriptive, speaking executive narrative and prioritized SLA action plan in English."""
     findings = getattr(scan, "findings", [])
     has_kev = any(_get_raw_data(f).get("kev_listed") for f in findings)
     cve_count = sum(1 for f in findings if _get_raw_data(f).get("cve"))
@@ -81,18 +81,18 @@ def _build_executive_summary_details(scan, counts) -> Dict[str, Any]:
         posture_bg_html = "rgba(239, 68, 68, 0.1)"
         posture_border_html = "#dc2626"
         narrative = (
-            f"L'audit di sicurezza sul target <b>{html.escape(str(target))}</b> ha rilevato una condizione di "
-            f"<b>elevata esposizione al rischio</b>. Sono state identificate <b>{total_findings} vulnerabilità complessive</b>, "
-            f"tra cui <b>{counts['critical']} critiche</b> e <b>{counts['high']} ad alto impatto</b>. "
+            f"The security assessment performed on target <b>{html.escape(str(target))}</b> identified a "
+            f"<b>high risk exposure profile</b>. A total of <b>{total_findings} findings</b> were detected, "
+            f"including <b>{counts['critical']} Critical</b> and <b>{counts['high']} High severity vulnerabilities</b>. "
         )
         if has_kev:
             narrative += (
-                "In particolare, sono presenti falle elencate nel catalogo <b>CISA KEV (Known Exploited Vulnerabilities)</b>, "
-                "attivamente sfruttate in attacchi informatici a livello globale. "
+                "Notably, vulnerabilities listed in the <b>CISA KEV (Known Exploited Vulnerabilities) catalog</b> "
+                "were identified, indicating active threat exploitation in the wild. "
             )
         narrative += (
-            "Si raccomanda l'attivazione immediata delle procedure di mitigazione e l'applicazione delle patch "
-            "entro 48 ore per prevenire la compromissione del sistema e dei dati aziendali."
+            "Immediate emergency patch deployment and incident mitigation procedures are strongly recommended "
+            "within a 48-hour SLA window to prevent unauthorized access, system compromise, or data exposure."
         )
     elif counts["high"] > 0 or score_val < 75:
         posture_title = "MODERATE SECURITY RISK — ACTION RECOMMENDED"
@@ -102,10 +102,10 @@ def _build_executive_summary_details(scan, counts) -> Dict[str, Any]:
         posture_bg_html = "rgba(249, 115, 22, 0.1)"
         posture_border_html = "#ea580c"
         narrative = (
-            f"L'analisi del target <b>{html.escape(str(target))}</b> evidenzia un <b>rischio di sicurezza moderato</b> "
-            f"con <b>{total_findings} rilievi identificati</b> ({counts['high']} ad alto impatto, {counts['medium']} a medio impatto). "
-            f"Punteggio di sicurezza calcolato: <b>{score_val}/100</b> (Grado <b>{scan.grade or 'N/A'}</b>). "
-            "Si raccomanda l'aggiornamento dei componenti obsoleti e l'implementazione delle contromisure nei tempi di SLA standard (7-14 giorni)."
+            f"The security evaluation for target <b>{html.escape(str(target))}</b> indicates a <b>moderate risk posture</b> "
+            f"with <b>{total_findings} total findings</b> ({counts['high']} High impact, {counts['medium']} Medium impact). "
+            f"Calculated overall security score is <b>{score_val}/100</b> (Grade <b>{scan.grade or 'N/A'}</b>). "
+            "Remediation of outdated components and security configurations is recommended within standard SLA windows (7-14 days)."
         )
     else:
         posture_title = "STRONG SECURITY POSTURE"
@@ -115,15 +115,15 @@ def _build_executive_summary_details(scan, counts) -> Dict[str, Any]:
         posture_bg_html = "rgba(34, 197, 94, 0.1)"
         posture_border_html = "#16a34a"
         narrative = (
-            f"L'analisi effettuata sul dominio <b>{html.escape(str(target))}</b> ha riscontrato un'<b>ottima postura di sicurezza complessiva</b>, "
-            f"con un punteggio di <b>{score_val}/100</b> (Grado <b>{scan.grade or 'N/A'}</b>). Non sono state rilevate minacce critiche attive. "
-            "Si suggerisce di mantenere attivo il monitoraggio periodico e l'allineamento automatico dei feed di Threat Intelligence."
+            f"The security assessment for target <b>{html.escape(str(target))}</b> demonstrates a <b>strong baseline security posture</b> "
+            f"with a score of <b>{score_val}/100</b> (Grade <b>{scan.grade or 'N/A'}</b>). No active critical threats were identified. "
+            "Continued automated monitoring and Threat Intelligence feed synchronization are recommended to preserve compliance."
         )
 
     action_plan = [
-        "<b>FASE 1 — Intervento Immediato (SLA 0 - 48 ore):</b> Applicare le patch per le falle CISA KEV e le vulnerabilità con CVSS &ge; 9.0.",
-        "<b>FASE 2 — Messa in Sicurezza &amp; Hardening (SLA 7 - 14 giorni):</b> Aggiornare i plugin/temi obsoleti ed applicare le intestazioni HTTP di sicurezza (CSP, HSTS, X-Frame-Options).",
-        "<b>FASE 3 — Monitoraggio Continuo &amp; Compliance (SLA Continuo):</b> Eseguire scansioni schedulate automatiche integrate con i feed ufficiali Wordfence e CISA KEV."
+        "<b>PHASE 1 — Emergency Patching (0 - 48h SLA):</b> Remediate all vulnerabilities listed in CISA KEV or with Critical CVSS &ge; 9.0.",
+        "<b>PHASE 2 — Hardening &amp; Upgrades (7 - 14 Days SLA):</b> Apply updates for High/Medium components and enforce HTTP security headers (CSP, HSTS, X-Frame-Options).",
+        "<b>PHASE 3 — Continuous Intelligence &amp; Compliance (Ongoing SLA):</b> Maintain scheduled automated audits integrated with Wordfence and CISA KEV threat feeds."
     ]
 
     return {
@@ -223,7 +223,7 @@ def generate_html_report(scan) -> str:
         <h3 style="font-size: 16px; font-weight: 700; color: {exec_info['html_color']}; margin-bottom: 12px; text-transform: uppercase;">EXECUTIVE NARRATIVE: {exec_info['title']}</h3>
         <p style="font-size: 14px; color: var(--text-main); line-height: 1.7; margin-bottom: 16px;">{exec_info['narrative']}</p>
         <div style="font-size: 13px; color: var(--text-muted); border-top: 1px solid var(--border); padding-top: 14px;">
-            <strong style="color: #fff; text-transform: uppercase; font-size: 12px; letter-spacing: 0.5px;">PIANO DI BONIFICA PRIORITIZZATO PER IL MANAGEMENT &amp; TEAM TECNICO:</strong>
+            <strong style="color: #fff; text-transform: uppercase; font-size: 12px; letter-spacing: 0.5px;">PRIORITIZED REMEDIATION ACTION PLAN FOR DECISION-MAKERS &amp; TECHNICAL TEAMS:</strong>
             <ul style="margin-left: 20px; margin-top: 8px; line-height: 1.8; color: var(--text-main);">
                 {action_items_html}
             </ul>
@@ -948,7 +948,7 @@ def generate_pdf_report(scan) -> bytes:
     exec_box_data = [
         [Paragraph(f"<font color='{exec_info['color']}'><b>EXECUTIVE NARRATIVE: {exec_info['title']}</b></font>", cell_body_bold)],
         [Paragraph(exec_info["narrative"], cell_body_style)],
-        [Paragraph(f"<b>PIANO DI BONIFICA PRIORITIZZATO PER IL MANAGEMENT &amp; TEAM TECNICO:</b><br/>{action_bullets}", cell_body_style)]
+        [Paragraph(f"<b>PRIORITIZED REMEDIATION ACTION PLAN FOR DECISION-MAKERS &amp; TECHNICAL TEAMS:</b><br/>{action_bullets}", cell_body_style)]
     ]
     exec_box = Table(exec_box_data, colWidths=[17.0*cm])
     exec_box.setStyle(TableStyle([
