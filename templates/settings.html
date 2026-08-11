@@ -129,11 +129,11 @@
                     <td><strong style="color:var(--text-primary);">{{ u.username }}</strong></td>
                     <td>{{ u.email or '-' }}</td>
                     <td>
-                        <span class="badge {% if u.role.value == 'admin' %}badge-critical{% elif u.role.value == 'analyst' %}badge-medium{% else %}badge-info{% endif %}">
-                            {{ u.role.value if hasattr(u.role, 'value') else u.role }}
+                        <span class="badge {% if u.role.value is defined and u.role.value == 'admin' %}badge-critical{% elif u.role == 'admin' %}badge-critical{% elif u.role.value is defined and u.role.value == 'analyst' %}badge-medium{% elif u.role == 'analyst' %}badge-medium{% else %}badge-info{% endif %}">
+                            {{ u.role.value if u.role.value is defined else u.role }}
                         </span>
                     </td>
-                    <td><span class="badge badge-success">{{ u.status.value if hasattr(u.status, 'value') else u.status }}</span></td>
+                    <td><span class="badge badge-success">{{ u.status.value if u.status.value is defined else u.status }}</span></td>
                     <td style="font-size:12px; color:var(--text-muted);">{{ u.created_at[:16] if u.created_at else '-' }}</td>
                     <td style="text-align:right;">
                         {% if u.id != session.get('user_id') %}
