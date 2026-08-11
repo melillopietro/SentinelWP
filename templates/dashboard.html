@@ -21,100 +21,90 @@
     </div>
 </div>
 
-<!-- Multi-Field Filter Panel -->
-<div style="background:var(--bg-card); border:1px solid var(--border); border-radius:var(--radius); padding:20px; margin-bottom:24px;">
-    <h3 style="font-size:14px; font-weight:600; margin-bottom:12px; color:var(--text-primary);">Filter Scans</h3>
-    <form method="GET" action="{{ url_for('dashboard') }}">
-        <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap:12px; margin-bottom:16px;">
-            <div>
-                <label style="display:block; font-size:11px; text-transform:uppercase; color:var(--text-muted); margin-bottom:4px; font-weight:600;">Target URL</label>
-                <input type="text" name="target_url" value="{{ filters.target_url if filters else '' }}" placeholder="Search URL..." style="width:100%; padding:8px 10px; background:var(--bg-dark); border:1px solid var(--border); border-radius:var(--radius); color:var(--text-primary); font-size:13px;">
-            </div>
-            <div>
-                <label style="display:block; font-size:11px; text-transform:uppercase; color:var(--text-muted); margin-bottom:4px; font-weight:600;">Status</label>
-                <select name="status" style="width:100%; padding:8px 10px; background:var(--bg-dark); border:1px solid var(--border); border-radius:var(--radius); color:var(--text-primary); font-size:13px;">
-                    <option value="">All Statuses</option>
-                    <option value="completed" {% if filters and filters.status == 'completed' %}selected{% endif %}>Completed</option>
-                    <option value="running" {% if filters and filters.status == 'running' %}selected{% endif %}>Running</option>
-                    <option value="pending" {% if filters and filters.status == 'pending' %}selected{% endif %}>Pending</option>
-                    <option value="failed" {% if filters and filters.status == 'failed' %}selected{% endif %}>Failed</option>
-                </select>
-            </div>
-            <div>
-                <label style="display:block; font-size:11px; text-transform:uppercase; color:var(--text-muted); margin-bottom:4px; font-weight:600;">Scan Mode</label>
-                <select name="scan_mode" style="width:100%; padding:8px 10px; background:var(--bg-dark); border:1px solid var(--border); border-radius:var(--radius); color:var(--text-primary); font-size:13px;">
-                    <option value="">All Modes</option>
-                    <option value="passive" {% if filters and filters.scan_mode == 'passive' %}selected{% endif %}>Passive</option>
-                    <option value="safe-active" {% if filters and filters.scan_mode == 'safe-active' %}selected{% endif %}>Safe Active</option>
-                    <option value="full" {% if filters and filters.scan_mode == 'full' %}selected{% endif %}>Full</option>
-                </select>
-            </div>
-            <div>
-                <label style="display:block; font-size:11px; text-transform:uppercase; color:var(--text-muted); margin-bottom:4px; font-weight:600;">Security Grade</label>
-                <select name="grade" style="width:100%; padding:8px 10px; background:var(--bg-dark); border:1px solid var(--border); border-radius:var(--radius); color:var(--text-primary); font-size:13px;">
-                    <option value="">All Grades</option>
-                    <option value="A" {% if filters and filters.grade == 'A' %}selected{% endif %}>Grade A</option>
-                    <option value="B" {% if filters and filters.grade == 'B' %}selected{% endif %}>Grade B</option>
-                    <option value="C" {% if filters and filters.grade == 'C' %}selected{% endif %}>Grade C</option>
-                    <option value="D" {% if filters and filters.grade == 'D' %}selected{% endif %}>Grade D</option>
-                    <option value="E" {% if filters and filters.grade == 'E' %}selected{% endif %}>Grade E</option>
-                    <option value="F" {% if filters and filters.grade == 'F' %}selected{% endif %}>Grade F</option>
-                </select>
-            </div>
-            <div>
-                <label style="display:block; font-size:11px; text-transform:uppercase; color:var(--text-muted); margin-bottom:4px; font-weight:600;">CMS Type</label>
-                <select name="is_wordpress" style="width:100%; padding:8px 10px; background:var(--bg-dark); border:1px solid var(--border); border-radius:var(--radius); color:var(--text-primary); font-size:13px;">
-                    <option value="">All Types</option>
-                    <option value="1" {% if filters and filters.is_wordpress == '1' %}selected{% endif %}>WordPress Only</option>
-                    <option value="0" {% if filters and filters.is_wordpress == '0' %}selected{% endif %}>Not WordPress</option>
-                </select>
-            </div>
+<!-- Recent Scans with Integrated Inline Filter Toolbar -->
+<div style="background:var(--bg-card); border:1px solid var(--border); border-radius:var(--radius); padding:20px; margin-top:24px;">
+    <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; margin-bottom:16px;">
+        <div style="display:flex; align-items:center; gap:10px;">
+            <h2 style="font-size:18px; font-weight:600; margin:0; color:var(--text-primary);">Recent Scans</h2>
+            <span class="badge badge-info" style="font-size:11px;">{{ scans|length }} matched</span>
         </div>
-        <div style="display:flex; justify-content:flex-end; gap:8px;">
-            <a href="{{ url_for('dashboard') }}" class="btn btn-secondary btn-sm">Reset</a>
-            <button type="submit" class="btn btn-primary btn-sm">Apply Filters</button>
-        </div>
-    </form>
-</div>
+        
+        <!-- Compact Inline Filter Toolbar -->
+        <form method="GET" action="{{ url_for('dashboard') }}" style="display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin:0;">
+            <input type="text" name="target_url" value="{{ filters.target_url if filters else '' }}" placeholder="Search Target URL..." style="padding:6px 10px; background:var(--bg-dark); border:1px solid var(--border); border-radius:var(--radius); color:var(--text-primary); font-size:12px; min-width:150px;">
+            
+            <select name="is_wordpress" style="padding:6px 8px; background:var(--bg-dark); border:1px solid var(--border); border-radius:var(--radius); color:var(--text-primary); font-size:12px;">
+                <option value="">CMS: All</option>
+                <option value="1" {% if filters and filters.is_wordpress == '1' %}selected{% endif %}>WordPress Only</option>
+                <option value="0" {% if filters and filters.is_wordpress == '0' %}selected{% endif %}>Not WordPress</option>
+            </select>
 
-<div class="page-header" style="margin-bottom:16px;">
-    <h2 style="font-size:18px;">Recent Scans</h2>
-</div>
+            <select name="grade" style="padding:6px 8px; background:var(--bg-dark); border:1px solid var(--border); border-radius:var(--radius); color:var(--text-primary); font-size:12px;">
+                <option value="">Grade: All</option>
+                <option value="A" {% if filters and filters.grade == 'A' %}selected{% endif %}>A</option>
+                <option value="B" {% if filters and filters.grade == 'B' %}selected{% endif %}>B</option>
+                <option value="C" {% if filters and filters.grade == 'C' %}selected{% endif %}>C</option>
+                <option value="D" {% if filters and filters.grade == 'D' %}selected{% endif %}>D</option>
+                <option value="E" {% if filters and filters.grade == 'E' %}selected{% endif %}>E</option>
+                <option value="F" {% if filters and filters.grade == 'F' %}selected{% endif %}>F</option>
+            </select>
 
-{% if scans %}
-<div class="table-wrap">
-<table>
-<thead><tr><th>Target</th><th>Score</th><th>Grade</th><th>WordPress / Version</th><th>Status</th><th>Date</th><th>WHOIS</th><th>Actions</th></tr></thead>
-<tbody>
-{% for s in scans %}
-<tr>
-    <td><a href="{{ url_for('scan_detail', scan_id=s.id) }}">{{ s.target_url }}</a></td>
-    <td>{{ s.score if s.score is not none else '-' }}</td>
-    <td>
-        {% if s.grade %}
-        <span class="badge {% if s.grade.startswith('A') %}badge-info{% elif s.grade.startswith('B') %}badge-low{% elif s.grade.startswith('C') %}badge-medium{% else %}badge-critical{% endif %}">{{ s.grade }}</span>
-        {% else %}-{% endif %}
-    </td>
-    <td>
-        {% if s.is_wordpress %}
-            <span class="badge badge-info">WP {{ s.wp_version or 'Detected' }}</span>
-        {% else %}
-            <span class="badge" style="background:var(--border); color:var(--text-muted);">{{ s.wp_version or 'Not WordPress' }}</span>
-        {% endif %}
-    </td>
-    <td><span class="badge badge-info">{{ s.status.value if s.status.value is defined else s.status }}</span></td>
-    <td style="color:var(--text-muted);font-size:12px;">{{ s.started_at[:16] }}</td>
-    <td style="font-size:12px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="{{ s.whois_info or '-' }}">{{ s.whois_info or '-' }}</td>
-    <td><a href="{{ url_for('scan_detail', scan_id=s.id) }}" class="btn btn-secondary btn-sm">View</a></td>
-</tr>
-{% endfor %}
-</tbody>
-</table>
+            <select name="status" style="padding:6px 8px; background:var(--bg-dark); border:1px solid var(--border); border-radius:var(--radius); color:var(--text-primary); font-size:12px;">
+                <option value="">Status: All</option>
+                <option value="completed" {% if filters and filters.status == 'completed' %}selected{% endif %}>Completed</option>
+                <option value="running" {% if filters and filters.status == 'running' %}selected{% endif %}>Running</option>
+                <option value="pending" {% if filters and filters.status == 'pending' %}selected{% endif %}>Pending</option>
+                <option value="failed" {% if filters and filters.status == 'failed' %}selected{% endif %}>Failed</option>
+            </select>
+
+            <select name="scan_mode" style="padding:6px 8px; background:var(--bg-dark); border:1px solid var(--border); border-radius:var(--radius); color:var(--text-primary); font-size:12px;">
+                <option value="">Mode: All</option>
+                <option value="passive" {% if filters and filters.scan_mode == 'passive' %}selected{% endif %}>Passive</option>
+                <option value="safe-active" {% if filters and filters.scan_mode == 'safe-active' %}selected{% endif %}>Safe Active</option>
+                <option value="full" {% if filters and filters.scan_mode == 'full' %}selected{% endif %}>Full</option>
+            </select>
+
+            <button type="submit" class="btn btn-primary btn-sm" style="padding:5px 12px; font-size:12px;">Filter</button>
+            {% if filters and (filters.target_url or filters.status or filters.scan_mode or filters.grade or filters.is_wordpress) %}
+            <a href="{{ url_for('dashboard') }}" class="btn btn-secondary btn-sm" style="padding:5px 10px; font-size:12px;">Reset</a>
+            {% endif %}
+        </form>
+    </div>
+
+    {% if scans %}
+    <div class="table-wrap" style="margin:0;">
+    <table>
+    <thead><tr><th>Target</th><th>Score</th><th>Grade</th><th>WordPress / Version</th><th>Status</th><th>Date</th><th>WHOIS</th><th>Actions</th></tr></thead>
+    <tbody>
+    {% for s in scans %}
+    <tr>
+        <td><a href="{{ url_for('scan_detail', scan_id=s.id) }}">{{ s.target_url }}</a></td>
+        <td>{{ s.score if s.score is not none else '-' }}</td>
+        <td>
+            {% if s.grade %}
+            <span class="badge {% if s.grade.startswith('A') %}badge-info{% elif s.grade.startswith('B') %}badge-low{% elif s.grade.startswith('C') %}badge-medium{% else %}badge-critical{% endif %}">{{ s.grade }}</span>
+            {% else %}-{% endif %}
+        </td>
+        <td>
+            {% if s.is_wordpress %}
+                <span class="badge badge-info">WP {{ s.wp_version or 'Detected' }}</span>
+            {% else %}
+                <span class="badge" style="background:var(--border); color:var(--text-muted);">{{ s.wp_version or 'Not WordPress' }}</span>
+            {% endif %}
+        </td>
+        <td><span class="badge badge-info">{{ s.status.value if s.status.value is defined else s.status }}</span></td>
+        <td style="color:var(--text-muted);font-size:12px;">{{ s.started_at[:16] }}</td>
+        <td style="font-size:12px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="{{ s.whois_info or '-' }}">{{ s.whois_info or '-' }}</td>
+        <td><a href="{{ url_for('scan_detail', scan_id=s.id) }}" class="btn btn-secondary btn-sm">View</a></td>
+    </tr>
+    {% endfor %}
+    </tbody>
+    </table>
+    </div>
+    {% else %}
+    <div style="background:var(--bg-dark);border:1px solid var(--border);border-radius:var(--radius);padding:30px;text-align:center;">
+        <p style="color:var(--text-muted);margin:0;">No scans matching the selected criteria.</p>
+    </div>
+    {% endif %}
 </div>
-{% else %}
-<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:40px;text-align:center;">
-    <p style="color:var(--text-muted);">No scans matching the selected filters.</p>
-    <a href="{{ url_for('new_scan') }}" class="btn btn-primary" style="margin-top:16px;">New Scan</a>
-</div>
-{% endif %}
 {% endblock %}
