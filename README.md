@@ -183,9 +183,16 @@ python app.py
 
 ---
 
-## Recent Updates & Changelog (v3.3)
+## Recent Updates & Changelog (v3.6.0)
 
-### v3.3.0 — WordPress Vulnerability Intelligence Pipeline
+### v3.6.0 — User Panel, Enhanced Narrative Reports & GitHub Update Checker
+- **User Panel & Preferences (`/settings`)**: Unified settings page for theme selection, password changes, admin user management, and database backup/restore.
+- **Narrative Executive Summaries & SLA Action Plans**: Speaking narrative reports in PDF, HTML, and Excel with 3-tier prioritized SLA remediation plans (0-48h, 7-14d, Continuous).
+- **GitHub Update Checker**: Automatic update verification comparing local git commit against official GitHub repository releases/commits.
+- **Admin Database Backup & Restore**: Full database export and lossless Excel import capability for cross-instance migration.
+- **Dark & Light Themes**: Modern Dark/Light theme customizer with instant zero-flash switching.
+
+### v3.5.0 — Non-WP Domain Identification & 30-min Auto-Sync
 - **Wordfence Intelligence v3 Integration**: Automated background feed ingestion for WordPress Core and plugin vulnerabilities with CVSS 3.1 scoring, CWE classification, and affected version ranges.
 - **CISA KEV Correlation**: Automatically flags vulnerabilities actively exploited in the wild with CISA Known Exploited Vulnerabilities badges and metadata.
 - **WordPress.org Popularity Enrichment**: Syncs active install counts for plugins to prioritize high-impact vulnerabilities on widely deployed software.
