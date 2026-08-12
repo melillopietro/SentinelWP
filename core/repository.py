@@ -363,3 +363,18 @@ def delete_scheduled_scan(sched_id: str):
     conn.execute("DELETE FROM scheduled_scans WHERE id = ?", (sched_id,))
     conn.commit()
 
+
+def purge_all_scans_and_findings() -> tuple[int, int]:
+    """
+    Permanently purges all scan records and findings from SQLite database.
+    Returns (scans_count, findings_count) deleted.
+    """
+    conn = _get_conn()
+    scans_count = conn.execute("SELECT COUNT(*) FROM scans").fetchone()[0]
+    findings_count = conn.execute("SELECT COUNT(*) FROM findings").fetchone()[0]
+
+    conn.execute("DELETE FROM findings")
+    conn.execute("DELETE FROM scans")
+    conn.commit()
+    return scans_count, findings_count
+

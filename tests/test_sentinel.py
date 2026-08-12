@@ -273,5 +273,31 @@ class TestUpdateChecker(unittest.TestCase):
         self.assertEqual(res["remote_commit"], "b812559")
 
 
+class TestPurgeDatabase(unittest.TestCase):
+    @patch("core.repository.purge_all_scans_and_findings", return_value=(5, 12))
+    def test_purge_db_route_authenticated_admin(self, mock_purge):
+        from app import app
+        app.config["TESTING"] = True
+        with app.test_client() as client:
+            with client.session_transaction() as sess:
+                sess["user_id"] = "admin-id"
+                sess["username"] = "admin"
+                sess["role"] = "admin"
+            resp = client.post("/admin/purge-db", data={"confirm_purge": "PURGE"})
+            self.assertEqual(resp.status_code, 302)
+            mock_purge.assert_called_once()
+
+    def test_purge_db_route_cancelled_without_confirmation(self):
+        from app import app
+        app.config["TESTING"] = True
+        with app.test_client() as client:
+            with client.session_transaction() as sess:
+                sess["user_id"] = "admin-id"
+                sess["username"] = "admin"
+                sess["role"] = "admin"
+            resp = client.post("/admin/purge-db", data={"confirm_purge": "NO"})
+            self.assertEqual(resp.status_code, 302)
+
+
 if __name__ == "__main__":
     unittest.main()

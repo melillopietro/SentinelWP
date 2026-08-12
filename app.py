@@ -664,6 +664,21 @@ def admin_import_db():
     return redirect(url_for("settings"))
 
 
+@app.route("/admin/purge-db", methods=["POST"])
+@admin_required
+def admin_purge_db():
+    confirm_text = request.form.get("confirm_purge", "").strip().upper()
+    if confirm_text != "PURGE":
+        flash("Database purge cancelled: Type 'PURGE' to confirm deletion.", "error")
+        return redirect(url_for("settings"))
+    try:
+        scans_count, findings_count = repository.purge_all_scans_and_findings()
+        flash(f"Database archive purged! Successfully deleted {scans_count} scan record(s) and {findings_count} finding(s).", "success")
+    except Exception as e:
+        flash(f"Database purge failed: {str(e)}", "error")
+    return redirect(url_for("settings"))
+
+
 # --- API Endpoints ---
 @app.route("/api/scan/<scan_id>/status")
 @login_required
