@@ -157,13 +157,15 @@
             Database Backup &amp; Restoration
         </h4>
 
-        <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap:16px;">
+        <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap:16px;">
             <!-- Export Box -->
-            <div style="background:var(--bg-dark); border:1px solid var(--border); border-radius:var(--radius); padding:16px;">
-                <h5 style="font-size:13px; font-weight:600; margin-bottom:6px; color:var(--text-primary);">Export Database Backup</h5>
-                <p style="font-size:12px; color:var(--text-muted); margin-bottom:14px; line-height:1.4;">
-                    Download the complete scan history and findings log into a multi-sheet Excel workbook (.xlsx).
-                </p>
+            <div style="background:var(--bg-dark); border:1px solid var(--border); border-radius:var(--radius); padding:20px; display:flex; flex-direction:column; justify-content:space-between;">
+                <div>
+                    <h5 style="font-size:14px; font-weight:600; margin-bottom:8px; color:var(--text-primary);">Export Database Backup</h5>
+                    <p style="font-size:12px; color:var(--text-muted); margin-bottom:16px; line-height:1.5;">
+                        Download the complete scan history and findings log into a multi-sheet Excel workbook (.xlsx).
+                    </p>
+                </div>
                 <a href="{{ url_for('admin_export_db') }}" class="btn btn-primary btn-sm" style="width:100%; justify-content:center;">
                     <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
                     Export Entire Database (.xlsx)
@@ -171,25 +173,31 @@
             </div>
 
             <!-- Import Box -->
-            <div style="background:var(--bg-dark); border:1px solid var(--border); border-radius:var(--radius); padding:16px;">
-                <h5 style="font-size:13px; font-weight:600; margin-bottom:6px; color:var(--text-primary);">Import Database Backup</h5>
-                <p style="font-size:12px; color:var(--text-muted); margin-bottom:10px; line-height:1.4;">
-                    Upload a previously exported SentinelWP Excel backup (.xlsx) to restore scans and findings.
-                </p>
-                <form method="POST" action="{{ url_for('admin_import_db') }}" enctype="multipart/form-data">
+            <div style="background:var(--bg-dark); border:1px solid var(--border); border-radius:var(--radius); padding:20px; display:flex; flex-direction:column; justify-content:space-between;">
+                <div>
+                    <h5 style="font-size:14px; font-weight:600; margin-bottom:8px; color:var(--text-primary);">Import Database Backup</h5>
+                    <p style="font-size:12px; color:var(--text-muted); margin-bottom:12px; line-height:1.5;">
+                        Upload a previously exported SentinelWP Excel backup (.xlsx) to restore scans and findings.
+                    </p>
+                </div>
+                <form method="POST" action="{{ url_for('admin_import_db') }}" enctype="multipart/form-data" style="margin:0;">
                     <input type="file" name="db_file" accept=".xlsx" required style="width:100%; padding:6px; background:var(--bg-card); border:1px solid var(--border); border-radius:4px; font-size:11px; color:var(--text-primary); margin-bottom:10px;">
                     <button type="submit" class="btn btn-secondary btn-sm" style="width:100%; justify-content:center;">
                         <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
                         Import Database (.xlsx)
                     </button>
                 </form>
+            </div>
+
             <!-- Purge Box -->
-            <div style="background:var(--bg-dark); border:1px solid var(--border); border-radius:var(--radius); padding:16px;">
-                <h5 style="font-size:13px; font-weight:600; margin-bottom:6px; color:var(--critical);">Purge Database Archive</h5>
-                <p style="font-size:12px; color:var(--text-muted); margin-bottom:10px; line-height:1.4;">
-                    Permanently delete all historical scan records and vulnerability findings from the SQLite database.
-                </p>
-                <form method="POST" action="{{ url_for('admin_purge_db') }}" onsubmit="return confirmPurgeDatabase(event)">
+            <div style="background:var(--bg-dark); border:1px solid var(--border); border-radius:var(--radius); padding:20px; display:flex; flex-direction:column; justify-content:space-between;">
+                <div>
+                    <h5 style="font-size:14px; font-weight:600; margin-bottom:8px; color:var(--critical);">Purge Database Archive</h5>
+                    <p style="font-size:12px; color:var(--text-muted); margin-bottom:16px; line-height:1.5;">
+                        Permanently delete all historical scan records and vulnerability findings from the SQLite database.
+                    </p>
+                </div>
+                <form method="POST" action="{{ url_for('admin_purge_db') }}" onsubmit="return confirmPurgeDatabase(event)" style="margin:0;">
                     <input type="hidden" name="confirm_purge" value="PURGE">
                     <button type="submit" class="btn btn-danger btn-sm" style="width:100%; justify-content:center;">
                         <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
