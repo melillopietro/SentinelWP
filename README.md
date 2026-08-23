@@ -112,6 +112,27 @@ pip install -r requirements.txt
 python3 app.py
 ```
 
+#### Arch Linux / Manjaro
+
+```bash
+# Update repositories and install prerequisites
+sudo pacman -Syu
+sudo pacman -S --needed git python python-pip base-devel
+
+# Clone repository
+git clone https://github.com/melillopietro/SentinelWP.git
+cd SentinelWP
+
+# Create virtual environment and install dependencies
+python -m venv .venv-sentinelwp
+source .venv-sentinelwp/bin/activate
+python -m pip install --upgrade pip
+python -m pip install -r requirements.txt
+
+# Launch SentinelWP
+python app.py
+```
+
 ---
 
 ### 3. Windows Installation
