@@ -8,6 +8,16 @@ SentinelWP is an advanced security auditing and reconnaissance tool designed to 
 
 ## Key Features
 
+- **Modern Vulnerabilities & DevOps Exposure Auditing**: Active and passive detection for modern cloud/containerized WordPress threats:
+  - **Git Repository Exposure**: Checks `/.git/HEAD` and `/.git/config` with commit hash validation to prevent full source code and commit history dumping.
+  - **Environment Configuration Leaks**: Audits exposed dotenv files (`/.env`, `/.env.local`, `/.env.production`) across modern Docker, Bedrock, and Roots deployments with automatic secret redaction.
+  - **Database Management & Diagnostic Tool Leaks**: Probes for exposed standalone database managers (`adminer.php`) and diagnostic scripts (`phpinfo.php`).
+  - **Live Secrets in Sample Files**: Detects if `wp-config-sample.php` was accidentally populated with live production database credentials.
+- **Anti-False-Positive Engine (*Soft-404 Payload Inspection*)**: Intelligent payload inspection preventing false positives caused by web servers or custom WordPress themes returning `HTTP 200 OK` on custom 404 error pages.
+- **Privilege Escalation & WAF Bypass Detection**:
+  - **Open User Registration Audit**: Probes `wp-login.php?action=register` to detect if `users_can_register` is enabled, eliminating the primary attack vector for subscriber-to-admin privilege escalation CVEs.
+  - **REST API WAF/Rewrite Bypass**: Tests `/?rest_route=/wp/v2/users` to verify if static path-based WAF or Nginx blocks on `/wp-json/` can be bypassed.
+- **Modern Security Isolation Headers**: Audits modern browser isolation controls including `Cross-Origin-Opener-Policy` (COOP), `Cross-Origin-Resource-Policy` (CORP), and `Cross-Origin-Embedder-Policy` (COEP) alongside traditional HSTS and CSP.
 - **Initial Setup Wizard**: Zero default credentials. A guided setup wizard (`/setup`) forces the creation of a custom primary Administrator account on first launch.
 - **User Panel & Preferences (`/settings`)**: Dedicated user hub for account preferences, password changes, theme toggling, changelog access, and admin user management.
 - **Dark & Light Theme Switcher**: Instant switching between Dark Mode (default) and Light Mode (White) with automatic persistence.
@@ -206,7 +216,19 @@ python app.py
 
 ## Recent Updates & Changelog (v3.6.0)
 
-### v3.6.0 — User Panel, Enhanced Narrative Reports & GitHub Update Checker
+### v3.6.0 — Modern Vulnerability Engine, User Panel & Enhanced Narrative Reports
+- **Modern Vulnerability & DevOps Exposure Engine**:
+  - Detection of exposed Git repositories (`/.git/HEAD`) with SHA commit hash verification.
+  - Detection of environment configuration files (`/.env`, `/.env.local`, `/.env.production`) across Docker and containerized setups.
+  - Detection of standalone database management tools (`adminer.php`) and diagnostic scripts (`phpinfo.php`).
+  - Detection of live database credentials accidentally stored in `wp-config-sample.php`.
+- **Anti-False-Positive Engine (*Soft-404 Payload Inspection*)**: Multi-layer inspection ensuring that HTTP 200 responses returning custom HTML 404 pages are not falsely reported as sensitive file leaks.
+- **Privilege Escalation & Route Bypass Audits**:
+  - Open user registration auditing (`users_can_register`) on `wp-login.php?action=register`.
+  - WAF/rewrite bypass testing on REST API user enumeration using `/?rest_route=/wp/v2/users`.
+- **Modern Security Isolation Headers**: Automated auditing for `Cross-Origin-Opener-Policy` (COOP) and `Cross-Origin-Resource-Policy` (CORP).
+- **Python 3.12+ Engine Modernization**: Full deprecation cleanup migrating legacy `datetime.utcnow()` to timezone-aware `datetime.now(timezone.utc)`.
+- **Synchronized CVE Pipeline**: Full parity between asynchronous UI scans and synchronous CLI/batch scans with live OSV.dev and local intelligence correlation.
 - **User Panel & Preferences (`/settings`)**: Unified settings page for theme selection, password changes, admin user management, and database backup/restore.
 - **Narrative Executive Summaries & SLA Action Plans**: Speaking narrative reports in PDF, HTML, and Excel with 3-tier prioritized SLA remediation plans (0-48h, 7-14d, Continuous).
 - **GitHub Update Checker**: Automatic update verification comparing local git commit against official GitHub repository releases/commits.
