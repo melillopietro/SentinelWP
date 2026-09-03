@@ -3,7 +3,7 @@ Domain models for SentinelWP
 """
 import uuid
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Optional
 
@@ -47,7 +47,7 @@ class Finding:
     remediation: str = ""
     reference: str = ""
     raw_data: dict = field(default_factory=dict)
-    created_at: str = field(default_factory=lambda: datetime.utcnow().isoformat())
+    created_at: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
 
 
 @dataclass
@@ -56,7 +56,7 @@ class ScanResult:
     target_url: str = ""
     status: ScanStatus = ScanStatus.PENDING
     scan_mode: str = "passive"
-    started_at: str = field(default_factory=lambda: datetime.utcnow().isoformat())
+    started_at: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
     completed_at: Optional[str] = None
     findings: list = field(default_factory=list)
     score: Optional[float] = None
@@ -77,7 +77,7 @@ class User:
     email: str = ""
     role: UserRole = UserRole.VIEWER
     status: UserStatus = UserStatus.PENDING
-    created_at: str = field(default_factory=lambda: datetime.utcnow().isoformat())
+    created_at: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
 
 
 @dataclass
@@ -90,4 +90,4 @@ class ScheduledScan:
     next_run_at: Optional[str] = None
     enabled: bool = True
     created_by: str = ""
-    created_at: str = field(default_factory=lambda: datetime.utcnow().isoformat())
+    created_at: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())

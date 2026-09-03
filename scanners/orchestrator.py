@@ -2,7 +2,7 @@
 Scan orchestrator - coordinates all scanners, computes risk, persists results.
 Supports three scan modes: passive, safe-active, full.
 """
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 from core.models import ScanResult, ScanStatus
 from core import repository
@@ -162,6 +162,13 @@ def run_scan(
     if whois_findings:
         scan.whois_info = whois_findings[0].raw_data["whois_info"]
 
+    # Enrich findings with Live Vulnerability Intelligence if available
+    try:
+        from scanners.vuln_intel import enrich_findings_with_cves
+        all_findings = enrich_findings_with_cves(all_findings)
+    except Exception:
+        pass
+
     # Match findings against local vulnerability intelligence database
     try:
         from core.vulnerability_intelligence.service import match_scan_findings
@@ -237,7 +244,7 @@ def run_scan(
     scan.grade = grade
     scan.findings = all_findings
     scan.status = ScanStatus.COMPLETED
-    scan.completed_at = datetime.utcnow().isoformat()
+    scan.completed_at = datetime.now(timezone.utc).isoformat()
 
     if persist:
         repository.save_scan(scan)

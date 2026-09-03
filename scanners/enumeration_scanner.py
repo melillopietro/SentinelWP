@@ -15,22 +15,57 @@ class EnumerationScanner(BaseScanner):
     MAX_AUTHORS = 20
 
     def scan(self) -> list:
+        self._check_open_registration()
         self._check_rest_api_users()
         self._check_author_archives()
         self._check_login_oracle()
         self._check_oembed_author()
         return self.findings
 
+    def _check_open_registration(self):
+        """Check if public user registration is enabled (users_can_register)"""
+        reg_url = f"{self.target_url}/wp-login.php?action=register"
+        resp = self._get(reg_url)
+        if not resp or resp.status_code != 200:
+            return
+
+        if "registration=disabled" in getattr(resp, "url", "").lower():
+            return
+
+        text_lower = resp.text.lower()
+        if "registration is currently not allowed" in text_lower or "user registration is currently not allowed" in text_lower:
+            return
+
+        if (
+            'id="registerform"' in text_lower or "id='registerform'" in text_lower
+            or 'name="registerform"' in text_lower or "name='registerform'" in text_lower
+            or ("user_login" in text_lower and ("register" in text_lower or "registration" in text_lower))
+        ):
+            self._add_finding(
+                category="configuration",
+                title="Open User Registration Enabled",
+                description="Public user registration is enabled on this WordPress site (users_can_register is active). "
+                            "Unauthenticated visitors can freely register accounts. "
+                            "This significantly increases the attack surface for subscriber-to-admin privilege escalation exploits.",
+                severity=Severity.HIGH,
+                confidence=0.95,
+                remediation="If public user accounts are not needed, disable 'Anyone can register' in WordPress Settings -> General. "
+                            "If registration is required, enforce CAPTCHA, email verification, and strict role permissions.",
+                reference="https://developer.wordpress.org/advanced-administration/security/hardening/",
+                raw_data={"url": reg_url}
+            )
+
     def _check_rest_api_users(self):
-        """Check if /wp-json/wp/v2/users endpoint exposes user data"""
+        """Check if /wp-json/wp/v2/users endpoint or ?rest_route= bypass exposes user data"""
         url = f"{self.target_url}/wp-json/wp/v2/users"
         resp = self._get(url)
-        if not resp:
-            return
-        if resp.status_code == 200:
+        primary_exposed = False
+
+        if resp and resp.status_code == 200:
             try:
                 users = resp.json()
                 if isinstance(users, list) and len(users) > 0:
+                    primary_exposed = True
                     usernames = [u.get("slug", u.get("name", "unknown")) for u in users[:20]]
                     self._add_finding(
                         category="enumeration",
@@ -48,15 +83,40 @@ class EnumerationScanner(BaseScanner):
                     )
             except (json.JSONDecodeError, ValueError):
                 pass
-        elif resp.status_code == 401:
+        elif resp and resp.status_code in (401, 403):
             self._add_finding(
                 category="enumeration",
-                title="REST API Users Endpoint Protected (401)",
-                description="The /wp-json/wp/v2/users endpoint returns 401, indicating authentication is required.",
+                title=f"REST API Users Endpoint Protected ({resp.status_code})",
+                description=f"The /wp-json/wp/v2/users endpoint returns {resp.status_code}, indicating authentication is required or access is blocked.",
                 severity=Severity.INFO,
                 confidence=0.8,
                 remediation="No action needed - endpoint is protected.",
             )
+
+        # Query parameter rewrite bypass check: ?rest_route=/wp/v2/users
+        bypass_url = f"{self.target_url}/?rest_route=/wp/v2/users"
+        bypass_resp = self._get(bypass_url)
+        if bypass_resp and bypass_resp.status_code == 200:
+            try:
+                bypass_users = bypass_resp.json()
+                if isinstance(bypass_users, list) and len(bypass_users) > 0:
+                    bypass_usernames = [u.get("slug", u.get("name", "unknown")) for u in bypass_users[:20]]
+                    if not primary_exposed:
+                        # WAF / URL rewrite bypass discovered!
+                        self._add_finding(
+                            category="enumeration",
+                            title="REST API WAF/Rewrite Bypass for User Enumeration (?rest_route=/wp/v2/users)",
+                            description="Path-based blocking on /wp-json/wp/v2/users was bypassed using the query parameter "
+                                        f"?rest_route=/wp/v2/users. Disclosed {len(bypass_users)} user(s): {', '.join(bypass_usernames[:10])}",
+                            severity=Severity.HIGH,
+                            confidence=0.95,
+                            remediation="Ensure WAF and rewrite rules inspect both URL paths and query parameters (?rest_route=). "
+                                        "Disable the endpoint at application level using the rest_endpoints filter.",
+                            reference="https://developer.wordpress.org/rest-api/extending-the-rest-api/routes-and-endpoints/",
+                            raw_data={"users": bypass_usernames, "bypass_url": bypass_url}
+                        )
+            except (json.JSONDecodeError, ValueError):
+                pass
 
     def _check_author_archives(self):
         """Enumerate users via ?author=N parameter and RSS feed leakage"""

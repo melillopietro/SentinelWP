@@ -5,7 +5,7 @@ import io
 import json
 import html
 import re
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional, Dict, Any, List
 from openpyxl import Workbook, load_workbook
 from openpyxl.utils import get_column_letter
@@ -214,7 +214,7 @@ def generate_html_report(scan) -> str:
     grade_display = scan.grade or 'N/A'
     wp_display = 'Yes' if scan.is_wordpress else 'No'
     wp_ver_display = html.escape(str(scan.wp_version or 'Not WordPress'))
-    created_at_str = datetime.utcnow().strftime('%Y-%m-%d %H:%M UTC')
+    created_at_str = datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')
 
     action_items_html = "".join(f"<li>{step}</li>" for step in exec_info["action_plan"])
 
@@ -534,7 +534,7 @@ def generate_excel_report(scan) -> bytes:
     ws_sum.append([])
     ws_sum.append(["Target URL", str(scan.target_url)])
     ws_sum.append(["Scan ID", str(scan.id)])
-    ws_sum.append(["Report Date", datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC")])
+    ws_sum.append(["Report Date", datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")])
     ws_sum.append(["Risk Score", scan.score if scan.score is not None else "N/A"])
     ws_sum.append(["Security Grade", scan.grade or "N/A"])
     ws_sum.append(["WordPress CMS Detected", "Yes" if scan.is_wordpress else "No"])
@@ -853,7 +853,7 @@ def generate_pdf_report(scan) -> bytes:
 
     # Title & Subtitle Header
     elems.append(Paragraph("SentinelWP — WordPress Security Assessment", title_style))
-    created_at_str = datetime.utcnow().strftime('%Y-%m-%d %H:%M UTC')
+    created_at_str = datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')
     elems.append(Paragraph(
         f"<b>Target URL:</b> {html.escape(str(scan.target_url))} &nbsp;|&nbsp; "
         f"<b>Scan ID:</b> <code>{str(scan.id)[:8]}</code> &nbsp;|&nbsp; "
@@ -1095,7 +1095,7 @@ def import_full_db_excel(file_bytes: bytes, repository) -> tuple[int, int]:
                 is_wordpress = is_wp_str in ("yes", "true", "1")
                 wp_ver = _unsanitize_excel_cell(row[7]) if len(row) > 7 and row[7] else "Not WordPress"
                 initiated_by = _unsanitize_excel_cell(row[8]) if len(row) > 8 and row[8] else "System"
-                started_at = str(row[9]).strip() if len(row) > 9 and row[9] else datetime.utcnow().isoformat()
+                started_at = str(row[9]).strip() if len(row) > 9 and row[9] else datetime.now(timezone.utc).isoformat()
                 completed_at = str(row[10]).strip() if len(row) > 10 and row[10] not in (None, "N/A") else None
 
                 try:

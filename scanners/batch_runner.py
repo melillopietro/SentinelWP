@@ -2,7 +2,7 @@
 Batch scan runner with concurrent execution and scan mode support
 """
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Optional, Callable
 from core.models import ScanResult
@@ -16,7 +16,7 @@ class BatchJob:
     targets: list = field(default_factory=list)
     results: list = field(default_factory=list)
     scan_mode: str = "passive"
-    started_at: str = field(default_factory=lambda: datetime.utcnow().isoformat())
+    started_at: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
     completed_at: Optional[str] = None
     total: int = 0
     completed: int = 0
@@ -48,5 +48,5 @@ def run_batch(
             if progress_callback:
                 progress_callback(job.completed + job.failed, job.total)
 
-    job.completed_at = datetime.utcnow().isoformat()
+    job.completed_at = datetime.now(timezone.utc).isoformat()
     return job

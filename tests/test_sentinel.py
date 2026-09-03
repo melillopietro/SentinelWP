@@ -299,5 +299,154 @@ class TestPurgeDatabase(unittest.TestCase):
             self.assertEqual(resp.status_code, 302)
 
 
+class TestModernVulnerabilityScanners(unittest.TestCase):
+    @patch("scanners.base.requests.Session.get")
+    def test_git_exposure_positive(self, mock_get):
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_resp.headers = {"content-type": "text/plain"}
+        mock_resp.text = "ref: refs/heads/main\n"
+        mock_get.return_value = mock_resp
+
+        from scanners.exposure_scanner import ExposureScanner
+        scanner = ExposureScanner("https://example.com")
+        scanner._check_git_exposure()
+        self.assertEqual(len(scanner.findings), 1)
+        self.assertIn("Git Repository Exposed", scanner.findings[0].title)
+        self.assertEqual(scanner.findings[0].severity.value, "critical")
+
+    @patch("scanners.base.requests.Session.get")
+    def test_git_exposure_soft_404_rejected(self, mock_get):
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_resp.headers = {"content-type": "text/html"}
+        mock_resp.text = "<html><head><title>404 Not Found</title></head><body>Nothing here</body></html>"
+        mock_get.return_value = mock_resp
+
+        from scanners.exposure_scanner import ExposureScanner
+        scanner = ExposureScanner("https://example.com")
+        scanner._check_git_exposure()
+        self.assertEqual(len(scanner.findings), 0)
+
+    @patch("scanners.base.requests.Session.get")
+    def test_env_exposure_positive(self, mock_get):
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_resp.headers = {"content-type": "text/plain"}
+        mock_resp.text = "DB_NAME=wordpress\nDB_USER=wp_admin\nDB_PASSWORD=secret123\n"
+        mock_get.return_value = mock_resp
+
+        from scanners.exposure_scanner import ExposureScanner
+        scanner = ExposureScanner("https://example.com")
+        scanner._check_env_exposure()
+        self.assertEqual(len(scanner.findings), 1)
+        self.assertIn("Environment Configuration File Exposed", scanner.findings[0].title)
+        self.assertEqual(scanner.findings[0].severity.value, "critical")
+
+    @patch("scanners.base.requests.Session.get")
+    def test_adminer_exposure(self, mock_get):
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_resp.headers = {"content-type": "text/html"}
+        mock_resp.text = "<html><head><title>Login - Adminer</title></head><body><input name='auth[username]'></body></html>"
+        mock_get.return_value = mock_resp
+
+        from scanners.exposure_scanner import ExposureScanner
+        scanner = ExposureScanner("https://example.com")
+        scanner._check_adminer_and_tools()
+        titles = [f.title for f in scanner.findings]
+        self.assertTrue(any("Database Management Tool Exposed" in t for t in titles))
+
+    @patch("scanners.base.requests.Session.get")
+    def test_open_registration_enabled(self, mock_get):
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_resp.url = "https://example.com/wp-login.php?action=register"
+        mock_resp.text = "<html><body><form name='registerform' id='registerform'><input name='user_login'></form></body></html>"
+        mock_get.return_value = mock_resp
+
+        from scanners.enumeration_scanner import EnumerationScanner
+        scanner = EnumerationScanner("https://example.com")
+        scanner._check_open_registration()
+        self.assertEqual(len(scanner.findings), 1)
+        self.assertIn("Open User Registration Enabled", scanner.findings[0].title)
+
+    @patch("scanners.base.requests.Session.get")
+    def test_rest_route_bypass_user_enumeration(self, mock_get):
+        def side_effect(url, **kwargs):
+            resp = MagicMock()
+            if "wp-json/wp/v2/users" in url:
+                resp.status_code = 403
+                resp.text = "Forbidden"
+            elif "?rest_route=/wp/v2/users" in url:
+                resp.status_code = 200
+                resp.json.return_value = [{"slug": "admin", "name": "Administrator"}]
+                resp.text = '[{"slug": "admin"}]'
+            else:
+                resp.status_code = 404
+            return resp
+
+        mock_get.side_effect = side_effect
+
+        from scanners.enumeration_scanner import EnumerationScanner
+        scanner = EnumerationScanner("https://example.com")
+        scanner._check_rest_api_users()
+        titles = [f.title for f in scanner.findings]
+        self.assertTrue(any("REST API WAF/Rewrite Bypass" in t for t in titles))
+
+    @patch("scanners.base.requests.Session.get")
+    def test_wp_config_sample_placeholder(self, mock_get):
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_resp.headers = {"content-type": "text/plain"}
+        mock_resp.text = "define('DB_NAME', 'database_name_here');\ndefine('DB_PASSWORD', 'password_here');\n"
+        mock_get.return_value = mock_resp
+
+        from scanners.exposure_scanner import ExposureScanner
+        scanner = ExposureScanner("https://example.com")
+        scanner._check_wp_config_sample()
+        self.assertEqual(len(scanner.findings), 1)
+        self.assertEqual(scanner.findings[0].severity.value, "low")
+        self.assertIn("wp-config-sample.php Accessible", scanner.findings[0].title)
+
+    @patch("scanners.base.requests.Session.get")
+    def test_wp_config_sample_live_secrets(self, mock_get):
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_resp.headers = {"content-type": "text/plain"}
+        mock_resp.text = "define('DB_NAME', 'production_db');\ndefine('DB_PASSWORD', 'Sup3rS3cr3tP@ss!');\n"
+        mock_get.return_value = mock_resp
+
+        from scanners.exposure_scanner import ExposureScanner
+        scanner = ExposureScanner("https://example.com")
+        scanner._check_wp_config_sample()
+        self.assertEqual(len(scanner.findings), 1)
+        self.assertEqual(scanner.findings[0].severity.value, "critical")
+        self.assertIn("Live Credentials in wp-config-sample.php", scanner.findings[0].title)
+
+    @patch("scanners.base.requests.Session.get")
+    def test_modern_isolation_headers_reported(self, mock_get):
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_resp.headers = {
+            "Strict-Transport-Security": "max-age=31536000",
+            "Content-Security-Policy": "default-src 'self'",
+            "X-Content-Type-Options": "nosniff",
+            "X-Frame-Options": "DENY",
+            "Referrer-Policy": "strict-origin-when-cross-origin",
+            "Permissions-Policy": "camera=()",
+            "X-XSS-Protection": "1; mode=block",
+        }
+        mock_resp.text = ""
+        mock_get.return_value = mock_resp
+
+        from scanners.headers_scanner import HeadersScanner
+        scanner = HeadersScanner("https://example.com")
+        findings = scanner.scan()
+        missing_titles = [f.title for f in findings]
+        self.assertTrue(any("Cross-Origin-Opener-Policy" in t for t in missing_titles))
+        self.assertTrue(any("Cross-Origin-Resource-Policy" in t for t in missing_titles))
+
+
 if __name__ == "__main__":
     unittest.main()

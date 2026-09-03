@@ -32,8 +32,8 @@ class DBExportScanner(BaseScanner):
             if resp.status_code == 200:
                 content_type = resp.headers.get("content-type", "").lower()
                 content_length = resp.headers.get("content-length", "0")
-                # Skip HTML error pages
-                if "text/html" in content_type and path.endswith(".sql"):
+                # Skip HTML error pages for any backup file
+                if "text/html" in content_type and not path.endswith("/"):
                     continue
                 severity = Severity.CRITICAL
                 if path.endswith("/"):

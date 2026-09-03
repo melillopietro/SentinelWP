@@ -6,7 +6,7 @@ import os
 import sys
 import json
 import functools
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from flask import (
     Flask, render_template, request, redirect, url_for,
     session, flash, jsonify, send_file, abort
@@ -369,7 +369,7 @@ def admin_export_db():
         for s in scans:
             s.findings = repository.get_findings_for_scan(s.id)
         excel_bytes = generate_full_db_excel_export(scans)
-        filename = f"SentinelWP_Database_Export_{datetime.utcnow().strftime('%Y%m%d_%H%M')}.xlsx"
+        filename = f"SentinelWP_Database_Export_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M')}.xlsx"
         return send_file(
             io.BytesIO(excel_bytes),
             mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -425,7 +425,7 @@ def create_schedule():
         scan_mode=scan_mode,
         interval_hours=interval_hours,
         created_by=session.get("username", "admin"),
-        next_run_at=datetime.utcnow().isoformat()
+        next_run_at=datetime.now(timezone.utc).isoformat()
     )
     repository.save_scheduled_scan(sched)
     flash(f"Scheduled scan created for {target} (every {interval_hours}h).", "success")

@@ -4,7 +4,7 @@ Runs periodically to check if any scheduled scans are due.
 """
 import time
 import threading
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from core import repository
 from scanners.async_runner import start_async_scan
 
@@ -18,7 +18,7 @@ def _scheduler_loop():
     while _running:
         try:
             scheduled = repository.list_scheduled_scans()
-            now = datetime.utcnow()
+            now = datetime.now(timezone.utc)
 
             for sched in scheduled:
                 if not sched.enabled:
@@ -31,6 +31,8 @@ def _scheduler_loop():
                 else:
                     try:
                         last_dt = datetime.fromisoformat(sched.last_run_at)
+                        if last_dt.tzinfo is None:
+                            last_dt = last_dt.replace(tzinfo=timezone.utc)
                         if now >= last_dt + timedelta(hours=sched.interval_hours):
                             due = True
                     except Exception:

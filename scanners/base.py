@@ -7,7 +7,7 @@ import socket
 import ipaddress
 import requests
 from abc import ABC, abstractmethod
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 from urllib.parse import urlparse
 from core.models import Finding
@@ -86,7 +86,7 @@ class BaseScanner(ABC):
     def _log(self, message: str, **kwargs):
         """Append a structured log entry."""
         entry = {
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
             "scanner": kwargs.get("scanner", self.__class__.__name__),
             "target": self.target_url,
             "message": message,

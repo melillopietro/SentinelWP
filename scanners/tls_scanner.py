@@ -3,7 +3,7 @@ TLS/SSL Scanner - certificate and protocol validation
 """
 import ssl
 import socket
-from datetime import datetime
+from datetime import datetime, timezone
 from urllib.parse import urlparse
 from scanners.base import BaseScanner
 from core.models import Severity
@@ -42,8 +42,8 @@ class TLSScanner(BaseScanner):
                         # Check expiry
                         not_after = cert.get("notAfter")
                         if not_after:
-                            expiry = datetime.strptime(not_after, "%b %d %H:%M:%S %Y %Z")
-                            days_left = (expiry - datetime.utcnow()).days
+                            expiry = datetime.strptime(not_after, "%b %d %H:%M:%S %Y %Z").replace(tzinfo=timezone.utc)
+                            days_left = (expiry - datetime.now(timezone.utc)).days
                             if days_left < 0:
                                 self._add_finding(
                                     category="encryption",

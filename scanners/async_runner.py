@@ -3,7 +3,7 @@ Async Scan Runner with ThreadPoolExecutor and Live Progress tracking.
 """
 import threading
 from concurrent.futures import ThreadPoolExecutor
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Dict, Any, Optional
 from core.models import ScanResult, ScanStatus
 from core import repository
@@ -187,7 +187,7 @@ def _execute_async_scan(scan_id: str, target_url: str, initiated_by: str, scan_m
         scan.is_wordpress = is_wp
         scan.wp_version = wp_ver
         scan.whois_info = whois_info
-        scan.completed_at = datetime.utcnow().isoformat()
+        scan.completed_at = datetime.now(timezone.utc).isoformat()
         scan.findings = all_findings
         repository.save_scan(scan)
         repository.save_findings_bulk(all_findings)

@@ -25,6 +25,20 @@
                 <li><strong>Column-by-Column Table Headers</strong>: Integrated interactive real-time search and filter controls directly into table header rows across Dashboard and Scan History.</li>
             </ul>
         </div>
+
+        <div>
+            <h4 style="font-size:15px;color:var(--accent);margin-bottom:10px;text-transform:uppercase;letter-spacing:0.5px;">Modern Vulnerabilities &amp; Advanced Attack Surface Auditing</h4>
+            <ul style="padding-left:20px;line-height:1.8;font-size:13px;color:var(--text-primary);">
+                <li><strong>Git Repository Leaks (<code>/.git/HEAD</code>)</strong>: Automatic detection of exposed Git repositories with commit verification to prevent complete source code and history dumping.</li>
+                <li><strong>Environment Secrets Leaks (<code>/.env</code>)</strong>: Scans for exposed environment dotenv files across modern containerized (Docker/Bedrock/Roots) setups with credential redaction.</li>
+                <li><strong>Database Management &amp; Diagnostic Tools Leaks</strong>: Detects exposed standalone database managers (<code>adminer.php</code>) and diagnostic scripts (<code>phpinfo.php</code>).</li>
+                <li><strong>Open User Registration Detection</strong>: Audits <code>users_can_register</code> on <code>wp-login.php?action=register</code> to flag unauthenticated subscriber privilege escalation surfaces.</li>
+                <li><strong>REST API Rewrite Bypass (<code>/?rest_route=</code>)</strong>: Tests WAF and rewrite bypass vectors on REST endpoints to ensure robust protection against user enumeration.</li>
+                <li><strong>Anti-False-Positive Engine</strong>: Implemented deep payload inspection and Soft-404 rejection for sensitive files (<code>.bak</code>, <code>.log</code>, <code>.env</code>, <code>.sql</code>).</li>
+                <li><strong>Modern Security Headers (COOP &amp; CORP)</strong>: Audits <code>Cross-Origin-Opener-Policy</code> and <code>Cross-Origin-Resource-Policy</code> for modern browser isolation.</li>
+                <li><strong>Python 3.12+ Engine Modernization</strong>: Deprecated legacy <code>datetime.utcnow()</code> in favor of timezone-aware <code>datetime.now(timezone.utc)</code>.</li>
+            </ul>
+        </div>
     </div>
 </div>
 

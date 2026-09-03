@@ -47,6 +47,16 @@ EXPECTED_HEADERS = {
         "description": "X-XSS-Protection header missing (relevant for older browsers).",
         "remediation": "Add header: X-XSS-Protection: 1; mode=block (or 0 if CSP is properly configured)."
     },
+    "Cross-Origin-Opener-Policy": {
+        "severity": Severity.LOW,
+        "description": "Cross-Origin-Opener-Policy (COOP) header missing. Isolates top-level browsing context from cross-origin windows.",
+        "remediation": "Add header: Cross-Origin-Opener-Policy: same-origin"
+    },
+    "Cross-Origin-Resource-Policy": {
+        "severity": Severity.LOW,
+        "description": "Cross-Origin-Resource-Policy (CORP) header missing. Restricts cross-origin resource reading and embedding.",
+        "remediation": "Add header: Cross-Origin-Resource-Policy: same-origin (or same-site)"
+    },
 }
 
 UNWANTED_HEADERS = {
