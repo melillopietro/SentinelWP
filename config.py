@@ -22,6 +22,8 @@ CONFIDENCE_THRESHOLD = float(os.getenv("WSA_CONFIDENCE_THRESHOLD", "0.3"))
 NORMALIZATION_FACTOR = float(os.getenv("WSA_NORMALIZATION_FACTOR", "150.0"))
 SESSION_EXPIRY_HOURS = int(os.getenv("WSA_SESSION_EXPIRY_HOURS", "8"))
 DISABLE_TLS_VERIFY = os.getenv("WSA_DISABLE_TLS_VERIFY", "false").lower() in ("true", "1", "yes")
+# Off by default: live OSV HTTP calls make scan output depend on external network state.
+OSV_LIVE_ENRICHMENT_ENABLED = os.getenv("OSV_LIVE_ENRICHMENT_ENABLED", "false").lower() in ("true", "1", "yes")
 
 # --- Vulnerability Intelligence ---
 WORDFENCE_API_KEY = os.getenv("WORDFENCE_API_KEY", "")

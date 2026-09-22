@@ -38,10 +38,11 @@ app.secret_key = SECRET_KEY
 app.permanent_session_lifetime = timedelta(hours=SESSION_EXPIRY_HOURS)
 
 repository.init_db()
-try:
-    start_scheduler()
-except Exception:
-    pass
+if not os.environ.get("SENTINELWP_DISABLE_BACKGROUND"):
+    try:
+        start_scheduler()
+    except Exception:
+        pass
 
 
 # --- Auth helpers ---
@@ -71,7 +72,11 @@ _startup_sync_done = False
 @app.before_request
 def ensure_db_and_scheduler():
     global _startup_sync_done
-    if not _startup_sync_done and not app.config.get("TESTING"):
+    if (
+        not _startup_sync_done
+        and not app.config.get("TESTING")
+        and not os.environ.get("SENTINELWP_DISABLE_BACKGROUND")
+    ):
         _startup_sync_done = True
         try:
             from config import VULN_INTEL_ENABLED

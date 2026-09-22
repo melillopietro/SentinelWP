@@ -6,7 +6,7 @@ The curated intelligence pipeline emits the primary CVE finding; this scanner
 reports theme preconditions cited in public advisories.
 """
 import re
-from typing import List, Set
+from typing import Set
 
 from core.models import Severity
 from core.wordpress_version import is_version_less_than, normalize_wp_version_label

@@ -2,13 +2,11 @@
 Scan orchestrator - coordinates all scanners, computes risk, persists results.
 Supports three scan modes: passive, safe-active, full.
 """
-from datetime import datetime, timezone
 from typing import Optional
 
 from core import repository
 from core.models import Finding, ScanResult, ScanStatus, Severity
-from core.risk_engine import compute_risk_score
-from core.scan_pipeline import finalize_scan_findings
+from core.scan_pipeline import finalize_and_score_scan, mark_scan_completed
 from scanners.base import BaseScanner
 from scanners.bruteforce_scanner import BruteForceScanner
 from scanners.cookie_scanner import CookieSecurityScanner
@@ -139,14 +137,8 @@ def run_scan(
             )
             all_findings.append(err_finding)
 
-    all_findings = finalize_scan_findings(all_findings, scan)
-
-    score, grade = compute_risk_score(all_findings)
-    scan.score = score
-    scan.grade = grade
-    scan.findings = all_findings
-    scan.status = ScanStatus.COMPLETED
-    scan.completed_at = datetime.now(timezone.utc).isoformat()
+    all_findings = finalize_and_score_scan(all_findings, scan)
+    mark_scan_completed(scan)
 
     if persist:
         repository.save_scan(scan)

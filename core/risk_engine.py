@@ -2,12 +2,13 @@
 Risk scoring engine - enterprise grade
 - Severity weighting with category multipliers
 - Confidence threshold filtering
-- Diminishing returns per category
+- Diminishing returns per category (deterministic tie-breaking)
 - Exponential saturation normalization (0-100 scale)
 - Letter grade mapping
 """
 import math
 from typing import Optional
+
 from core.models import Finding, Severity
 from config import CONFIDENCE_THRESHOLD, NORMALIZATION_FACTOR
 
@@ -28,6 +29,7 @@ CATEGORY_MULTIPLIERS = {
     "configuration": 1.1,
     "information_disclosure": 1.2,
     "plugins": 1.1,
+    "vulnerability_intelligence": 1.4,
 }
 
 GRADE_MAP = [
@@ -39,8 +41,17 @@ GRADE_MAP = [
     (55, 65, "C"),
     (65, 75, "D"),
     (75, 85, "E"),
-    (85, 100, "F"),
+    (85, 101, "F"),
 ]
+
+
+def _coerce_severity(value) -> Severity:
+    if isinstance(value, Severity):
+        return value
+    try:
+        return Severity(str(value).lower())
+    except ValueError:
+        return Severity.INFO
 
 
 def _get_grade(score: float) -> str:
@@ -64,50 +75,55 @@ def compute_risk_score(
     if normalization_factor is None:
         normalization_factor = NORMALIZATION_FACTOR
 
-    # Filter by confidence
     filtered = [f for f in findings if f.confidence >= confidence_threshold]
     if not filtered:
         return (0.0, "A+")
 
-    # Group by category, apply diminishing returns within each
-    category_scores = {}
+    category_scores: dict[str, list[tuple[float, str]]] = {}
     for f in filtered:
         cat = f.category or "general"
-        if cat not in category_scores:
-            category_scores[cat] = []
-        sev = f.severity if isinstance(f.severity, Severity) else Severity(f.severity)
+        sev = _coerce_severity(f.severity)
         weight = SEVERITY_WEIGHTS.get(sev, 1.0)
         adjusted = weight * f.confidence
-        category_scores[cat].append(adjusted)
+        tie_breaker = f.id or f.title or ""
+        category_scores.setdefault(cat, []).append((adjusted, tie_breaker))
 
     raw_total = 0.0
-    for cat, scores in category_scores.items():
-        scores.sort(reverse=True)
+    decay = 0.7
+    for cat, scored in category_scores.items():
+        scored.sort(key=lambda item: (-item[0], item[1]))
         multiplier = CATEGORY_MULTIPLIERS.get(cat, 1.0)
         cat_total = 0.0
-        decay = 0.7
-        for i, s in enumerate(scores):
-            cat_total += s * (decay ** i)
+        for i, (value, _) in enumerate(scored):
+            cat_total += value * (decay ** i)
         raw_total += cat_total * multiplier
 
-    # Exponential saturation: score = 100 * (1 - e^(-raw/norm))
     score = 100.0 * (1.0 - math.exp(-raw_total / normalization_factor))
     score = round(min(100.0, max(0.0, score)), 1)
     grade = _get_grade(score)
     return (score, grade)
 
 
-def compute_category_breakdown(findings: list) -> dict:
+def compute_category_breakdown(
+    findings: list,
+    confidence_threshold: Optional[float] = None,
+) -> dict:
     """
     Returns {category: {count, max_severity, weighted_score}}
+    Uses the same confidence filter as compute_risk_score.
     """
+    if confidence_threshold is None:
+        confidence_threshold = CONFIDENCE_THRESHOLD
+
     breakdown = {}
     for f in findings:
+        if f.confidence < confidence_threshold:
+            continue
         cat = f.category or "general"
         if cat not in breakdown:
             breakdown[cat] = {"count": 0, "max_severity": "info", "weighted_score": 0.0}
         breakdown[cat]["count"] += 1
-        sev = f.severity if isinstance(f.severity, Severity) else Severity(f.severity)
+        sev = _coerce_severity(f.severity)
         weight = SEVERITY_WEIGHTS.get(sev, 1.0)
         breakdown[cat]["weighted_score"] += weight * f.confidence
         sev_order = list(Severity)

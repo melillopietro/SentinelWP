@@ -4,9 +4,12 @@ Shared scan post-processing: CVE enrichment, local intel matching, metadata extr
 from __future__ import annotations
 
 import logging
+from datetime import datetime, timezone
 from typing import List, Optional, Tuple
 
-from core.models import Finding, ScanResult, Severity
+from config import OSV_LIVE_ENRICHMENT_ENABLED
+from core.models import Finding, ScanResult, ScanStatus, Severity
+from core.risk_engine import compute_risk_score
 from core.wordpress_version import (
     collect_detected_plugins,
     extract_wordpress_version,
@@ -30,11 +33,12 @@ def _severity_from_cvss(cvss: float, match_status: str) -> Severity:
 
 
 def apply_vulnerability_intelligence(all_findings: List[Finding], scan_id: str, wp_version: Optional[str]) -> List[Finding]:
-    try:
-        from scanners.vuln_intel import enrich_findings_with_cves
-        all_findings = enrich_findings_with_cves(all_findings)
-    except Exception as exc:
-        logger.debug("OSV enrichment skipped: %s", exc)
+    if OSV_LIVE_ENRICHMENT_ENABLED:
+        try:
+            from scanners.vuln_intel import enrich_findings_with_cves
+            all_findings = enrich_findings_with_cves(all_findings)
+        except Exception as exc:
+            logger.debug("OSV enrichment skipped: %s", exc)
 
     existing_cves = set()
     for f in all_findings:
@@ -83,7 +87,7 @@ def apply_vulnerability_intelligence(all_findings: List[Finding], scan_id: str, 
                 title += " [Listed in CISA KEV]"
 
             refs = vm.get("references") or []
-            reference = refs[0] if refs else ""
+            reference = refs[0] if isinstance(refs, list) and refs else ""
 
             all_findings.append(
                 Finding(
@@ -159,3 +163,18 @@ def finalize_scan_findings(all_findings: List[Finding], scan: ScanResult) -> Lis
     all_findings = apply_vulnerability_intelligence(all_findings, scan.id, wp_for_intel)
     all_findings = add_core_maintenance_findings(all_findings, scan.id, wp_for_intel)
     return all_findings
+
+
+def finalize_and_score_scan(all_findings: List[Finding], scan: ScanResult) -> List[Finding]:
+    """Single entry point: metadata, intel enrichment, risk score (sync + async)."""
+    all_findings = finalize_scan_findings(all_findings, scan)
+    score, grade = compute_risk_score(all_findings)
+    scan.score = score
+    scan.grade = grade
+    scan.findings = all_findings
+    return all_findings
+
+
+def mark_scan_completed(scan: ScanResult) -> None:
+    scan.status = ScanStatus.COMPLETED
+    scan.completed_at = datetime.now(timezone.utc).isoformat()

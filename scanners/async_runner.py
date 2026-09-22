@@ -7,8 +7,7 @@ from datetime import datetime, timezone
 from typing import Dict, Any, Optional
 from core.models import ScanResult, ScanStatus
 from core import repository
-from core.risk_engine import compute_risk_score
-from core.scan_pipeline import finalize_scan_findings
+from core.scan_pipeline import finalize_and_score_scan, mark_scan_completed
 from core.models import Finding, Severity
 from scanners.base import BaseScanner
 from scanners.orchestrator import SCAN_PROFILES
@@ -87,13 +86,8 @@ def _execute_async_scan(scan_id: str, target_url: str, initiated_by: str, scan_m
 
     scan = repository.get_scan(scan_id)
     if scan:
-        all_findings = finalize_scan_findings(all_findings, scan)
-        score, grade = compute_risk_score(all_findings)
-        scan.status = ScanStatus.COMPLETED
-        scan.score = score
-        scan.grade = grade
-        scan.completed_at = datetime.now(timezone.utc).isoformat()
-        scan.findings = all_findings
+        all_findings = finalize_and_score_scan(all_findings, scan)
+        mark_scan_completed(scan)
         repository.save_scan(scan)
         repository.save_findings_bulk(all_findings)
 
