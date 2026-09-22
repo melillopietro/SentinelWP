@@ -11,7 +11,7 @@ from typing import Dict, Any
 
 logger = logging.getLogger(__name__)
 
-CURRENT_VERSION = "v3.6.0"
+CURRENT_VERSION = "v3.7.0"
 GITHUB_REPO_OWNER = "melillopietro"
 GITHUB_REPO_NAME = "SentinelWP"
 
@@ -64,7 +64,7 @@ def check_for_updates(force: bool = False) -> Dict[str, Any]:
     }
 
     try:
-        headers = {"User-Agent": "SentinelWP-UpdateChecker/3.6.0"}
+        headers = {"User-Agent": "SentinelWP-UpdateChecker/3.7.0"}
         resp = requests.get(api_url, headers=headers, timeout=5.0)
 
         if resp.status_code == 200:

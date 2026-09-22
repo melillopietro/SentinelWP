@@ -16,7 +16,7 @@ import io
 # Add project root to path
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from config import SECRET_KEY, ADMIN_USERNAME, ADMIN_PASSWORD, SESSION_EXPIRY_HOURS
+from config import SECRET_KEY, SESSION_EXPIRY_HOURS
 from core import repository
 from core.auth import create_user, verify_password, hash_password
 from core.models import UserRole, UserStatus, ScanStatus, Severity, ScheduledScan
@@ -36,6 +36,12 @@ from core.update_checker import check_for_updates
 app = Flask(__name__)
 app.secret_key = SECRET_KEY
 app.permanent_session_lifetime = timedelta(hours=SESSION_EXPIRY_HOURS)
+
+repository.init_db()
+try:
+    start_scheduler()
+except Exception:
+    pass
 
 
 # --- Auth helpers ---
@@ -65,16 +71,7 @@ _startup_sync_done = False
 @app.before_request
 def ensure_db_and_scheduler():
     global _startup_sync_done
-    repository.init_db()
-
-    # Start background scheduler daemon
-    try:
-        start_scheduler()
-    except Exception:
-        pass
-
-    # Trigger Threat Intelligence sync on app startup (once)
-    if not _startup_sync_done:
+    if not _startup_sync_done and not app.config.get("TESTING"):
         _startup_sync_done = True
         try:
             from config import VULN_INTEL_ENABLED
@@ -86,7 +83,7 @@ def ensure_db_and_scheduler():
             pass
 
     # Redirect to initial setup wizard if no users exist in database
-    if repository.count_users() == 0:
+    if not app.config.get("TESTING") and repository.count_users() == 0:
         if request.endpoint not in ("setup", "static"):
             return redirect(url_for("setup"))
 

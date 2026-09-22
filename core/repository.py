@@ -92,6 +92,8 @@ def init_db():
     try:
         from core.vulnerability_intelligence.repository import init_vuln_intel_db
         init_vuln_intel_db()
+        from core.vulnerability_intelligence.curated_advisories import seed_curated_advisories
+        seed_curated_advisories()
     except Exception:
         pass
 

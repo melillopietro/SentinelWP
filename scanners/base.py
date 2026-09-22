@@ -11,7 +11,7 @@ from datetime import datetime, timezone
 from typing import Optional
 from urllib.parse import urlparse
 from core.models import Finding
-from config import REQUEST_TIMEOUT, USER_AGENT
+from config import DISABLE_TLS_VERIFY, REQUEST_TIMEOUT, USER_AGENT
 
 
 # ---------------------------------------------------------------------------
@@ -75,7 +75,7 @@ class BaseScanner(ABC):
         self.target_url = target_url.rstrip("/")
         self.session = requests.Session()
         self.session.headers.update({"User-Agent": USER_AGENT})
-        self.session.verify = False
+        self.session.verify = not DISABLE_TLS_VERIFY
         self.session.max_redirects = self.MAX_REDIRECTS
         self.findings: list = []
         self.scan_log: list = []

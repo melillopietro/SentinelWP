@@ -9,15 +9,26 @@
 <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:24px;margin-bottom:24px;">
     <div style="display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--border);padding-bottom:16px;margin-bottom:20px;">
         <div>
-            <h3 style="font-size:20px;color:var(--text-primary);">SentinelWP v3.6.0 (Stable)</h3>
-            <p style="font-size:12px;color:var(--text-muted);margin-top:4px;">Released: August 2026</p>
+            <h3 style="font-size:20px;color:var(--text-primary);">SentinelWP v3.7.0 (Stable)</h3>
+            <p style="font-size:12px;color:var(--text-muted);margin-top:4px;">Released: September 2026</p>
         </div>
         <span class="badge badge-success" style="padding:6px 12px;font-size:12px;">Active Version</span>
     </div>
 
     <div style="display:flex;flex-direction:column;gap:24px;">
         <div>
-            <h4 style="font-size:15px;color:var(--accent);margin-bottom:10px;text-transform:uppercase;letter-spacing:0.5px;">User Panel &amp; Preferences, Theme Switcher &amp; Navigation Cleanup</h4>
+            <h4 style="font-size:15px;color:var(--accent);margin-bottom:10px;text-transform:uppercase;letter-spacing:0.5px;">WordPress 7.1.2 &amp; CVE-2026-87902 Intelligence</h4>
+            <ul style="padding-left:20px;line-height:1.8;font-size:13px;color:var(--text-primary);">
+                <li><strong>Curated core advisory seed</strong> for CVE-2026-87902 (WordPress &lt; 7.1.2 template-resolution RCE) with branch maintenance map through 7.1.2.</li>
+                <li><strong>Unified scan pipeline</strong> for sync/async scans: correct WordPress core version extraction (no plugin version confusion).</li>
+                <li><strong>CoreSecurityScanner</strong> flags elevated-risk theme preconditions cited in public CVE-2026-87902 analysis.</li>
+                <li><strong>CVE hygiene note</strong>: CVE-2026-86902 is documented as Apple macOS (not WordPress) to prevent false correlation.</li>
+                <li><strong>Platform hardening</strong>: one-time app initialization, TLS verification enabled by default (<code>WSA_DISABLE_TLS_VERIFY</code>), aligned <code>.env.example</code>.</li>
+            </ul>
+        </div>
+
+        <div>
+            <h4 style="font-size:15px;color:var(--accent);margin-bottom:10px;text-transform:uppercase;letter-spacing:0.5px;">User Panel &amp; Preferences, Theme Switcher &amp; Navigation Cleanup (v3.6.0)</h4>
             <ul style="padding-left:20px;line-height:1.8;font-size:13px;color:var(--text-primary);">
                 <li><strong>Unified User Panel &amp; Preferences (<code>/settings</code>)</strong>: Created a centralized hub for account settings, password management, theme selection, changelog access, and admin user controls.</li>
                 <li><strong>Dark &amp; Light Theme Switcher</strong>: Full support for Dark Theme (default) and Light Theme (White) with instant client-side switching and persistent local storage.</li>
