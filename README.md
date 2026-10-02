@@ -1,4 +1,4 @@
-# SentinelWP — WordPress Security Sentinel (v3.7.0)
+# SentinelWP — WordPress Security Sentinel (v4.0.0)
 
 Enterprise-grade, non-destructive WordPress security assessment and posture management platform.
 
@@ -214,9 +214,9 @@ python app.py
 
 ---
 
-## Recent Updates & Changelog (v3.7.0)
+## Recent Updates & Changelog (v4.0.0)
 
-### v3.7.0 — WordPress 7.1.2 / CVE-2026-87902 & Scan Pipeline Hardening
+### v4.0.0 — WordPress 7.1.2 / CVE-2026-87902 & Scan Pipeline Hardening
 - **WordPress 7.1.2 curated intelligence**: Local seed for **CVE-2026-87902** (critical core template-resolution issue; fixed in 7.1.2). See [WordPress 7.1.2 release](https://wordpress.org/news/2026/09/wordpress-7-1-2-release/).
 - **Branch maintenance map**: Recommends latest security release per branch (7.1.2, 7.0.4, 6.9.x, …) during scans.
 - **Unified scan finalization**: Async and sync scans share the same CVE enrichment and version matching logic; WordPress core version is taken from detector signals (not plugin versions).
