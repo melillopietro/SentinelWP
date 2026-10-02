@@ -1,0 +1,143 @@
+{% extends "base.html" %}
+{% block title %}Vulnerability Database - SentinelWP{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h2>Vulnerability Database</h2>
+    <p>Search and filter known WordPress vulnerabilities.</p>
+</div>
+
+<div style="background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; margin-bottom: 24px;">
+    <form method="GET" action="{{ url_for('vuln_intel_list') if 'vuln_intel_list' in request.url_rule.endpoint|default('') else '/vuln-intel/list' }}" style="display: flex; gap: 16px; flex-wrap: wrap; align-items: flex-end;">
+        <div class="form-group" style="margin-bottom: 0; flex: 1; min-width: 200px;">
+            <label for="q">Search</label>
+            <input type="text" id="q" name="q" value="{{ filters.q|default('') }}" placeholder="Search CVE or keyword...">
+        </div>
+        <div class="form-group" style="margin-bottom: 0; min-width: 140px;">
+            <label for="software_type">Software Type</label>
+            <select id="software_type" name="software_type">
+                <option value="" {% if not filters.software_type %}selected{% endif %}>All</option>
+                <option value="core" {% if filters.software_type == 'core' %}selected{% endif %}>Core</option>
+                <option value="plugin" {% if filters.software_type == 'plugin' %}selected{% endif %}>Plugin</option>
+            </select>
+        </div>
+        <div class="form-group" style="margin-bottom: 0; min-width: 140px;">
+            <label for="min_cvss">Min CVSS</label>
+            <select id="min_cvss" name="min_cvss">
+                <option value="" {% if not filters.min_cvss %}selected{% endif %}>All</option>
+                <option value="9.0" {% if filters.min_cvss == '9.0' %}selected{% endif %}>9.0+ (Critical)</option>
+                <option value="7.0" {% if filters.min_cvss == '7.0' %}selected{% endif %}>7.0+ (High)</option>
+                <option value="4.0" {% if filters.min_cvss == '4.0' %}selected{% endif %}>4.0+ (Medium)</option>
+            </select>
+        </div>
+        <div class="form-group" style="margin-bottom: 0; min-width: 140px;">
+            <label for="min_installs">Popularity</label>
+            <select id="min_installs" name="min_installs">
+                <option value="" {% if not filters.min_installs %}selected{% endif %}>All</option>
+                <option value="10000" {% if filters.min_installs == '10000' %}selected{% endif %}>10K+ Installs</option>
+                <option value="100000" {% if filters.min_installs == '100000' %}selected{% endif %}>100K+ Installs</option>
+                <option value="1000000" {% if filters.min_installs == '1000000' %}selected{% endif %}>1M+ Installs</option>
+            </select>
+        </div>
+        <div class="form-group" style="margin-bottom: 0; display: flex; align-items: center; gap: 8px; height: 38px;">
+            <input type="checkbox" id="kev_only" name="kev_only" value="1" {% if filters.kev_only %}checked{% endif %} style="width: auto;">
+            <label for="kev_only" style="margin-bottom: 0; cursor: pointer;">KEV Only</label>
+        </div>
+        <div style="margin-bottom: 0;">
+            <button type="submit" class="btn btn-primary" style="height: 38px;">Apply Filters</button>
+        </div>
+    </form>
+</div>
+
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+    <div style="font-size: 14px; color: var(--text-muted);">
+        Showing {{ vulnerabilities|length }} results (Total: {{ total_count }})
+    </div>
+</div>
+
+<div class="table-wrap">
+    <table>
+        <thead>
+            <tr>
+                <th>CVE</th>
+                <th>Software</th>
+                <th>Slug</th>
+                <th>CVSS</th>
+                <th>Affected Versions</th>
+                <th>Patched</th>
+                <th>Active Installs</th>
+                <th>KEV</th>
+                <th>Published</th>
+                <th>Source</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for v in vulnerabilities %}
+            <tr>
+                <td><strong>{{ v.cve or 'N/A' }}</strong></td>
+                <td>{{ v.software_name }}</td>
+                <td><span style="font-family: monospace; font-size: 12px;">{{ v.slug }}</span></td>
+                <td>
+                    {% if v.cvss_score %}
+                        {% if v.cvss_score >= 9.0 %}
+                            <span class="badge badge-critical">{{ v.cvss_score }}</span>
+                        {% elif v.cvss_score >= 7.0 %}
+                            <span class="badge badge-high">{{ v.cvss_score }}</span>
+                        {% elif v.cvss_score >= 4.0 %}
+                            <span class="badge badge-medium">{{ v.cvss_score }}</span>
+                        {% else %}
+                            <span class="badge badge-low">{{ v.cvss_score }}</span>
+                        {% endif %}
+                    {% else %}
+                        -
+                    {% endif %}
+                </td>
+                <td style="font-family: monospace; font-size: 12px;">{{ v.affected_range_str }}</td>
+                <td>{{ v.patched_version or 'No patch' }}</td>
+                <td>
+                    {% if v.active_installs %}
+                        {% if v.active_installs >= 1000000 %}
+                            {{ (v.active_installs / 1000000)|round(1) }}M
+                        {% elif v.active_installs >= 1000 %}
+                            {{ (v.active_installs / 1000)|round(1) }}K
+                        {% else %}
+                            {{ v.active_installs }}
+                        {% endif %}
+                    {% else %}
+                        Unknown
+                    {% endif %}
+                </td>
+                <td>
+                    {% if v.kev_listed %}
+                        <span class="badge badge-critical">Listed in CISA KEV</span>
+                    {% else %}
+                        -
+                    {% endif %}
+                </td>
+                <td style="font-size: 12px;">{{ v.published[:10] if v.published else '-' }}</td>
+                <td style="font-size: 12px; text-transform: capitalize;">{{ v.source }}</td>
+            </tr>
+            {% else %}
+            <tr>
+                <td colspan="10" style="text-align: center; padding: 32px; color: var(--text-muted);">No vulnerabilities found matching your criteria.</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+{% if total_pages > 1 %}
+<div style="display: flex; justify-content: center; gap: 8px; margin-top: 24px;">
+    {% if page > 1 %}
+    <a href="?page={{ page - 1 }}&q={{ filters.q|default('')|urlencode }}&software_type={{ filters.software_type|default('') }}&min_cvss={{ filters.min_cvss|default('') }}&min_installs={{ filters.min_installs|default('') }}&kev_only={{ '1' if filters.kev_only else '' }}" class="btn btn-secondary btn-sm">Previous</a>
+    {% endif %}
+    
+    <span style="display: inline-flex; align-items: center; font-size: 13px; color: var(--text-muted); padding: 0 12px;">
+        Page {{ page }} of {{ total_pages }}
+    </span>
+    
+    {% if page < total_pages %}
+    <a href="?page={{ page + 1 }}&q={{ filters.q|default('')|urlencode }}&software_type={{ filters.software_type|default('') }}&min_cvss={{ filters.min_cvss|default('') }}&min_installs={{ filters.min_installs|default('') }}&kev_only={{ '1' if filters.kev_only else '' }}" class="btn btn-secondary btn-sm">Next</a>
+    {% endif %}
+</div>
+{% endif %}
+{% endblock %}

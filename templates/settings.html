@@ -1,0 +1,337 @@
+{% extends "base.html" %}
+{% block title %}User Panel & Settings - SentinelWP{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h2>User Panel &amp; Settings</h2>
+    <p>Manage your account preferences, theme, security, and administrative access.</p>
+</div>
+
+<div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap:24px; margin-bottom:32px;">
+    <!-- Card 1: Appearance & Theme Switcher -->
+    <div style="background:var(--bg-card); border:1px solid var(--border); border-radius:var(--radius); padding:24px;">
+        <div style="display:flex; align-items:center; gap:12px; margin-bottom:16px; border-bottom:1px solid var(--border); padding-bottom:12px;">
+            <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="color:var(--accent);"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01"/></svg>
+            <h3 style="font-size:16px; font-weight:600; color:var(--text-primary);">Appearance &amp; Theme</h3>
+        </div>
+        <p style="font-size:13px; color:var(--text-muted); margin-bottom:20px;">
+            Choose your preferred color theme. Your selection is automatically saved for future visits.
+        </p>
+
+        <div style="display:flex; gap:12px;">
+            <button type="button" id="theme-btn-dark" onclick="setTheme('dark')" class="btn" style="flex:1; justify-content:center; padding:12px; border:1px solid var(--border); background:var(--bg-dark); color:var(--text-primary); cursor:pointer;">
+                <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/></svg>
+                Dark Theme
+            </button>
+            <button type="button" id="theme-btn-light" onclick="setTheme('light')" class="btn" style="flex:1; justify-content:center; padding:12px; border:1px solid var(--border); background:var(--bg-dark); color:var(--text-primary); cursor:pointer;">
+                <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
+                Light Theme
+            </button>
+        </div>
+    </div>
+
+    <!-- Card 2: Account Info & Password Reset -->
+    <div style="background:var(--bg-card); border:1px solid var(--border); border-radius:var(--radius); padding:24px;">
+        <div style="display:flex; align-items:center; gap:12px; margin-bottom:16px; border-bottom:1px solid var(--border); padding-bottom:12px;">
+            <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="color:var(--accent);"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+            <h3 style="font-size:16px; font-weight:600; color:var(--text-primary);">Account &amp; Security</h3>
+        </div>
+
+        <div style="margin-bottom:20px; font-size:13px; color:var(--text-secondary);">
+            <div>Username: <strong style="color:var(--text-primary);">{{ session.get('username') }}</strong></div>
+            <div style="margin-top:4px;">Role: <span class="badge badge-info">{{ session.get('role') }}</span></div>
+            {% if user and user.email %}<div style="margin-top:4px;">Email: {{ user.email }}</div>{% endif %}
+        </div>
+
+        <form method="POST" action="{{ url_for('settings') }}">
+            <input type="hidden" name="action" value="change_password">
+            <div style="display:flex; flex-direction:column; gap:12px;">
+                <div>
+                    <label style="display:block; font-size:12px; color:var(--text-muted); margin-bottom:4px;">Current Password</label>
+                    <input type="password" name="old_password" required placeholder="Enter current password" style="width:100%; padding:8px 10px; font-size:13px;">
+                </div>
+                <div>
+                    <label style="display:block; font-size:12px; color:var(--text-muted); margin-bottom:4px;">New Password</label>
+                    <input type="password" name="new_password" required minlength="6" placeholder="Enter new password (min 6 chars)" style="width:100%; padding:8px 10px; font-size:13px;">
+                </div>
+                <div>
+                    <label style="display:block; font-size:12px; color:var(--text-muted); margin-bottom:4px;">Confirm New Password</label>
+                    <input type="password" name="confirm_password" required minlength="6" placeholder="Confirm new password" style="width:100%; padding:8px 10px; font-size:13px;">
+                </div>
+                <div style="margin-top:8px;">
+                    <button type="submit" class="btn btn-primary btn-sm" style="width:100%; justify-content:center;">Update Password</button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+{% if session.get('role') == 'admin' %}
+<!-- Card 3: User Management (Admin Only) -->
+<div style="background:var(--bg-card); border:1px solid var(--border); border-radius:var(--radius); padding:24px; margin-bottom:32px;">
+    <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border); padding-bottom:16px; margin-bottom:20px; flex-wrap:wrap; gap:12px;">
+        <div style="display:flex; align-items:center; gap:12px;">
+            <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="color:var(--accent);"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
+            <h3 style="font-size:18px; font-weight:600; color:var(--text-primary);">User Management (Admin Console)</h3>
+        </div>
+        <button type="button" onclick="toggleUserCreateForm()" class="btn btn-primary btn-sm">+ Create New User</button>
+    </div>
+
+    <!-- Create User Collapsible Form -->
+    <div id="user-create-card" style="display:none; background:var(--bg-dark); border:1px solid var(--border); border-radius:var(--radius); padding:20px; margin-bottom:24px;">
+        <h4 style="font-size:14px; font-weight:600; margin-bottom:12px; color:var(--text-primary);">Create System Account</h4>
+        <form method="POST" action="{{ url_for('create_user_route') }}">
+            <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:12px; margin-bottom:16px;">
+                <div>
+                    <label style="display:block; font-size:12px; color:var(--text-muted); margin-bottom:4px;">Username</label>
+                    <input type="text" name="username" required placeholder="Username" style="width:100%; padding:8px 10px; font-size:13px;">
+                </div>
+                <div>
+                    <label style="display:block; font-size:12px; color:var(--text-muted); margin-bottom:4px;">Email</label>
+                    <input type="email" name="email" placeholder="user@domain.com" style="width:100%; padding:8px 10px; font-size:13px;">
+                </div>
+                <div>
+                    <label style="display:block; font-size:12px; color:var(--text-muted); margin-bottom:4px;">Initial Password</label>
+                    <input type="password" name="password" required minlength="6" placeholder="Password" style="width:100%; padding:8px 10px; font-size:13px;">
+                </div>
+                <div>
+                    <label style="display:block; font-size:12px; color:var(--text-muted); margin-bottom:4px;">Role</label>
+                    <select name="role" style="width:100%; padding:8px 10px; font-size:13px;">
+                        <option value="viewer">Viewer (Read-only)</option>
+                        <option value="analyst">Analyst (Run Scans)</option>
+                        <option value="admin">Administrator (Full Access)</option>
+                    </select>
+                </div>
+            </div>
+            <div style="display:flex; justify-content:flex-end; gap:8px;">
+                <button type="button" onclick="toggleUserCreateForm()" class="btn btn-secondary btn-sm">Cancel</button>
+                <button type="submit" class="btn btn-primary btn-sm">Create User</button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Users Table -->
+    {% if users %}
+    <div class="table-wrap" style="margin:0;">
+        <table>
+            <thead>
+                <tr>
+                    <th>Username</th>
+                    <th>Email</th>
+                    <th>Role</th>
+                    <th>Status</th>
+                    <th>Created At</th>
+                    <th style="text-align:right;">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for u in users %}
+                <tr>
+                    <td><strong style="color:var(--text-primary);">{{ u.username }}</strong></td>
+                    <td>{{ u.email or '-' }}</td>
+                    <td>
+                        <span class="badge {% if u.role.value is defined and u.role.value == 'admin' %}badge-critical{% elif u.role == 'admin' %}badge-critical{% elif u.role.value is defined and u.role.value == 'analyst' %}badge-medium{% elif u.role == 'analyst' %}badge-medium{% else %}badge-info{% endif %}">
+                            {{ u.role.value if u.role.value is defined else u.role }}
+                        </span>
+                    </td>
+                    <td><span class="badge badge-success">{{ u.status.value if u.status.value is defined else u.status }}</span></td>
+                    <td style="font-size:12px; color:var(--text-muted);">{{ u.created_at[:16] if u.created_at else '-' }}</td>
+                    <td style="text-align:right;">
+                        {% if u.id != session.get('user_id') %}
+                        <form method="POST" action="{{ url_for('delete_user_route', user_id=u.id) }}" style="display:inline;" onsubmit="return confirm('Delete user {{ u.username }}?')">
+                            <button type="submit" class="btn btn-danger btn-sm" style="padding:3px 8px; font-size:11px;">Delete</button>
+                        </form>
+                        {% else %}
+                        <span style="font-size:11px; color:var(--text-muted);">(You)</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% endif %}
+    <!-- Database Backup & Restoration (Admin Only) -->
+    <div style="margin-top:24px; border-top:1px solid var(--border); padding-top:20px;">
+        <h4 style="font-size:15px; font-weight:600; color:var(--text-primary); margin-bottom:12px; display:flex; align-items:center; gap:8px;">
+            <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="color:var(--accent);"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4"/></svg>
+            Database Backup &amp; Restoration
+        </h4>
+
+        <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap:16px;">
+            <!-- Export Box -->
+            <div style="background:var(--bg-dark); border:1px solid var(--border); border-radius:var(--radius); padding:20px; display:flex; flex-direction:column; justify-content:space-between;">
+                <div>
+                    <h5 style="font-size:14px; font-weight:600; margin-bottom:8px; color:var(--text-primary);">Export Database Backup</h5>
+                    <p style="font-size:12px; color:var(--text-muted); margin-bottom:16px; line-height:1.5;">
+                        Download the complete scan history and findings log into a multi-sheet Excel workbook (.xlsx).
+                    </p>
+                </div>
+                <a href="{{ url_for('admin_export_db') }}" class="btn btn-primary btn-sm" style="width:100%; justify-content:center;">
+                    <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+                    Export Entire Database (.xlsx)
+                </a>
+            </div>
+
+            <!-- Import Box -->
+            <div style="background:var(--bg-dark); border:1px solid var(--border); border-radius:var(--radius); padding:20px; display:flex; flex-direction:column; justify-content:space-between;">
+                <div>
+                    <h5 style="font-size:14px; font-weight:600; margin-bottom:8px; color:var(--text-primary);">Import Database Backup</h5>
+                    <p style="font-size:12px; color:var(--text-muted); margin-bottom:12px; line-height:1.5;">
+                        Upload a previously exported SentinelWP Excel backup (.xlsx) to restore scans and findings.
+                    </p>
+                </div>
+                <form method="POST" action="{{ url_for('admin_import_db') }}" enctype="multipart/form-data" style="margin:0;">
+                    <input type="file" name="db_file" accept=".xlsx" required style="width:100%; padding:6px; background:var(--bg-card); border:1px solid var(--border); border-radius:4px; font-size:11px; color:var(--text-primary); margin-bottom:10px;">
+                    <button type="submit" class="btn btn-secondary btn-sm" style="width:100%; justify-content:center;">
+                        <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
+                        Import Database (.xlsx)
+                    </button>
+                </form>
+            </div>
+
+            <!-- Purge Box -->
+            <div style="background:var(--bg-dark); border:1px solid var(--border); border-radius:var(--radius); padding:20px; display:flex; flex-direction:column; justify-content:space-between;">
+                <div>
+                    <h5 style="font-size:14px; font-weight:600; margin-bottom:8px; color:var(--critical);">Purge Database Archive</h5>
+                    <p style="font-size:12px; color:var(--text-muted); margin-bottom:16px; line-height:1.5;">
+                        Permanently delete all historical scan records and vulnerability findings from the SQLite database.
+                    </p>
+                </div>
+                <form method="POST" action="{{ url_for('admin_purge_db') }}" onsubmit="return confirmPurgeDatabase(event)" style="margin:0;">
+                    <input type="hidden" name="confirm_purge" value="PURGE">
+                    <button type="submit" class="btn btn-danger btn-sm" style="width:100%; justify-content:center;">
+                        <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                        Purge Entire Archive
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Card 4: System Updates & Repository Status -->
+<div style="background:var(--bg-card); border:1px solid var(--border); border-radius:var(--radius); padding:24px;">
+    <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border); padding-bottom:16px; margin-bottom:20px; flex-wrap:wrap; gap:12px;">
+        <div style="display:flex; align-items:center; gap:12px;">
+            <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="color:var(--accent);"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+            <h3 style="font-size:16px; font-weight:600; color:var(--text-primary);">GitHub Repository &amp; Update Checker</h3>
+        </div>
+        <div style="display:flex; gap:8px;">
+            <button type="button" onclick="checkRepositoryUpdates(true)" id="btn-check-updates" class="btn btn-primary btn-sm">
+                <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                Check for Updates
+            </button>
+            <a href="{{ url_for('changelog') }}" class="btn btn-secondary btn-sm">View Changelog</a>
+        </div>
+    </div>
+
+    <div id="update-status-box" style="background:var(--bg-dark); border:1px solid var(--border); border-radius:var(--radius); padding:16px;">
+        <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px;">
+            <div>
+                <div style="font-size:13px; color:var(--text-muted); margin-bottom:4px;">Installed Version</div>
+                <strong style="font-size:16px; color:var(--text-primary);">SentinelWP v3.7.0</strong>
+                <span style="font-size:12px; color:var(--text-muted); margin-left:6px;">(Commit: <code id="local-commit">{{ update_info.local_commit if update_info else 'unknown' }}</code>)</span>
+            </div>
+            
+            <div id="update-badge-container">
+                {% if update_info and update_info.error %}
+                <span class="badge badge-warning">Check Failed</span>
+                {% elif update_info and update_info.is_latest %}
+                <span class="badge badge-success" style="padding:6px 12px; font-size:12px;">🟢 Up to Date (Latest Release)</span>
+                {% else %}
+                <span class="badge badge-critical" style="padding:6px 12px; font-size:12px;">🟡 Update Available on GitHub</span>
+                {% endif %}
+            </div>
+        </div>
+
+        <div id="update-details-block" style="margin-top:14px; border-top:1px solid var(--border); padding-top:12px; font-size:12px; color:var(--text-secondary);">
+            {% if update_info and update_info.error %}
+            <p style="color:var(--warning);">⚠️ {{ update_info.error }}</p>
+            {% elif update_info and not update_info.is_latest %}
+            <p style="color:var(--critical); font-weight:600; margin-bottom:6px;">
+                🚀 A new update is available on GitHub! (Latest Commit: <code>{{ update_info.remote_commit }}</code>)
+            </p>
+            <p style="color:var(--text-muted); margin-bottom:8px;">
+                Latest Commit Message: <em>"{{ update_info.latest_commit_message }}"</em>
+            </p>
+            <div style="background:var(--bg-card); padding:10px; border-radius:4px; font-family:monospace; color:var(--accent);">
+                git pull origin main
+            </div>
+            {% else %}
+            <p style="color:var(--text-muted);">
+                Your installation is synchronized with the official repository on GitHub (<strong><a href="https://github.com/melillopietro/SentinelWP" target="_blank" rel="noopener" style="color:var(--accent);">melillopietro/SentinelWP</a></strong>).
+            </p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<script>
+function confirmPurgeDatabase(event) {
+    const confirmation = prompt("⚠️ CRITICAL WARNING: You are about to permanently delete all scan records and findings log.\n\nType 'PURGE' in capital letters to confirm database deletion:");
+    if (confirmation !== "PURGE") {
+        alert("Purge cancelled. Database was NOT modified.");
+        event.preventDefault();
+        return false;
+    }
+    return true;
+}
+
+function toggleUserCreateForm() {
+    const card = document.getElementById("user-create-card");
+    if (card) {
+        card.style.display = card.style.display === "none" ? "block" : "none";
+    }
+}
+
+function checkRepositoryUpdates(force) {
+    const btn = document.getElementById("btn-check-updates");
+    const container = document.getElementById("update-badge-container");
+    const details = document.getElementById("update-details-block");
+    if (btn) btn.disabled = true;
+    if (container) container.innerHTML = '<span class="badge badge-info">Checking GitHub...</span>';
+
+    fetch('/api/check-update' + (force ? '?force=true' : ''))
+        .then(r => r.json())
+        .then(data => {
+            if (btn) btn.disabled = false;
+            if (data.error) {
+                container.innerHTML = '<span class="badge badge-warning">Check Error</span>';
+                details.innerHTML = `<p style="color:var(--warning);">⚠️ ${data.error}</p>`;
+            } else if (data.is_latest) {
+                container.innerHTML = '<span class="badge badge-success" style="padding:6px 12px; font-size:12px;">🟢 Up to Date (Latest Release)</span>';
+                details.innerHTML = `<p style="color:var(--text-muted);">Your installation is synchronized with the official repository on GitHub (<strong><a href="${data.repo_url}" target="_blank" style="color:var(--accent);">${data.repo_url}</a></strong>).</p>`;
+            } else {
+                container.innerHTML = '<span class="badge badge-critical" style="padding:6px 12px; font-size:12px;">🟡 Update Available on GitHub</span>';
+                details.innerHTML = `
+                    <p style="color:var(--critical); font-weight:600; margin-bottom:6px;">🚀 A new update is available on GitHub! (Remote Commit: <code>${data.remote_commit}</code>)</p>
+                    <p style="color:var(--text-muted); margin-bottom:8px;">Latest Commit: <em>"${data.latest_commit_message}"</em></p>
+                    <div style="background:var(--bg-card); padding:10px; border-radius:4px; font-family:monospace; color:var(--accent);">git pull origin main</div>
+                `;
+            }
+        })
+        .catch(err => {
+            if (btn) btn.disabled = false;
+            if (container) container.innerHTML = '<span class="badge badge-warning">Network Error</span>';
+        });
+}
+
+function updateThemeUI(theme) {
+    const darkBtn = document.getElementById("theme-btn-dark");
+    const lightBtn = document.getElementById("theme-btn-light");
+    if (theme === "light") {
+        if (lightBtn) { lightBtn.style.background = "var(--accent)"; lightBtn.style.color = "#fff"; }
+        if (darkBtn) { darkBtn.style.background = "var(--bg-dark)"; darkBtn.style.color = "var(--text-primary)"; }
+    } else {
+        if (darkBtn) { darkBtn.style.background = "var(--accent)"; darkBtn.style.color = "#fff"; }
+        if (lightBtn) { lightBtn.style.background = "var(--bg-dark)"; lightBtn.style.color = "var(--text-primary)"; }
+    }
+}
+
+document.addEventListener("DOMContentLoaded", function() {
+    const currentTheme = localStorage.getItem("sentinel_theme") || "dark";
+    updateThemeUI(currentTheme);
+});
+</script>
+{% endblock %}

@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>{% block title %}SentinelWP{% endblock %}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+    --bg-primary: #0f1117;
+    --bg-secondary: #1a1d2e;
+    --bg-card: #1e2235;
+    --bg-hover: #252a3f;
+    --text-primary: #e4e7ec;
+    --text-secondary: #9ca3b4;
+    --text-muted: #6b7280;
+    --border: #2d3348;
+    --accent: #6366f1;
+    --accent-hover: #818cf8;
+    --success: #10b981;
+    --warning: #f59e0b;
+    --danger: #ef4444;
+    --info: #3b82f6;
+    --critical: #dc2626;
+    --high: #ea580c;
+    --medium: #d97706;
+    --low: #3b82f6;
+    --radius: 8px;
+    --shadow: 0 4px 6px -1px rgba(0,0,0,0.3);
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    min-height: 100vh;
+    display: flex;
+}
+a { color: var(--accent); text-decoration: none; }
+a:hover { color: var(--accent-hover); }
+
+/* Sidebar */
+.sidebar {
+    width: 260px;
+    background: var(--bg-secondary);
+    border-right: 1px solid var(--border);
+    padding: 24px 0;
+    position: fixed;
+    top: 0;
+    left: 0;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    z-index: 100;
+}
+.sidebar-brand {
+    padding: 0 24px 24px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 16px;
+}
+.sidebar-brand h1 {
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--text-primary);
+    letter-spacing: -0.5px;
+}
+.sidebar-brand p {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-top: 4px;
+}
+.sidebar-nav { flex: 1; padding: 0 12px; }
+.sidebar-nav a {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 12px;
+    border-radius: var(--radius);
+    color: var(--text-secondary);
+    font-size: 14px;
+    font-weight: 500;
+    transition: all 0.15s;
+    margin-bottom: 2px;
+}
+.sidebar-nav a:hover { background: var(--bg-hover); color: var(--text-primary); }
+.sidebar-nav a.active { background: var(--accent); color: #fff; }
+.sidebar-nav a svg { width: 18px; height: 18px; flex-shrink: 0; }
+.sidebar-footer {
+    padding: 16px 24px;
+    border-top: 1px solid var(--border);
+    font-size: 12px;
+    color: var(--text-muted);
+}
+.sidebar-footer .user-info { margin-bottom: 8px; color: var(--text-secondary); }
+
+/* Main content */
+.main {
+    margin-left: 260px;
+    flex: 1;
+    padding: 32px;
+    min-height: 100vh;
+}
+.page-header {
+    margin-bottom: 32px;
+}
+.page-header h2 {
+    font-size: 24px;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+.page-header p {
+    font-size: 14px;
+    color: var(--text-muted);
+    margin-top: 4px;
+}
+
+/* Cards */
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 16px;
+    margin-bottom: 32px;
+}
+.stat-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px;
+    transition: border-color 0.2s;
+}
+.stat-card:hover { border-color: var(--accent); }
+.stat-card .label { font-size: 12px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; }
+.stat-card .value { font-size: 28px; font-weight: 700; margin-top: 8px; }
+
+/* Tables */
+.table-wrap {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+}
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+th { background: var(--bg-secondary); padding: 12px 16px; text-align: left; font-weight: 600; color: var(--text-secondary); border-bottom: 1px solid var(--border); }
+td { padding: 12px 16px; border-bottom: 1px solid var(--border); color: var(--text-primary); }
+tr:hover td { background: var(--bg-hover); }
+tr:last-child td { border-bottom: none; }
+
+/* Badges */
+.badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+}
+.badge-critical { background: rgba(220,38,38,0.15); color: var(--critical); }
+.badge-high { background: rgba(234,88,12,0.15); color: var(--high); }
+.badge-medium { background: rgba(217,119,6,0.15); color: var(--medium); }
+.badge-low { background: rgba(59,130,246,0.15); color: var(--low); }
+.badge-info { background: rgba(107,114,128,0.15); color: var(--text-muted); }
+
+/* Forms */
+.form-group { margin-bottom: 16px; }
+.form-group label { display: block; font-size: 13px; font-weight: 500; color: var(--text-secondary); margin-bottom: 6px; }
+input[type="text"], input[type="password"], input[type="email"], input[type="url"],
+textarea, select {
+    width: 100%;
+    padding: 10px 14px;
+    background: var(--bg-primary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    color: var(--text-primary);
+    font-size: 14px;
+    font-family: inherit;
+    transition: border-color 0.2s;
+}
+input:focus, textarea:focus, select:focus { outline: none; border-color: var(--accent); }
+textarea { min-height: 120px; resize: vertical; }
+
+/* Buttons */
+.btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 20px;
+    border-radius: var(--radius);
+    font-size: 14px;
+    font-weight: 500;
+    border: none;
+    cursor: pointer;
+    transition: all 0.15s;
+    text-decoration: none;
+}
+.btn-primary { background: var(--accent); color: #fff; }
+.btn-primary:hover { background: var(--accent-hover); color: #fff; }
+.btn-danger { background: var(--danger); color: #fff; }
+.btn-danger:hover { background: #dc2626; }
+.btn-secondary { background: var(--bg-hover); color: var(--text-primary); border: 1px solid var(--border); }
+.btn-secondary:hover { border-color: var(--accent); }
+.btn-sm { padding: 6px 12px; font-size: 12px; }
+.btn-group { display: flex; gap: 8px; flex-wrap: wrap; }
+
+/* Flash messages */
+.flash { padding: 12px 16px; border-radius: var(--radius); margin-bottom: 16px; font-size: 13px; }
+.flash-success { background: rgba(16,185,129,0.1); border: 1px solid var(--success); color: var(--success); }
+.flash-error { background: rgba(239,68,68,0.1); border: 1px solid var(--danger); color: var(--danger); }
+
+/* Grade colors */
+.grade-a { color: var(--success); }
+.grade-b { color: #22d3ee; }
+.grade-c { color: var(--warning); }
+.grade-d { color: var(--high); }
+.grade-e, .grade-f { color: var(--danger); }
+
+/* Responsive */
+html[data-theme="light"] {
+    --bg-primary: #f8fafc;
+    --bg-secondary: #ffffff;
+    --bg-card: #ffffff;
+    --bg-hover: #f1f5f9;
+    --bg-dark: #e2e8f0;
+    --text-primary: #0f172a;
+    --text-secondary: #334155;
+    --text-muted: #64748b;
+    --border: #cbd5e1;
+    --accent: #4f46e5;
+    --accent-hover: #4338ca;
+    --shadow: 0 4px 6px -1px rgba(0,0,0,0.06);
+}
+@media (max-width: 768px) {
+    .sidebar { display: none; }
+    .main { margin-left: 0; }
+}
+</style>
+<script>
+(function() {
+    var savedTheme = localStorage.getItem('sentinel_theme') || 'dark';
+    document.documentElement.setAttribute('data-theme', savedTheme);
+})();
+function setTheme(theme) {
+    document.documentElement.setAttribute('data-theme', theme);
+    localStorage.setItem('sentinel_theme', theme);
+    if (typeof updateThemeUI === 'function') {
+        updateThemeUI(theme);
+    }
+}
+</script>
+</head>
+<body>
+{% if session.get('user_id') %}
+<aside class="sidebar">
+    <div class="sidebar-brand">
+        <h1>SentinelWP</h1>
+        <p>WordPress Security Sentinel v4.0.0</p>
+    </div>
+    <nav class="sidebar-nav">
+        <a href="{{ url_for('dashboard') }}" class="{% if request.endpoint == 'dashboard' %}active{% endif %}">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"/></svg>
+            Dashboard
+        </a>
+        <a href="{{ url_for('new_scan') }}" class="{% if request.endpoint == 'new_scan' %}active{% endif %}">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+            New Scan
+        </a>
+        <a href="{{ url_for('batch_scan') }}" class="{% if request.endpoint == 'batch_scan' %}active{% endif %}">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>
+            Batch Scan
+        </a>
+        <a href="{{ url_for('scan_history') }}" class="{% if request.endpoint == 'scan_history' %}active{% endif %}">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            Scan History
+        </a>
+        <a href="{{ url_for('schedules') }}" class="{% if request.endpoint == 'schedules' %}active{% endif %}">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+            Schedules
+        </a>
+        <a href="{{ url_for('vuln_intel_dashboard') }}" class="{% if request.endpoint == 'vuln_intel_dashboard' or request.endpoint == 'vuln_intel_list' %}active{% endif %}">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+            Threat Intel
+        </a>
+    </nav>
+    <div class="sidebar-footer" style="position:relative; padding:16px;">
+        <div id="user-dropdown-btn" onclick="toggleUserDropdown(event)" style="display:flex; align-items:center; justify-content:space-between; padding:10px 12px; border-radius:var(--radius); background:var(--bg-card); border:1px solid var(--border); cursor:pointer; user-select:none; transition:all 0.15s;">
+            <div style="display:flex; align-items:center; gap:10px; min-width:0;">
+                <div style="width:32px; height:32px; border-radius:50%; background:var(--accent); color:#fff; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:13px; text-transform:uppercase; flex-shrink:0;">
+                    {{ (session.get('username') or 'U')[0] }}
+                </div>
+                <div style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
+                    <div style="font-weight:600; font-size:13px; color:var(--text-primary); line-height:1.2; text-overflow:ellipsis; overflow:hidden;">{{ session.get('username', 'User') }}</div>
+                    <div style="font-size:11px; color:var(--text-muted); text-transform:capitalize;">{{ session.get('role', 'user') }}</div>
+                </div>
+            </div>
+            <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="color:var(--text-muted); flex-shrink:0; margin-left:6px;"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+        </div>
+
+        <!-- User Options Dropdown -->
+        <div id="user-menu-dropdown" style="display:none; position:absolute; bottom:calc(100% + 8px); left:16px; right:16px; background:var(--bg-card); border:1px solid var(--border); border-radius:var(--radius); box-shadow:0 10px 25px -5px rgba(0,0,0,0.5); z-index:200; padding:6px; flex-direction:column; gap:2px;">
+            <a href="{{ url_for('settings') }}" style="display:flex; align-items:center; gap:10px; padding:10px 12px; font-size:13px; color:var(--text-primary); border-radius:4px; text-decoration:none; transition:background 0.15s;" onmouseover="this.style.background='var(--bg-hover)'" onmouseout="this.style.background='transparent'">
+                <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="color:var(--accent);"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                User Panel &amp; Settings
+            </a>
+            <a href="{{ url_for('changelog') }}" style="display:flex; align-items:center; gap:10px; padding:10px 12px; font-size:13px; color:var(--text-primary); border-radius:4px; text-decoration:none; transition:background 0.15s;" onmouseover="this.style.background='var(--bg-hover)'" onmouseout="this.style.background='transparent'">
+                <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="color:var(--text-muted);"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                Changelog &amp; Notes
+            </a>
+            <div style="height:1px; background:var(--border); margin:4px 0;"></div>
+            <a href="{{ url_for('logout') }}" style="display:flex; align-items:center; gap:10px; padding:10px 12px; font-size:13px; color:var(--danger); border-radius:4px; text-decoration:none; transition:background 0.15s;" onmouseover="this.style.background='rgba(239,68,68,0.12)'" onmouseout="this.style.background='transparent'">
+                <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
+                Sign Out
+            </a>
+        </div>
+    </div>
+</aside>
+{% endif %}
+
+<script>
+function toggleUserDropdown(e) {
+    if (e) e.stopPropagation();
+    const dropdown = document.getElementById("user-menu-dropdown");
+    if (!dropdown) return;
+    const isHidden = dropdown.style.display === "none" || dropdown.style.display === "";
+    dropdown.style.display = isHidden ? "flex" : "none";
+}
+
+document.addEventListener("click", function(e) {
+    const dropdown = document.getElementById("user-menu-dropdown");
+    const btn = document.getElementById("user-dropdown-btn");
+    if (dropdown && btn && !btn.contains(e.target) && !dropdown.contains(e.target)) {
+        dropdown.style.display = "none";
+    }
+});
+</script>
+
+<main class="main">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+    {% for category, message in messages %}
+    <div class="flash flash-{{ category }}">{{ message }}</div>
+    {% endfor %}
+    {% endwith %}
+    {% block content %}{% endblock %}
+</main>
+</body>
+</html>

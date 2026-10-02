@@ -1,0 +1,132 @@
+{% extends "base.html" %}
+{% block title %}Scan History - WSA Pro{% endblock %}
+{% block content %}
+<div class="page-header" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:16px; margin-bottom:20px;">
+    <div>
+        <h2>Scan History</h2>
+        <p>{{ scans|length }} scan(s) recorded</p>
+    </div>
+    <div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
+        <a href="{{ url_for('export_scans_csv') }}" class="btn btn-secondary">Export CSV</a>
+    </div>
+</div>
+
+{% if scans %}
+<div class="table-wrap">
+<table id="scan-history-table">
+<thead>
+    <tr>
+        <th>Target</th>
+        <th>Score</th>
+        <th>Grade</th>
+        <th>WordPress / Version</th>
+        <th>Status</th>
+        <th>Date</th>
+        <th>WHOIS</th>
+        <th style="text-align:right;">Actions</th>
+    </tr>
+    <tr class="filter-row" style="background: rgba(15, 23, 42, 0.4);">
+        <th style="padding:6px 8px;"><input type="text" data-col="0" placeholder="Filter target..." onkeyup="filterHistoryColumns()" style="width:100%; padding:4px 8px; background:var(--bg-dark); border:1px solid var(--border); border-radius:4px; color:var(--text-primary); font-size:11px;"></th>
+        <th style="padding:6px 8px;"><input type="text" data-col="1" placeholder="Score..." onkeyup="filterHistoryColumns()" style="width:100%; padding:4px 6px; background:var(--bg-dark); border:1px solid var(--border); border-radius:4px; color:var(--text-primary); font-size:11px;"></th>
+        <th style="padding:6px 8px;">
+            <select data-col="2" onchange="filterHistoryColumns()" style="width:100%; padding:4px 4px; background:var(--bg-dark); border:1px solid var(--border); border-radius:4px; color:var(--text-primary); font-size:11px;">
+                <option value="">All</option>
+                <option value="A">A</option>
+                <option value="B">B</option>
+                <option value="C">C</option>
+                <option value="D">D</option>
+                <option value="E">E</option>
+                <option value="F">F</option>
+            </select>
+        </th>
+        <th style="padding:6px 8px;">
+            <select data-col="3" onchange="filterHistoryColumns()" style="width:100%; padding:4px 4px; background:var(--bg-dark); border:1px solid var(--border); border-radius:4px; color:var(--text-primary); font-size:11px;">
+                <option value="">All</option>
+                <option value="WP">WP Only</option>
+                <option value="Not WordPress">Not WP</option>
+            </select>
+        </th>
+        <th style="padding:6px 8px;">
+            <select data-col="4" onchange="filterHistoryColumns()" style="width:100%; padding:4px 4px; background:var(--bg-dark); border:1px solid var(--border); border-radius:4px; color:var(--text-primary); font-size:11px;">
+                <option value="">All</option>
+                <option value="completed">Completed</option>
+                <option value="running">Running</option>
+                <option value="failed">Failed</option>
+                <option value="pending">Pending</option>
+            </select>
+        </th>
+        <th style="padding:6px 8px;"><input type="text" data-col="5" placeholder="Filter date..." onkeyup="filterHistoryColumns()" style="width:100%; padding:4px 6px; background:var(--bg-dark); border:1px solid var(--border); border-radius:4px; color:var(--text-primary); font-size:11px;"></th>
+        <th style="padding:6px 8px;"><input type="text" data-col="6" placeholder="Filter WHOIS..." onkeyup="filterHistoryColumns()" style="width:100%; padding:4px 6px; background:var(--bg-dark); border:1px solid var(--border); border-radius:4px; color:var(--text-primary); font-size:11px;"></th>
+        <th style="padding:6px 8px; text-align:right;">
+            <button type="button" onclick="clearHistoryColumnFilters()" class="btn btn-secondary btn-sm" style="padding:3px 8px; font-size:11px;">Reset</button>
+        </th>
+    </tr>
+</thead>
+<tbody>
+{% for s in scans %}
+<tr>
+    <td><a href="{{ url_for('scan_detail', scan_id=s.id) }}">{{ s.target_url[:50] }}</a></td>
+    <td>{{ s.score if s.score is not none else '-' }}</td>
+    <td>{% if s.grade %}<span class="badge {% if s.grade.startswith('A') %}badge-info{% elif s.grade.startswith('B') %}badge-low{% elif s.grade.startswith('C') %}badge-medium{% else %}badge-critical{% endif %}">{{ s.grade }}</span>{% else %}-{% endif %}</td>
+    <td>
+        {% if s.is_wordpress %}
+            <span class="badge badge-info">WP {{ s.wp_version or 'Detected' }}</span>
+        {% else %}
+            <span class="badge" style="background:var(--border); color:var(--text-muted);">{{ s.wp_version or 'Not WordPress' }}</span>
+        {% endif %}
+    </td>
+    <td><span class="badge badge-info">{{ s.status.value if s.status.value is defined else s.status }}</span></td>
+    <td style="color:var(--text-muted);font-size:12px;">{{ s.started_at[:16] }}</td>
+    <td style="font-size:12px;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="{{ s.whois_info or '-' }}">{{ s.whois_info or '-' }}</td>
+    <td style="text-align:right;">
+        <div class="btn-group">
+            <a href="{{ url_for('scan_detail', scan_id=s.id) }}" class="btn btn-secondary btn-sm">View</a>
+            <form method="POST" action="{{ url_for('delete_scan', scan_id=s.id) }}" style="display:inline;" onsubmit="return confirm('Delete this scan?')">
+                <button type="submit" class="btn btn-danger btn-sm">Delete</button>
+            </form>
+        </div>
+    </td>
+</tr>
+{% endfor %}
+</tbody>
+</table>
+</div>
+{% else %}
+<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:40px;text-align:center;">
+    <p style="color:var(--text-muted);">No scans recorded yet.</p>
+</div>
+{% endif %}
+
+<script>
+function filterHistoryColumns() {
+    const table = document.getElementById("scan-history-table");
+    if (!table) return;
+    const rows = table.querySelectorAll("tbody tr");
+    const inputs = table.querySelectorAll("thead tr.filter-row input, thead tr.filter-row select");
+    
+    rows.forEach(row => {
+        let show = true;
+        inputs.forEach(input => {
+            const colIdx = parseInt(input.getAttribute("data-col"));
+            const val = input.value.trim().toLowerCase();
+            if (val && !isNaN(colIdx)) {
+                const cell = row.children[colIdx];
+                if (cell) {
+                    const text = cell.textContent.trim().toLowerCase();
+                    if (!text.includes(val)) {
+                        show = false;
+                    }
+                }
+            }
+        });
+        row.style.display = show ? "" : "none";
+    });
+}
+
+function clearHistoryColumnFilters() {
+    const inputs = document.querySelectorAll("thead tr.filter-row input, thead tr.filter-row select");
+    inputs.forEach(i => i.value = "");
+    filterHistoryColumns();
+}
+</script>
+{% endblock %}

@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% block title %}User Management - WSA Pro{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h2>User Management</h2>
+    <p>Manage application users and roles</p>
+</div>
+
+<!-- Create user form -->
+<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:24px;margin-bottom:24px;max-width:600px;">
+    <h3 style="font-size:14px;margin-bottom:16px;color:var(--text-secondary);">Create New User</h3>
+    <form method="POST" action="{{ url_for('create_user_route') }}">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+            <div class="form-group">
+                <label>Username</label>
+                <input type="text" name="username" required placeholder="username">
+            </div>
+            <div class="form-group">
+                <label>Password</label>
+                <input type="password" name="password" required placeholder="password">
+            </div>
+            <div class="form-group">
+                <label>Email</label>
+                <input type="email" name="email" placeholder="user@example.com">
+            </div>
+            <div class="form-group">
+                <label>Role</label>
+                <select name="role">
+                    <option value="viewer">Viewer</option>
+                    <option value="analyst">Analyst</option>
+                    <option value="admin">Admin</option>
+                </select>
+            </div>
+        </div>
+        <button type="submit" class="btn btn-primary" style="margin-top:8px;">Create User</button>
+    </form>
+</div>
+
+<!-- Users table -->
+{% if users %}
+<div class="table-wrap">
+<table>
+<thead><tr><th>Username</th><th>Email</th><th>Role</th><th>Status</th><th>Created</th><th>Actions</th></tr></thead>
+<tbody>
+{% for u in users %}
+<tr>
+    <td><strong>{{ u.username }}</strong></td>
+    <td style="color:var(--text-muted);">{{ u.email or '-' }}</td>
+    <td><span class="badge badge-info">{{ u.role.value if u.role.value is defined else u.role }}</span></td>
+    <td><span class="badge {% if u.status.value == 'active' or u.status == 'active' %}badge-low{% else %}badge-medium{% endif %}">{{ u.status.value if u.status.value is defined else u.status }}</span></td>
+    <td style="color:var(--text-muted);font-size:12px;">{{ u.created_at[:10] }}</td>
+    <td>
+        <form method="POST" action="{{ url_for('delete_user_route', user_id=u.id) }}" style="display:inline;" onsubmit="return confirm('Delete user {{ u.username }}?')">
+            <button type="submit" class="btn btn-danger btn-sm">Delete</button>
+        </form>
+    </td>
+</tr>
+{% endfor %}
+</tbody>
+</table>
+</div>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,212 @@
+{% extends "base.html" %}
+{% block title %}Version & Changelog - SentinelWP{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h2>Version & Changelog</h2>
+    <p>Detailed version information and release history for SentinelWP.</p>
+</div>
+
+<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:24px;margin-bottom:24px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--border);padding-bottom:16px;margin-bottom:20px;">
+        <div>
+            <h3 style="font-size:20px;color:var(--text-primary);">SentinelWP v4.0.0 (Production Ready)</h3>
+            <p style="font-size:12px;color:var(--text-muted);margin-top:4px;">Released: October 2026</p>
+        </div>
+        <span class="badge badge-success" style="padding:6px 12px;font-size:12px;">Current Version</span>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:24px;">
+        <div>
+            <h4 style="font-size:15px;color:var(--accent);margin-bottom:10px;text-transform:uppercase;letter-spacing:0.5px;">Major Release: Unified Batch Intelligence Platform</h4>
+            <ul style="padding-left:20px;line-height:1.8;font-size:13px;color:var(--text-primary);">
+                <li><strong>Unified Version Detection Engine</strong>: Centralized plugin, theme, and WordPress version detection with HIGH/MEDIUM/LOW confidence scoring.</li>
+                <li><strong>Batch Intelligence & Trend Analysis</strong>: Analyze security trends across multiple targets, identify improving/worsening sites, and get AI-powered scheduling recommendations.</li>
+                <li><strong>Recommendations Engine</strong>: AI-driven security suggestions with compliance assessment and risk timeline prioritization.</li>
+                <li><strong>IBM Carbon Design System</strong>: Enterprise-grade UI redesign with IBM Plex Sans font and professional color palette (no emoji).</li>
+                <li><strong>Batch Scanning with Scheduling</strong>: Submit multiple URLs for scanning with optional automatic recurring scans (Daily/Weekly/Bi-weekly/Monthly).</li>
+                <li><strong>Read-Only History & Separate Schedules</strong>: Clean separation between scan history (read-only storage) and schedule management (recurring configuration).</li>
+                <li><strong>Comprehensive Production Deployment Documentation</strong>: Installation guide, system requirements, technical architecture, and release notes.</li>
+            </ul>
+        </div>
+
+        <div>
+            <h4 style="font-size:15px;color:var(--accent);margin-bottom:10px;text-transform:uppercase;letter-spacing:0.5px;">Maturity Assessment</h4>
+            <ul style="padding-left:20px;line-height:1.8;font-size:13px;color:var(--text-primary);">
+                <li><strong>Overall Score: 8/10</strong> - Production Ready</li>
+                <li><strong>Functionality: 9/10</strong> - All core features operational</li>
+                <li><strong>Code Quality: 8/10</strong> - Clean, maintainable architecture</li>
+                <li><strong>Architecture: 9/10</strong> - Layered design with clear separation of concerns</li>
+                <li><strong>Documentation: 7/10</strong> - Comprehensive setup and deployment guides</li>
+                <li><strong>Deployment: 8/10</strong> - Ready for production environments</li>
+                <li><strong>UI/UX: 9/10</strong> - Professional enterprise design</li>
+            </ul>
+        </div>
+    </div>
+
+</div>
+
+<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:24px;margin-bottom:24px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--border);padding-bottom:16px;margin-bottom:20px;">
+        <div>
+            <h3 style="font-size:20px;color:var(--text-primary);">SentinelWP v3.5.0</h3>
+            <p style="font-size:12px;color:var(--text-muted);margin-top:4px;">Released: August 2026</p>
+        </div>
+        <span class="badge" style="padding:6px 12px;font-size:12px;background:var(--bg-dark);color:var(--text-muted);">Superceded</span>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:24px;">
+        <div>
+            <h4 style="font-size:15px;color:var(--accent);margin-bottom:10px;text-transform:uppercase;letter-spacing:0.5px;">Non-WP Domain Identification, Auto 30-min Sync &amp; Admin DB Export</h4>
+            <ul style="padding-left:20px;line-height:1.8;font-size:13px;color:var(--text-primary);">
+                <li><strong>Non-WordPress Target Identification</strong>: Targets without WordPress installed are explicitly categorized and labeled as <code>"Not WordPress"</code> across database records, scan history tables, and exported reports.</li>
+                <li><strong>Automated 30-Minute Threat Intel Sync</strong>: Configured background daemon to sync Wordfence &amp; CISA KEV feeds automatically upon app launch and every 30 minutes.</li>
+                <li><strong>Field-by-Field Interactive Filters</strong>: Comprehensive multi-attribute filter panel on dashboard and scan history for URL search, Status, Mode, Grade, CMS Type, and Date Range.</li>
+                <li><strong>Admin Unique Scan Database Export</strong>: Dedicated single-click action for Administrators to export the complete unique scan history and findings log into a multi-sheet Excel file.</li>
+                <li><strong>Cross-Platform Installation Guides</strong>: Comprehensive installation documentation in <code>README.md</code> for macOS, Linux (Debian/Ubuntu, RHEL/Fedora &amp; Arch/Manjaro), and Windows (PowerShell/CMD).</li>
+            </ul>
+        </div>
+    </div>
+</div>
+
+<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:24px;margin-bottom:24px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--border);padding-bottom:16px;margin-bottom:20px;">
+        <div>
+            <h3 style="font-size:20px;color:var(--text-primary);">SentinelWP v3.4.0</h3>
+            <p style="font-size:12px;color:var(--text-muted);margin-top:4px;">Released: August 2026</p>
+        </div>
+        <span class="badge" style="padding:6px 12px;font-size:12px;background:var(--bg-dark);color:var(--text-muted);">Superceded</span>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:24px;">
+        <div>
+            <h4 style="font-size:15px;color:var(--accent);margin-bottom:10px;text-transform:uppercase;letter-spacing:0.5px;">Enterprise Report Engine &amp; GUI API Key Management</h4>
+            <ul style="padding-left:20px;line-height:1.8;font-size:13px;color:var(--text-primary);">
+                <li><strong>Redesigned Zero-Overlap PDF Report Engine</strong>: Completely refactored PDF generation using ReportLab <code>Paragraph</code> flowables inside table cells to guarantee zero text truncation or overlap across columns.</li>
+                <li><strong>Dynamic Numbered Page Footers</strong>: Implemented custom 2-pass <code>NumberedCanvas</code> to automatically calculate and render total page counts (<em>"Page X of Y"</em>), running headers, and legal disclaimers.</li>
+                <li><strong>Executive Summary &amp; Severity Matrix Cards</strong>: Embedded structured executive cards, overall risk gauges, and severity distribution matrices (Critical, High, Medium, Low, Info) in PDF, HTML, and Excel exports.</li>
+                <li><strong>Interactive HTML Security Dashboard Reports</strong>: Refactored HTML export with client-side severity tab filtering (All, Critical, High, Medium, Low, Info), instant text search, CISA KEV badges, CVSS 3.1 vectors, and print CSS support.</li>
+                <li><strong>Multi-Sheet Excel Reports</strong>: Generated styled <code>Executive Summary</code> and <code>Findings Detail</code> sheets with dark header fills, severity color indicators, sanitized cells, and auto-fitted columns.</li>
+                <li><strong>GUI Configuration for API Keys</strong>: Added dedicated <code>API Keys &amp; Source Configuration</code> card directly on the Threat Intelligence dashboard (<code>/vuln-intel</code>) allowing Admins to manage Wordfence and NVD keys via GUI with database persistence.</li>
+            </ul>
+        </div>
+    </div>
+</div>
+
+<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:24px;margin-bottom:24px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--border);padding-bottom:16px;margin-bottom:20px;">
+        <div>
+            <h3 style="font-size:20px;color:var(--text-primary);">SentinelWP v3.3.0</h3>
+            <p style="font-size:12px;color:var(--text-muted);margin-top:4px;">Released: August 2026</p>
+        </div>
+        <span class="badge" style="padding:6px 12px;font-size:12px;background:var(--bg-dark);color:var(--text-muted);">Superceded</span>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:24px;">
+        <div>
+            <h4 style="font-size:15px;color:var(--accent);margin-bottom:10px;text-transform:uppercase;letter-spacing:0.5px;">WordPress Vulnerability Intelligence Pipeline</h4>
+            <ul style="padding-left:20px;line-height:1.8;font-size:13px;color:var(--text-primary);">
+                <li><strong>Wordfence Intelligence v3 Integration</strong>: Automated background feed ingestion for WordPress Core and plugin vulnerabilities with CVSS 3.1 scoring, CWE classification, and affected version ranges.</li>
+                <li><strong>CISA KEV Correlation</strong>: Automatically flags vulnerabilities actively exploited in the wild with CISA Known Exploited Vulnerabilities badges and metadata.</li>
+                <li><strong>WordPress.org Popularity Enrichment</strong>: Syncs active install counts for plugins to prioritize high-impact vulnerabilities on widely deployed software.</li>
+                <li><strong>Deterministic Version Matcher</strong>: Custom version comparator supporting exact, open/closed intervals, unbounded ranges, and prerelease tags (<code>1.9</code> &lt; <code>1.10</code>).</li>
+                <li><strong>Threat Intelligence Dashboard & Search</strong>: Dedicated UI dashboard (<code>/vuln-intel</code>) with critical vulnerability statistics, stale dataset alerts, manual sync triggers (Admin only), and a paginated, filterable database table (<code>/vuln-intel/list</code>).</li>
+                <li><strong>Zero Network Impact During Scans</strong>: All target scans execute version matching purely against the local SQLite database; zero external HTTP requests are performed during scan execution.</li>
+                <li><strong>Enhanced Export Security</strong>: Added formula injection protection (<code>=</code>, <code>+</code>, <code>-</code>, <code>@</code>) across CSV and Excel exports, HTML content escaping for external vulnerability descriptions, and SARIF 2.1.0 rule tags.</li>
+            </ul>
+        </div>
+    </div>
+</div>
+
+<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:24px;margin-bottom:24px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--border);padding-bottom:16px;margin-bottom:20px;">
+        <div>
+            <h3 style="font-size:20px;color:var(--text-primary);">SentinelWP v3.2.0</h3>
+            <p style="font-size:12px;color:var(--text-muted);margin-top:4px;">Released: August 2026</p>
+        </div>
+        <span class="badge" style="padding:6px 12px;font-size:12px;background:var(--bg-dark);color:var(--text-muted);">Superceded</span>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:24px;">
+        <div>
+            <h4 style="font-size:15px;color:var(--accent);margin-bottom:10px;text-transform:uppercase;letter-spacing:0.5px;">New Scanning Capabilities (Passive & Safe)</h4>
+            <ul style="padding-left:20px;line-height:1.8;font-size:13px;color:var(--text-primary);">
+                <li><strong>DNS Security Record Check (SPF & DMARC)</strong>: Performs passive audits using DNS-over-HTTPS (DoH) via Google DNS APIs to identify the absence or weakness of domain email security policies.</li>
+                <li><strong>Security Policy File (security.txt)</strong>: Verifies the presence of standard security contact paths adhering to RFC 9116 at <code>/.well-known/security.txt</code> and <code>/security.txt</code>.</li>
+                <li><strong>WordPress Core Vulnerability Lookup (OSV.dev)</strong>: Extends live CVE matching via OSV.dev to include the detected WordPress Core CMS version.</li>
+                <li><strong>EOL Software Detection</strong>: Analyzes server response headers (PHP &lt; 8.2, Apache &lt; 2.4) to flag the exposure of unsupported and unpatched systems.</li>
+                <li><strong>Optimized User Enumeration</strong>: Scans the <code>&lt;dc:creator&gt;</code> tags within the main RSS <code>/feed/</code> to detect exposed usernames.</li>
+            </ul>
+        </div>
+
+        <div>
+            <h4 style="font-size:15px;color:var(--accent);margin-bottom:10px;text-transform:uppercase;letter-spacing:0.5px;">Reporting & Interactive UI</h4>
+            <ul style="padding-left:20px;line-height:1.8;font-size:13px;color:var(--text-primary);">
+                <li><strong>CSV Export</strong>: Added a button to the Scan History view to download a complete CSV spreadsheet containing target domains, WordPress versions, detected plugins, and finding counts.</li>
+                <li><strong>Interactive Findings Detail View</strong>: Finding rows in the scan detail view are now clickable, expanding an inline drawer that displays the full description, remediation recommendations (formatted as code blocks), external reference links, and raw JSON metadata.</li>
+            </ul>
+        </div>
+
+        <div>
+            <h4 style="font-size:15px;color:var(--accent);margin-bottom:10px;text-transform:uppercase;letter-spacing:0.5px;">WHOIS Improvements</h4>
+            <ul style="padding-left:20px;line-height:1.8;font-size:13px;color:var(--text-primary);">
+                <li><strong>Native WHOIS Client (Port 43)</strong>: Advanced handling and block-structured parsing for registrar and expiration dates across <code>.com</code>, <code>.it</code> and <code>.eu</code> domains, featuring error tolerance and fallback parsing.</li>
+            </ul>
+        </div>
+    </div>
+</div>
+
+<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;">
+    <h3 style="font-size:16px;color:var(--text-primary);margin-bottom:12px;">Version History</h3>
+    <table style="width:100%;border-collapse:collapse;font-size:13px;">
+        <thead>
+            <tr style="border-bottom:1px solid var(--border);text-align:left;color:var(--text-secondary);">
+                <th style="padding:10px 0;">Version</th>
+                <th style="padding:10px 0;">Release Date</th>
+                <th style="padding:10px 0;">Status</th>
+                <th style="padding:10px 0;">Key Change</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr style="border-bottom:1px solid var(--border);color:var(--text-primary);">
+                <td style="padding:10px 0;font-weight:600;color:var(--accent);">v3.4.0</td>
+                <td style="padding:10px 0;">August 2026</td>
+                <td style="padding:10px 0;"><span style="color:var(--success);">Current Stable</span></td>
+                <td style="padding:10px 0;">Enterprise Zero-Overlap PDF Engine, Numbered Page Footers, Interactive HTML &amp; Excel Reports, GUI API Keys</td>
+            </tr>
+            <tr style="border-bottom:1px solid var(--border);color:var(--text-muted);">
+                <td style="padding:10px 0;font-weight:600;color:var(--text-secondary);">v3.3.0</td>
+                <td style="padding:10px 0;">August 2026</td>
+                <td style="padding:10px 0;">Superceded</td>
+                <td style="padding:10px 0;">WordPress Vulnerability Intelligence Pipeline, Wordfence v3, CISA KEV badges, version matcher</td>
+            </tr>
+            <tr style="border-bottom:1px solid var(--border);color:var(--text-muted);">
+                <td style="padding:10px 0;">v3.2.0</td>
+                <td style="padding:10px 0;">August 2026</td>
+                <td style="padding:10px 0;">Previous</td>
+                <td style="padding:10px 0;">DNS scanner, CSV export, interactive findings drawer, EOL and security.txt auditing</td>
+            </tr>
+            <tr style="border-bottom:1px solid var(--border);color:var(--text-muted);">
+                <td style="padding:10px 0;">v3.1.0</td>
+                <td style="padding:10px 0;">June 2026</td>
+                <td style="padding:10px 0;">Archived</td>
+                <td style="padding:10px 0;">WHOIS scanner, registrar detection, db migration script</td>
+            </tr>
+            <tr style="border-bottom:1px solid var(--border);color:var(--text-muted);">
+                <td style="padding:10px 0;">v3.0.0</td>
+                <td style="padding:10px 0;">May 2026</td>
+                <td style="padding:10px 0;">Archived</td>
+                <td style="padding:10px 0;">Initial release, async scan engine, PDF reporting, SMTP alerts, setup wizard</td>
+            </tr>
+        </tbody>
+    </table>
+</div>
+
+<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-top:24px;">
+    <h3 style="font-size:16px;color:var(--text-primary);margin-bottom:12px;">Author Information</h3>
+    <p style="font-size:13px;color:var(--text-primary);line-height:1.6;">
+        <strong>Author:</strong> Pietro Melillo<br>
+        <strong>Email:</strong> <a href="mailto:melillopietro@gmail.com" style="color:var(--accent);">melillopietro@gmail.com</a><br>
+        <strong>GitHub:</strong> <a href="https://github.com/melillopietro" target="_blank" rel="noopener noreferrer" style="color:var(--accent);text-decoration:underline;">github.com/melillopietro</a>
+    </p>
+</div>
+{% endblock %}

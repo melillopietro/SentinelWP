@@ -1,0 +1,203 @@
+{% extends "base.html" %}
+{% block title %}Scan Detail - SentinelWP{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h2>Scan: {{ scan.target_url }}</h2>
+    <p>Scan ID: {{ scan.id[:8] }} | {{ scan.started_at[:16] }} | Mode: <span class="badge badge-info">{{ scan.scan_mode }}</span></p>
+</div>
+
+<!-- Live Progress Bar if scan is running -->
+<div id="progress-container" style="{% if (scan.status.value if scan.status.value is defined else scan.status) != 'running' %}display:none;{% endif %}background:var(--bg-card);border:1px solid var(--accent);border-radius:var(--radius);padding:20px;margin-bottom:24px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+        <span style="font-weight:600;color:var(--accent);" id="progress-step">Scan in progress...</span>
+        <span style="font-weight:700;" id="progress-pct">0%</span>
+    </div>
+    <div style="width:100%;height:8px;background:var(--bg-primary);border-radius:4px;overflow:hidden;">
+        <div id="progress-bar" style="width:0%;height:100%;background:var(--accent);transition:width 0.3s;"></div>
+    </div>
+</div>
+
+<div class="stats-grid">
+    <div class="stat-card">
+        <div class="label">Risk Score</div>
+        <div class="value">{{ scan.score if scan.score is not none else 'N/A' }}</div>
+    </div>
+    <div class="stat-card">
+        <div class="label">Grade</div>
+        <div class="value {% if scan.grade %}grade-{{ scan.grade[0]|lower }}{% endif %}">{{ scan.grade or 'N/A' }}</div>
+    </div>
+    <div class="stat-card">
+        <div class="label">Findings</div>
+        <div class="value">{{ scan.findings|length }}</div>
+    </div>
+    <div class="stat-card">
+        <div class="label">WordPress</div>
+        <div class="value" style="font-size:18px;">{{ 'Detected' if scan.is_wordpress else 'Not detected' }}{% if scan.wp_version %} (v{{ scan.wp_version }}){% endif %}</div>
+    </div>
+    <div class="stat-card">
+        <div class="label">WHOIS Info</div>
+        <div class="value" style="font-size:13px;word-break:break-all;" title="{{ scan.whois_info or 'Unknown' }}">{{ scan.whois_info or 'Unknown/Not Checked' }}</div>
+    </div>
+    <div class="stat-card">
+        <div class="label">Scan Mode</div>
+        <div class="value" style="font-size:16px;text-transform:capitalize;">{{ scan.scan_mode }}</div>
+    </div>
+</div>
+
+<!-- Reports download -->
+<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:24px;">
+    <h3 style="font-size:14px;margin-bottom:12px;color:var(--text-secondary);">Export Report</h3>
+    <div class="btn-group">
+        <a href="{{ url_for('download_report', scan_id=scan.id, fmt='pdf') }}" class="btn btn-primary btn-sm">PDF</a>
+        <a href="{{ url_for('download_report', scan_id=scan.id, fmt='html') }}" class="btn btn-secondary btn-sm">HTML</a>
+        <a href="{{ url_for('download_report', scan_id=scan.id, fmt='excel') }}" class="btn btn-secondary btn-sm">Excel</a>
+        <a href="{{ url_for('download_report', scan_id=scan.id, fmt='json') }}" class="btn btn-secondary btn-sm">JSON</a>
+        <a href="{{ url_for('download_report', scan_id=scan.id, fmt='sarif') }}" class="btn btn-secondary btn-sm" style="border-color:var(--accent);">SARIF (CI/CD)</a>
+    </div>
+</div>
+
+<!-- Category breakdown -->
+{% if breakdown %}
+<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:24px;">
+    <h3 style="font-size:14px;margin-bottom:12px;color:var(--text-secondary);">Category Breakdown</h3>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;">
+    {% for cat, info in breakdown.items() %}
+        <div style="background:var(--bg-primary);border-radius:6px;padding:12px;">
+            <div style="font-size:12px;color:var(--text-muted);text-transform:capitalize;">{{ cat }}</div>
+            <div style="font-size:18px;font-weight:600;margin-top:4px;">{{ info.count }} finding{{ 's' if info.count != 1 else '' }}</div>
+            <div style="font-size:11px;margin-top:2px;"><span class="badge badge-{{ info.max_severity }}">{{ info.max_severity }}</span></div>
+        </div>
+    {% endfor %}
+    </div>
+</div>
+{% endif %}
+
+<!-- Findings table -->
+<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:16px;">
+    <h3 style="font-size:14px;margin-bottom:12px;color:var(--text-secondary);">Findings ({{ scan.findings|length }})</h3>
+    {% if scan.findings %}
+    <div class="table-wrap" style="border:none;">
+    <table>
+    <thead><tr><th>Severity</th><th>Category</th><th>Title</th><th>Confidence</th><th>Description</th><th>Actions</th></tr></thead>
+    <tbody>
+    {% for f in scan.findings %}
+    <tr class="finding-row" style="cursor: pointer; transition: background 0.2s;" onclick="toggleFindingDetails('details-{{ f.id }}')">
+        <td><span class="badge badge-{{ f.severity.value if f.severity.value is defined else f.severity }}">{{ f.severity.value if f.severity.value is defined else f.severity }}</span></td>
+        <td style="font-size:12px;color:var(--text-muted);text-transform:capitalize;">{{ f.category }}</td>
+        <td>
+            <strong style="color:var(--accent);">{{ f.title }}</strong>
+            {% if f.category == 'vulnerability_intelligence' and f.raw_data %}
+                {% if f.raw_data.get('kev_listed') %}
+                    <span class="badge badge-critical" style="margin-left: 4px;">CISA KEV</span>
+                {% endif %}
+                {% if f.raw_data.get('cvss_score') %}
+                    <span class="badge badge-medium" style="margin-left: 4px; background: rgba(107,114,128,0.15); color: var(--text-muted);">CVSS: {{ f.raw_data.get('cvss_score') }}</span>
+                {% endif %}
+                {% if f.raw_data.get('match_status') == 'version_unknown' %}
+                    <span class="badge badge-warning" style="margin-left: 4px; background: rgba(245, 158, 11, 0.15); color: var(--warning);">Version Unknown</span>
+                {% endif %}
+            {% endif %}
+        </td>
+        <td>
+            <div style="display:flex;align-items:center;gap:6px;min-width:80px;">
+                <div style="flex:1;height:4px;background:var(--bg-primary);border-radius:2px;overflow:hidden;">
+                    <div style="width:{{ (f.confidence * 100)|int }}%;height:100%;background:{% if f.confidence >= 0.8 %}var(--success){% elif f.confidence >= 0.5 %}var(--warning){% else %}var(--danger){% endif %};border-radius:2px;"></div>
+                </div>
+                <span style="font-size:11px;color:var(--text-muted);">{{ (f.confidence * 100)|int }}%</span>
+            </div>
+        </td>
+        <td style="font-size:12px;max-width:300px;white-space: nowrap;overflow: hidden;text-overflow: ellipsis;">{{ f.description[:100] }}{% if f.description|length > 100 %}...{% endif %}</td>
+        <td>
+            <div style="display:flex;align-items:center;gap:8px;">
+                <button class="btn btn-secondary btn-sm" type="button" onclick="event.stopPropagation(); toggleFindingDetails('details-{{ f.id }}')">Details</button>
+                <form method="POST" action="{{ url_for('delete_finding', finding_id=f.id) }}" style="display:inline;" onsubmit="event.stopPropagation(); return confirm('Delete this finding?')">
+                    <button type="submit" class="btn btn-danger btn-sm">Del</button>
+                </form>
+            </div>
+        </td>
+    </tr>
+    <tr id="details-{{ f.id }}" class="finding-details-row" style="display: none; background: rgba(255, 255, 255, 0.02);">
+        <td colspan="6" style="padding: 20px; border-top: none;">
+            <div style="display: flex; flex-direction: column; gap: 16px; text-align: left;">
+                <div>
+                    <h4 style="font-size: 12px; color: var(--accent); margin: 0 0 6px 0; text-transform: uppercase; letter-spacing: 0.5px;">Full Description</h4>
+                    <p style="font-size: 13px; margin: 0; line-height: 1.5; color: var(--text-primary);">{{ f.description }}</p>
+                </div>
+                {% if f.remediation %}
+                <div>
+                    <h4 style="font-size: 12px; color: var(--success); margin: 0 0 6px 0; text-transform: uppercase; letter-spacing: 0.5px;">Remediation</h4>
+                    <p style="font-size: 13px; margin: 0; line-height: 1.5; background: var(--bg-primary); padding: 12px; border-left: 3px solid var(--success); border-radius: 4px; font-family: monospace; white-space: pre-wrap; word-break: break-all;">{{ f.remediation }}</p>
+                </div>
+                {% endif %}
+                {% if f.reference %}
+                <div>
+                    <h4 style="font-size: 12px; color: var(--text-secondary); margin: 0 0 6px 0; text-transform: uppercase; letter-spacing: 0.5px;">Reference</h4>
+                    <a href="{{ f.reference }}" target="_blank" rel="noopener noreferrer" style="font-size: 13px; color: var(--accent); text-decoration: underline;">{{ f.reference }}</a>
+                </div>
+                {% endif %}
+                {% if f.raw_data %}
+                <div>
+                    <h4 style="font-size: 12px; color: var(--text-muted); margin: 0 0 6px 0; text-transform: uppercase; letter-spacing: 0.5px;">Technical Metadata</h4>
+                    <pre style="font-size: 11px; margin: 0; background: var(--bg-primary); padding: 12px; border-radius: 4px; overflow-x: auto; color: var(--text-muted); border: 1px solid var(--border); font-family: monospace;">{{ f.raw_data|tojson(indent=2) }}</pre>
+                </div>
+                {% endif %}
+            </div>
+        </td>
+    </tr>
+    {% endfor %}
+    </tbody>
+    </table>
+    </div>
+    <script>
+    function toggleFindingDetails(id) {
+        var el = document.getElementById(id);
+        if (el.style.display === "none") {
+            el.style.display = "table-row";
+        } else {
+            el.style.display = "none";
+        }
+    }
+    </script>
+    <style>
+    .finding-row:hover {
+        background: rgba(255, 255, 255, 0.04) !important;
+    }
+    </style>
+    {% else %}
+    <p style="color:var(--text-muted);text-align:center;padding:20px;">No findings.</p>
+    {% endif %}
+</div>
+
+<!-- Delete scan -->
+<div style="margin-top:24px;padding-top:16px;border-top:1px solid var(--border);">
+    <form method="POST" action="{{ url_for('delete_scan', scan_id=scan.id) }}" onsubmit="return confirm('Permanently delete this scan and all findings?')">
+        <button type="submit" class="btn btn-danger">Delete Scan</button>
+    </form>
+</div>
+
+<!-- Live polling script for running scans -->
+<script>
+(function() {
+    var scanId = "{{ scan.id }}";
+    var status = "{{ scan.status.value if scan.status.value is defined else scan.status }}";
+    
+    if (status === 'running' || status === 'pending') {
+        var interval = setInterval(function() {
+            fetch('/api/scan/' + scanId + '/status')
+                .then(function(res) { return res.json(); })
+                .then(function(data) {
+                    if (data.progress !== undefined) {
+                        document.getElementById('progress-bar').style.width = data.progress + '%';
+                        document.getElementById('progress-pct').innerText = data.progress + '%';
+                        document.getElementById('progress-step').innerText = data.current_step || 'Scanning...';
+                    }
+                    if (data.status === 'completed' || data.status === 'failed') {
+                        clearInterval(interval);
+                        window.location.reload();
+                    }
+                }).catch(function(err) {});
+        }, 1500);
+    }
+})();
+</script>
+{% endblock %}

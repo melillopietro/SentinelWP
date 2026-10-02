@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% block title %}Scheduled Scans - SentinelWP{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h2>Scheduled Scans</h2>
+    <p>Configure recurring security audits for continuous monitoring</p>
+</div>
+
+<div style="max-width:600px;margin-bottom:32px;">
+<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:24px;">
+    <h3 style="font-size:16px;margin-bottom:16px;">Add New Recurring Audit</h3>
+    <form method="POST" action="{{ url_for('create_schedule') }}">
+        <div class="form-group">
+            <label>Target URL</label>
+            <input type="url" name="target_url" required placeholder="https://example.com">
+        </div>
+        <div class="form-group">
+            <label>Scan Mode</label>
+            <select name="scan_mode">
+                <option value="passive">Passive — Zero impact</option>
+                <option value="safe-active" selected>Safe Active — Non-destructive</option>
+                <option value="full">Full — Includes default creds check</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label>Frequency (Interval)</label>
+            <select name="interval_hours">
+                <option value="12">Every 12 Hours</option>
+                <option value="24" selected>Every 24 Hours (Daily)</option>
+                <option value="168">Every 7 Days (Weekly)</option>
+            </select>
+        </div>
+        <button type="submit" class="btn btn-primary">Schedule Audit</button>
+    </form>
+</div>
+</div>
+
+<div class="page-header" style="margin-bottom:16px;">
+    <h3 style="font-size:18px;">Active Schedules</h3>
+</div>
+
+{% if schedules %}
+<div class="table-wrap">
+<table>
+<thead><tr><th>Target</th><th>Mode</th><th>Frequency</th><th>Last Run</th><th>Next Run</th><th>Status</th><th>Actions</th></tr></thead>
+<tbody>
+{% for s in schedules %}
+<tr>
+    <td><strong>{{ s.target_url }}</strong></td>
+    <td><span class="badge badge-info">{{ s.scan_mode }}</span></td>
+    <td>Every {{ s.interval_hours }}h</td>
+    <td style="color:var(--text-muted);font-size:12px;">{{ s.last_run_at[:16] if s.last_run_at else 'Never' }}</td>
+    <td style="color:var(--text-muted);font-size:12px;">{{ s.next_run_at[:16] if s.next_run_at else 'Pending' }}</td>
+    <td>
+        {% if s.enabled %}
+        <span class="badge badge-info">Active</span>
+        {% else %}
+        <span class="badge badge-critical">Disabled</span>
+        {% endif %}
+    </td>
+    <td>
+        <form method="POST" action="{{ url_for('delete_schedule', sched_id=s.id) }}" style="display:inline;" onsubmit="return confirm('Delete this scheduled scan?')">
+            <button type="submit" class="btn btn-danger btn-sm">Delete</button>
+        </form>
+    </td>
+</tr>
+{% endfor %}
+</tbody>
+</table>
+</div>
+{% else %}
+<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:40px;text-align:center;">
+    <p style="color:var(--text-muted);">No scheduled scans configured yet.</p>
+</div>
+{% endif %}
+{% endblock %}
