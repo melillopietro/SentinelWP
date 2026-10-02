@@ -25,7 +25,7 @@ USER_AGENT = os.getenv(
     "WSA_USER_AGENT",
     "Mozilla/5.0 (compatible; SentinelWP-Auditor/2.0; +https://github.com/wuerth-it/sentinel-wp)"
 )
-CONFIDENCE_THRESHOLD = float(os.getenv("WSA_CONFIDENCE_THRESHOLD", "0.3"))
+CONFIDENCE_THRESHOLD = float(os.getenv("WSA_CONFIDENCE_THRESHOLD", "0.5"))
 NORMALIZATION_FACTOR = float(os.getenv("WSA_NORMALIZATION_FACTOR", "150.0"))
 SESSION_EXPIRY_HOURS = int(os.getenv("WSA_SESSION_EXPIRY_HOURS", "8"))
 DISABLE_TLS_VERIFY = os.getenv("WSA_DISABLE_TLS_VERIFY", "false").lower() in ("true", "1", "yes")
