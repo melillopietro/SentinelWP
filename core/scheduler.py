@@ -18,7 +18,6 @@ _running = False
 
 def _scheduler_loop():
     """Background thread loop that checks for due scheduled scans every 60 seconds."""
-    global _running
     logger.info("Background scan scheduler daemon started.")
     while _running:
         try:

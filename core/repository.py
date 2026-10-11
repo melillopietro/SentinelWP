@@ -61,7 +61,6 @@ def _get_conn() -> sqlite3.Connection:
     intelligence cache in core.vulnerability_intelligence.repository or isolated
     test-only temporary databases) remain distinct and governed by their own handlers.
     """
-    global _allow_operational_sqlite_override
     if is_postgres_configured() and not _allow_operational_sqlite_override:
         raise RuntimeError(
             "Operational SQLite access blocked: PostgreSQL is configured as the active persistence layer. "
