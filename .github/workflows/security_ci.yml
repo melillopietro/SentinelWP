@@ -124,7 +124,6 @@ jobs:
 
       - name: Sprint 10 PostgreSQL integration (disposable service)
         env:
-          DATABASE_URL: ${{ env.CI_PG_URL }}
           SENTINELWP_SPRINT10_PG_URL: ${{ env.CI_PG_URL }}
           SCAN_EXECUTION_BACKEND: local
           SENTINELWP_DISABLE_BACKGROUND: "1"

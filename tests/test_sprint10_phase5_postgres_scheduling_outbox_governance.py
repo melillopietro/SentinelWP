@@ -607,7 +607,7 @@ class TestSprint10Phase5PostgresSchedulingOutboxGovernance(unittest.TestCase):
     # -------------------------------------------------------------------------
     def test_12_database_outage_fail_closed_behavior(self):
         # Switch DATABASE_URL to an unreachable port
-        unreachable_url = "postgresql://s10_user:s10_dev_password_123@127.0.0.1:9999/sentinelwp_s10"
+        unreachable_url = "postgresql+psycopg://s10_user:s10_dev_password_123@127.0.0.1:9999/sentinelwp_s10"
         os.environ["DATABASE_URL"] = unreachable_url
         reset_engine()
         repository.reset_conn()
@@ -632,9 +632,12 @@ class TestSprint10Phase5PostgresSchedulingOutboxGovernance(unittest.TestCase):
     def test_13_sqlite_parity_when_postgres_unconfigured(self):
         # Unset DATABASE_URL to simulate native SQLite operational mode
         os.environ.pop("DATABASE_URL", None)
+        os.environ.pop("WSA_DATABASE_URL", None)
+        os.environ.pop("SENTINELWP_SPRINT10_PG_URL", None)
         reset_engine()
         repository.reset_conn()
         repository._allow_operational_sqlite_override = True
+        repository.init_db(force=True)
 
         try:
             # Schedule in SQLite

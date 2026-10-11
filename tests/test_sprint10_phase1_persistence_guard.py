@@ -79,7 +79,7 @@ class TestSprint10PersistenceGuard(unittest.TestCase):
     # 6. Guard Against Accidental Operational SQLite Fallback
     def test_operational_sqlite_blocked_when_postgres_configured(self):
         # Verify that in normal SQLite mode, repository._get_conn() works
-        with patch("config.is_postgres_configured", return_value=False):
+        with patch("core.repository.is_postgres_configured", return_value=False):
             repository.reset_conn()
             conn = repository._get_conn()
             self.assertIsNotNone(conn)
