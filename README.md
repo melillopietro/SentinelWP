@@ -2,7 +2,34 @@
 
 Enterprise-grade, non-destructive WordPress security assessment, posture management, and distributed vulnerability orchestration platform.
 
-SentinelWP is an advanced enterprise security auditing platform designed to evaluate the security posture of WordPress websites and web applications at scale. Powered by a stateless web tier, Celery distributed workers, Redis message broker, and PostgreSQL / SQLite dual-compatibility, SentinelWP provides deep attack surface reconnaissance, configuration audit, and vulnerability intelligence without performing destructive actions.
+SentinelWP is an advanced enterprise security auditing platform designed to evaluate the security posture of WordPress websites and web applications at scale. Production deployments use a **stateless Flask/Gunicorn web tier**, **Celery workers**, **Redis**, and **PostgreSQL**; local development can run against **SQLite** with the same application code. SentinelWP provides deep attack surface reconnaissance, configuration audit, and vulnerability intelligence without performing destructive actions.
+
+---
+
+## SentinelWP v4.1.0 Enterprise
+
+**Version 4.1.0** is the integrated enterprise release on the public GitHub repository ([release notes](docs/release/RELEASE_NOTES_v4.1.0.md), [CHANGELOG](CHANGELOG.md)).
+
+| Capability | What you get in v4.1.0 |
+|------------|-------------------------|
+| **Enterprise Docker Compose** | Production topology in [`docker-compose.prod.yml`](docker-compose.prod.yml): Nginx TLS gateway, Gunicorn web, Celery scan/intel workers, Beat scheduler, PostgreSQL 16, Redis 7, ephemeral migrate job. |
+| **Flask / Gunicorn, PostgreSQL, Redis, Celery & Beat** | HTTP layer enqueues durable work; scanners run in worker processes, not in request threads. Beat drives scheduled scans with slot deduplication. |
+| **Multi-tenant auth & RBAC** | Workspace-scoped data, roles (Admin / Analyst / Viewer), optional organization slug at login, centralized object authorization (404 on cross-tenant access). |
+| **WordPress scanning & vuln intelligence** | Multi-signal WP detection, passive/safe-active/full modes, local Wordfence/CISA KEV pipeline and Threat Intelligence UI. |
+| **Atomic Scan Job claiming** | Workers claim jobs with database-level atomicity to prevent duplicate execution under horizontal scale. |
+| **SSRF security controls** | Target validation blocks private ranges and unsafe hosts at submission and again in workers (fail-closed). |
+| **Finding lifecycle & reporting** | Normalized findings, remediation workflow, executive PDF/HTML/Excel/SARIF exports. |
+| **Backup, restore & Alembic migrations** | Head revision `009_sprint11_schema_parity`; scripted PostgreSQL backup/restore and env validation for production. |
+
+**Documentation (start here for production):**
+
+- [Ubuntu / Docker deployment](docs/DEPLOYMENT_UBUNTU.md)
+- [Production configuration](docs/PRODUCTION_CONFIGURATION.md)
+- [Security hardening](docs/SECURITY_HARDENING.md)
+- [Backup & recovery](docs/BACKUP_RECOVERY.md)
+- [Upgrade & rollback](docs/UPGRADE_ROLLBACK.md)
+- [Operations runbook](docs/OPERATIONS_RUNBOOK.md)
+- [GitHub integration notes (v4.1.0)](docs/release/GITHUB_INTEGRATION_v4.1.0.md)
 
 ---
 
@@ -68,9 +95,9 @@ For enterprise-grade, high-availability deployments on Ubuntu Server LTS (22.04 
 - **Automated Migrations**: Ephemeral `migrate` container with PostgreSQL advisory locking (`85504753`).
 
 ```bash
-# 1. Clone repository
-git clone -b feat/sentinelwp-sprint11-enterprise-packaging https://github.com/example/sentinelwp.git
-cd sentinelwp
+# 1. Clone repository (v4.1.0 on main)
+git clone https://github.com/melillopietro/SentinelWP.git
+cd SentinelWP
 
 # 2. Configure environment & generate strong secrets
 cp .env.production.example .env.production
@@ -92,19 +119,13 @@ docker compose -f docker-compose.prod.yml up -d
 bash scripts/verify_deployment.sh --host 127.0.0.1
 ```
 
-For detailed guides, see:
-- [`docs/DEPLOYMENT_UBUNTU.md`](file:///Users/piero/Downloads/SentinelWP/docs/DEPLOYMENT_UBUNTU.md): Complete Ubuntu Server LTS deployment runbook.
-- [`docs/PRODUCTION_CONFIGURATION.md`](file:///Users/piero/Downloads/SentinelWP/docs/PRODUCTION_CONFIGURATION.md): Environment variables and security settings.
-- [`docs/UPGRADE_ROLLBACK.md`](file:///Users/piero/Downloads/SentinelWP/docs/UPGRADE_ROLLBACK.md): Zero-downtime upgrades and disaster recovery rollback.
-- [`docs/BACKUP_RECOVERY.md`](file:///Users/piero/Downloads/SentinelWP/docs/BACKUP_RECOVERY.md): PostgreSQL backup automation and restore drills.
-- [`docs/OPERATIONS_RUNBOOK.md`](file:///Users/piero/Downloads/SentinelWP/docs/OPERATIONS_RUNBOOK.md): Day-2 operations, worker scaling, and incident response.
-- [`docs/SECURITY_HARDENING.md`](file:///Users/piero/Downloads/SentinelWP/docs/SECURITY_HARDENING.md): Defense-in-depth and vulnerability mitigations.
+See the **v4.1.0 Enterprise** section above for links to the full deployment and operations library.
 
 ---
 
 ## Local Development & Standalone Installation Guide (Cross-Platform)
 
-SentinelWP requires **Python 3.10+** and runs seamlessly across **macOS**, **Linux**, and **Windows**.
+For **production**, use **Python 3.12** and [`requirements-prod.txt`](requirements-prod.txt) inside the Docker images (see CI and [`docs/release/CI_SECURITY_GATES.md`](docs/release/CI_SECURITY_GATES.md)). For **local development**, **Python 3.10+** is supported with [`requirements.txt`](requirements.txt) on **macOS**, **Linux**, and **Windows**.
 
 ---
 
@@ -243,11 +264,19 @@ python app.py
 
 ## Architecture & Technology Stack
 
-- **Backend & Web UI**: Python 3, Flask, Jinja2, Vanilla CSS (Dark Theme)
-- **Database**: SQLite3 (WAL mode enabled, automatic schema management)
-- **Async & Scheduling**: ThreadPoolExecutor, background daemon scheduler
-- **Reporting Engine**: ReportLab (PDF), OpenPyXL (Excel), SARIF v2.1.0 JSON generator, CSV exporter
-- **Security Core**: Requests, native socket WHOIS client, Google DoH DNS-over-HTTPS client, Python ipaddress validation, in-memory rate limiter
+**Production (v4.1.0 enterprise):**
+
+- **Web**: Python 3.12, Flask, Gunicorn, Jinja2
+- **Data**: PostgreSQL 16+ (SQLAlchemy 2.x, Alembic migrations), Redis 7
+- **Workers**: Celery (queues: `scan`, `intel`, `maintenance`), Celery Beat for schedules
+- **Edge**: Nginx TLS termination, health probes, Prometheus metrics where enabled
+- **Reporting**: ReportLab (PDF), OpenPyXL (Excel), SARIF 2.1.0, CSV
+- **Security**: SSRF guards, RBAC, audit log, rate limiting, optional strict DNS in production
+
+**Local development (optional):**
+
+- **Database**: SQLite (WAL) when `DATABASE_URL` is unset or points at a local file
+- **Scan execution**: Can use local backend or Celery depending on `SCAN_EXECUTION_BACKEND` and stack configuration
 
 ---
 
