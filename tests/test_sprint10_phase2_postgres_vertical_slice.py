@@ -29,21 +29,20 @@ from core.auth import hash_password, verify_password
 from core.db.session import get_engine, init_db_schema, session_scope, reset_engine
 from core.db.adapter import get_operational_adapter, PostgresqlOperationalAdapter
 from core import repository
-
-LIVE_POSTGRES_URL = "postgresql://s10_user:s10_dev_password_123@127.0.0.1:5439/sentinelwp_s10"
+from tests.postgres_integration import get_sprint10_postgres_url
 
 
 class TestSprint10Phase2PostgresVerticalSlice(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         # Initialize schema in live isolated PostgreSQL 16 container
-        cls.engine = get_engine(LIVE_POSTGRES_URL)
+        cls.engine = get_engine(get_sprint10_postgres_url())
         init_db_schema(cls.engine)
 
     def setUp(self):
         # Force PostgreSQL mode for test execution
         self.orig_db_url = os.environ.get("DATABASE_URL")
-        os.environ["DATABASE_URL"] = LIVE_POSTGRES_URL
+        os.environ["DATABASE_URL"] = get_sprint10_postgres_url()
         reset_engine()
         repository.reset_conn()
         repository._allow_operational_sqlite_override = False
@@ -228,7 +227,7 @@ class TestSprint10Phase2PostgresVerticalSlice(unittest.TestCase):
         # Attempt atomic batch write with intentional exception
         failed_asset_id = f"fail_{self.test_prefix}"
         try:
-            with session_scope(LIVE_POSTGRES_URL) as session:
+            with session_scope(get_sprint10_postgres_url()) as session:
                 from core.db.repositories.asset_repo import AssetRepository
                 repo = AssetRepository(session)
                 new_asset = Asset(
@@ -285,7 +284,7 @@ class TestSprint10Phase2PostgresVerticalSlice(unittest.TestCase):
     def test_unsupported_operations_fail_explicitly_in_postgres_mode(self):
         # Operations outside current scope (e.g. Saved Views, Tech Observations) must fail explicitly.
         # Calling them in PostgreSQL mode must fail explicitly (never fall back silently to SQLite).
-        os.environ["DATABASE_URL"] = LIVE_POSTGRES_URL
+        os.environ["DATABASE_URL"] = get_sprint10_postgres_url()
         reset_engine()
         repository.reset_conn()
 

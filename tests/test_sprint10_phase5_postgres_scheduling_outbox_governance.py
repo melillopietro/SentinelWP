@@ -39,21 +39,20 @@ from core.db.repositories.outbox_repo import OutboxRepository
 from core.db.repositories.scheduler_repo import SchedulerRepository
 from core.db.repositories.governance_repo import GovernanceRepository
 from core import repository
-
-LIVE_POSTGRES_URL = "postgresql://s10_user:s10_dev_password_123@127.0.0.1:5439/sentinelwp_s10"
+from tests.postgres_integration import get_sprint10_postgres_url
 
 
 class TestSprint10Phase5PostgresSchedulingOutboxGovernance(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         # Initialize schema in live isolated PostgreSQL 16 container
-        cls.engine = get_engine(LIVE_POSTGRES_URL)
+        cls.engine = get_engine(get_sprint10_postgres_url())
         init_db_schema(cls.engine)
 
     def setUp(self):
         # Force PostgreSQL mode for test execution
         self.orig_db_url = os.environ.get("DATABASE_URL")
-        os.environ["DATABASE_URL"] = LIVE_POSTGRES_URL
+        os.environ["DATABASE_URL"] = get_sprint10_postgres_url()
         reset_engine()
         repository.reset_conn()
         repository._allow_operational_sqlite_override = False
@@ -623,7 +622,7 @@ class TestSprint10Phase5PostgresSchedulingOutboxGovernance(unittest.TestCase):
                 f"Expected explicit connection error, got: {err}"
             )
         finally:
-            os.environ["DATABASE_URL"] = LIVE_POSTGRES_URL
+            os.environ["DATABASE_URL"] = get_sprint10_postgres_url()
             reset_engine()
             repository.reset_conn()
 
@@ -666,7 +665,7 @@ class TestSprint10Phase5PostgresSchedulingOutboxGovernance(unittest.TestCase):
             self.assertIsNotNone(outbox_retrieved)
             self.assertEqual(outbox_retrieved.event_type, "test.sqlite")
         finally:
-            os.environ["DATABASE_URL"] = LIVE_POSTGRES_URL
+            os.environ["DATABASE_URL"] = get_sprint10_postgres_url()
             reset_engine()
             repository.reset_conn()
             repository._allow_operational_sqlite_override = False

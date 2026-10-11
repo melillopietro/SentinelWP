@@ -35,21 +35,20 @@ from core.lifecycle import FindingStatus, SLAStatus, OptimisticLockError
 from core.db.session import get_engine, init_db_schema, session_scope, reset_engine
 from core.db.adapter import get_operational_adapter, PostgresqlOperationalAdapter
 from core import repository
-
-LIVE_POSTGRES_URL = "postgresql://s10_user:s10_dev_password_123@127.0.0.1:5439/sentinelwp_s10"
+from tests.postgres_integration import get_sprint10_postgres_url
 
 
 class TestSprint10Phase4PostgresFindingsRemediation(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         # Initialize schema in live isolated PostgreSQL 16 container
-        cls.engine = get_engine(LIVE_POSTGRES_URL)
+        cls.engine = get_engine(get_sprint10_postgres_url())
         init_db_schema(cls.engine)
 
     def setUp(self):
         # Force PostgreSQL mode for test execution
         self.orig_db_url = os.environ.get("DATABASE_URL")
-        os.environ["DATABASE_URL"] = LIVE_POSTGRES_URL
+        os.environ["DATABASE_URL"] = get_sprint10_postgres_url()
         reset_engine()
         repository.reset_conn()
         repository._allow_operational_sqlite_override = False

@@ -16,9 +16,9 @@ from config import is_postgres_configured, sanitize_db_url
 from core.db.session import verify_operational_persistence_guard, reset_engine
 from core import repository
 from core.vulnerability_intelligence import repository as vuln_repo
+from tests.postgres_integration import get_sprint10_postgres_url
 
 
-LIVE_POSTGRES_URL = "postgresql://s10_user:s10_dev_password_123@127.0.0.1:5439/sentinelwp_s10"
 UNREACHABLE_POSTGRES_URL = "postgresql://s10_user:super_secret_leak_pwd@127.0.0.1:54399/sentinelwp_s10"
 
 
@@ -62,7 +62,7 @@ class TestSprint10PersistenceGuard(unittest.TestCase):
 
     # 4. Startup Connectivity Guard with Live PostgreSQL
     def test_startup_guard_succeeds_with_live_postgres(self):
-        result = verify_operational_persistence_guard(db_url=LIVE_POSTGRES_URL, timeout_seconds=3.0)
+        result = verify_operational_persistence_guard(db_url=get_sprint10_postgres_url(), timeout_seconds=3.0)
         self.assertTrue(result)
 
     # 5. Startup Connectivity Guard Fails Fast on Unreachable PostgreSQL (Zero Credential Leakage)
@@ -109,7 +109,7 @@ class TestSprint10PersistenceGuard(unittest.TestCase):
 
         # Test live PostgreSQL readiness
         with patch("app.is_postgres_configured", return_value=True):
-            with patch.dict(os.environ, {"DATABASE_URL": LIVE_POSTGRES_URL}):
+            with patch.dict(os.environ, {"DATABASE_URL": get_sprint10_postgres_url()}):
                 resp = client.get("/ready")
                 self.assertEqual(resp.status_code, 200)
                 data = resp.get_json()
@@ -132,7 +132,7 @@ class TestSprint10PersistenceGuard(unittest.TestCase):
 
         # Live PostgreSQL: worker and beat signals succeed
         with patch("core.tasks.celery_app.is_postgres_configured", return_value=True):
-            with patch.dict(os.environ, {"DATABASE_URL": LIVE_POSTGRES_URL}):
+            with patch.dict(os.environ, {"DATABASE_URL": get_sprint10_postgres_url()}):
                 on_worker_init()
                 on_beat_init()
 
