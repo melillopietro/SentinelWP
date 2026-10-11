@@ -713,6 +713,22 @@ class TestCeleryWorkerAndAsset360(unittest.TestCase):
 
     def setUp(self):
         repository.init_db()
+        from app import app as flask_app
+        flask_app.config["TESTING"] = True
+        flask_app.config["WTF_CSRF_ENABLED"] = False
+        # Fresh CI runners have no users; before_request redirects to /setup (302).
+        if repository.count_users() == 0:
+            repository.save_user(
+                User(
+                    id="test-analyst",
+                    tenant_id="default-tenant",
+                    username="wp_regression_analyst",
+                    password_hash="pbkdf2:test",
+                    role="analyst",
+                    status="active",
+                    created_at=datetime.now(timezone.utc).isoformat(),
+                )
+            )
 
     def test_celery_worker_persists_wordpress_metadata_and_updates_asset_tags(self):
         """Worker executing run_scan_task persists wordpress_version='6.8.2' and enriches Asset tags."""
