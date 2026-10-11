@@ -93,16 +93,24 @@ class TestSprint11MigrationRunnerCLI:
         env["ENVIRONMENT"] = "production"
         env["WSA_SECRET_KEY"] = "9a8b7c6d5e4f3a2b1c0d9e8f7a6b5c4d3e2f1a0b9c8d7e6f5a4b3c2d1e0f9a8b"
         env["WSA_CONFIRM_PRODUCTION_MIGRATION"] = "false"
-        env["DATABASE_URL"] = "postgresql+psycopg://s10_user:s10_dev_password_123@127.0.0.1:5439/sentinelwp_s11_migration_fresh"
+        if os.environ.get("GITHUB_ACTIONS") == "true":
+            env["DATABASE_URL"] = (
+                "postgresql://sentinelwp:sentinelwp_password@127.0.0.1:5432/sentinelwp_test"
+            )
+        else:
+            env["DATABASE_URL"] = (
+                "postgresql+psycopg://s10_user:s10_dev_password_123@127.0.0.1:5439/sentinelwp_s11_migration_fresh"
+            )
 
-        # Mock get_current_revision returning 008, head is 009
         res = subprocess.run(
             [sys.executable, "scripts/run_migrations.py"],
             env=env,
             capture_output=True,
             text=True,
         )
-        # If already at head, it updates to head; if confirmation required, exits 2
+        if res.returncode == 1 and "Connection refused" in (res.stderr or ""):
+            self.skipTest("PostgreSQL not reachable for migration CLI integration")
+        # At head after prior migrations: 0; pending prod upgrade without confirm: 2
         assert res.returncode in (0, 2)
 
 
