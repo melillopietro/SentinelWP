@@ -45,7 +45,7 @@ jobs:
           --health-retries 5
 
     env:
-      CI_PG_URL: postgresql://sentinelwp:sentinelwp_password@localhost:5432/sentinelwp_test
+      CI_PG_URL: postgresql+psycopg://sentinelwp:sentinelwp_password@localhost:5432/sentinelwp_test
       WSA_SECRET_KEY: ci-test-secret-key-minimum-32-characters-long
       ENVIRONMENT: test
 
