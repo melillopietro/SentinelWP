@@ -79,23 +79,24 @@ jobs:
         run: |
           pytest tests/test_wordpress_version_regression.py -q --tb=short
 
-      - name: Apply PostgreSQL schema (Alembic head)
+      - name: PostgreSQL migration smoke (service container)
         env:
           ENVIRONMENT: test
           DATABASE_URL: postgresql://sentinelwp:sentinelwp_password@localhost:5432/sentinelwp_test
           WSA_SECRET_KEY: ci-test-secret-key-minimum-32-characters-long
         run: |
           python scripts/run_migrations.py --confirm
+          python scripts/run_migrations.py --check
 
       - name: Full Test Suite
         env:
           ENVIRONMENT: test
-          DATABASE_URL: postgresql://sentinelwp:sentinelwp_password@localhost:5432/sentinelwp_test
-          REDIS_URL: redis://localhost:6379/0
           WSA_SECRET_KEY: ci-test-secret-key-minimum-32-characters-long
           SCAN_EXECUTION_BACKEND: local
+          SENTINELWP_DISABLE_BACKGROUND: "1"
         run: |
-          pytest tests/ -v
+          # Default suite uses isolated SQLite (651+ tests). Sprint 10 lab PG tests skip unless lab URL is reachable.
+          env -u DATABASE_URL -u WSA_DATABASE_URL pytest tests/ -v
 
       - name: Generate CycloneDX SBOM
         run: |

@@ -31,6 +31,34 @@ def pytest_sessionstart(session):
     _POSTGRES_SCHEMA_READY = True
 
 
+def _postgres_url_reachable(url: str) -> bool:
+    try:
+        from sqlalchemy import create_engine, text
+
+        engine = create_engine(url, pool_pre_ping=True)
+        with engine.connect() as conn:
+            conn.execute(text("SELECT 1"))
+        engine.dispose()
+        return True
+    except Exception:
+        return False
+
+
+def pytest_collection_modifyitems(config, items):
+    """Skip Sprint 10 isolated-lab PostgreSQL suites when the lab instance is not running."""
+    lab_url = os.environ.get(
+        "SENTINELWP_SPRINT10_PG_URL",
+        "postgresql://s10_user:s10_dev_password_123@127.0.0.1:5439/sentinelwp_s10",
+    )
+    if _postgres_url_reachable(lab_url):
+        return
+    skip = pytest.mark.skip(reason="Sprint 10 lab PostgreSQL not reachable (127.0.0.1:5439)")
+    for item in items:
+        path = item.nodeid.split("::")[0]
+        if "test_sprint10_phase" in path:
+            item.add_marker(skip)
+
+
 @pytest.fixture(autouse=True)
 def _reset_sqlite_connections():
     yield
