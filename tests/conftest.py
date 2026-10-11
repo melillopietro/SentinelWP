@@ -45,14 +45,12 @@ def _postgres_url_reachable(url: str) -> bool:
 
 
 def pytest_collection_modifyitems(config, items):
-    """Skip Sprint 10 isolated-lab PostgreSQL suites when the lab instance is not running."""
-    lab_url = os.environ.get(
-        "SENTINELWP_SPRINT10_PG_URL",
-        "postgresql://s10_user:s10_dev_password_123@127.0.0.1:5439/sentinelwp_s10",
-    )
-    if _postgres_url_reachable(lab_url):
+    """Skip Sprint 10 PostgreSQL suites when no integration database is reachable."""
+    from tests.postgres_integration import get_sprint10_postgres_url
+
+    if _postgres_url_reachable(get_sprint10_postgres_url()):
         return
-    skip = pytest.mark.skip(reason="Sprint 10 lab PostgreSQL not reachable (127.0.0.1:5439)")
+    skip = pytest.mark.skip(reason="Sprint 10 PostgreSQL integration URL not reachable")
     for item in items:
         path = item.nodeid.split("::")[0]
         if "test_sprint10_phase" in path:
