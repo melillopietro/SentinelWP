@@ -68,7 +68,8 @@ jobs:
 
       - name: Static Security Analysis — Bandit (blocking, severity HIGH+)
         run: |
-          bandit -r core/ scanners/ -x "tests/,scanners/test_*" -f json -o bandit-report.json -q
+          # --exit-zero: JSON report only; HIGH gate enforced by script below (see CI_SECURITY_GATES.md).
+          bandit -r core/ scanners/ -x "tests/,scanners/test_*" -f json -o bandit-report.json -q --exit-zero
           python - <<'PY'
           import json
           import sys
