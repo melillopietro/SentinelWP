@@ -8,7 +8,7 @@ SPRINT10_LAB_URL = (
 
 # GitHub Actions / generic CI service container (port 5432)
 CI_INTEGRATION_URL = (
-    "postgresql://sentinelwp:sentinelwp_password@127.0.0.1:5432/sentinelwp_test"
+    "postgresql+psycopg://sentinelwp:sentinelwp_password@127.0.0.1:5432/sentinelwp_test"
 )
 
 

@@ -95,7 +95,7 @@ class TestSprint11MigrationRunnerCLI:
         env["WSA_CONFIRM_PRODUCTION_MIGRATION"] = "false"
         if os.environ.get("GITHUB_ACTIONS") == "true":
             env["DATABASE_URL"] = (
-                "postgresql://sentinelwp:sentinelwp_password@127.0.0.1:5432/sentinelwp_test"
+                "postgresql+psycopg://sentinelwp:sentinelwp_password@127.0.0.1:5432/sentinelwp_test"
             )
         else:
             env["DATABASE_URL"] = (
