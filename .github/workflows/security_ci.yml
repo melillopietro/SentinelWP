@@ -79,11 +79,21 @@ jobs:
         run: |
           pytest tests/test_wordpress_version_regression.py -q --tb=short
 
+      - name: Apply PostgreSQL schema (Alembic head)
+        env:
+          ENVIRONMENT: test
+          DATABASE_URL: postgresql://sentinelwp:sentinelwp_password@localhost:5432/sentinelwp_test
+          WSA_SECRET_KEY: ci-test-secret-key-minimum-32-characters-long
+        run: |
+          python scripts/run_migrations.py --confirm
+
       - name: Full Test Suite
         env:
           ENVIRONMENT: test
           DATABASE_URL: postgresql://sentinelwp:sentinelwp_password@localhost:5432/sentinelwp_test
           REDIS_URL: redis://localhost:6379/0
+          WSA_SECRET_KEY: ci-test-secret-key-minimum-32-characters-long
+          SCAN_EXECUTION_BACKEND: local
         run: |
           pytest tests/ -v
 
