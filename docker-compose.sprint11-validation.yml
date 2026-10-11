@@ -1,0 +1,282 @@
+# ==============================================================================
+# SentinelWP Sprint 11 Phase 4 Isolated Validation Compose Configuration
+# Project: sentinelwp-sprint11-validation
+# Security: Loopback-only ingress (8088/8443), zero host ports for DB/Redis,
+#           dedicated fresh volumes and networks, isolated non-root containers.
+# ==============================================================================
+
+name: sentinelwp-sprint11-validation
+
+services:
+  # 1. Reverse Proxy Gateway (Loopback-only TLS ingress)
+  gateway:
+    image: nginx:1.25-alpine
+    container_name: sentinelwp-s11-val-gateway
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8088:80"
+      - "127.0.0.1:8443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+      - ./nginx/certs:/etc/nginx/certs:ro
+    networks:
+      - sentinelwp-s11-val-frontend
+    depends_on:
+      web:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O - http://127.0.0.1/healthz || exit 1"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    cap_drop:
+      - ALL
+    cap_add:
+      - NET_BIND_SERVICE
+      - CHOWN
+      - SETUID
+      - SETGID
+    security_opt:
+      - no-new-privileges:true
+
+  # 2. Ephemeral Migration Service (One-shot init container)
+  migrate:
+    build:
+      context: .
+      dockerfile: Dockerfile.prod
+    image: sentinelwp:4.1.0
+    container_name: sentinelwp-s11-val-migrate
+    restart: "no"
+    command: ["python3", "scripts/run_migrations.py", "--confirm"]
+    env_file:
+      - .env.sprint11.validation
+    networks:
+      - sentinelwp-s11-val-backend
+    depends_on:
+      postgres:
+        condition: service_healthy
+    user: "1000:1000"
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp:size=64M,mode=1777
+
+  # 3. PostgreSQL 16 (Dedicated fresh database, zero host ports)
+  postgres:
+    image: postgres:16-alpine
+    container_name: sentinelwp-s11-val-postgres
+    restart: unless-stopped
+    env_file:
+      - .env.sprint11.validation
+    volumes:
+      - sentinelwp_s11_val_pgdata:/var/lib/postgresql/data
+    networks:
+      - sentinelwp-s11-val-backend
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    security_opt:
+      - no-new-privileges:true
+
+  # 4. Redis 7 (Dedicated fresh broker & cache, zero host ports)
+  redis:
+    image: redis:7-alpine
+    container_name: sentinelwp-s11-val-redis
+    restart: unless-stopped
+    env_file:
+      - .env.sprint11.validation
+    command: ["redis-server", "--requirepass", "${REDIS_PASSWORD}", "--appendonly", "yes"]
+    volumes:
+      - sentinelwp_s11_val_redisdata:/data
+    networks:
+      - sentinelwp-s11-val-backend
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -a \"$$REDIS_PASSWORD\" ping | grep PONG"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    security_opt:
+      - no-new-privileges:true
+
+  # 5. Core Web Application (Gunicorn WSGI)
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile.prod
+    image: sentinelwp:4.1.0
+    container_name: sentinelwp-s11-val-web
+    restart: unless-stopped
+    env_file:
+      - .env.sprint11.validation
+    volumes:
+      - sentinelwp_s11_val_appdata:/app/data
+    networks:
+      - sentinelwp-s11-val-frontend
+      - sentinelwp-s11-val-backend
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/ready"]
+      interval: 10s
+      timeout: 3s
+      retries: 6
+    user: "1000:1000"
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp:size=128M,mode=1777
+
+  # 6. Celery Scan Worker
+  worker-scan:
+    build:
+      context: .
+      dockerfile: Dockerfile.prod
+    image: sentinelwp:4.1.0
+    container_name: sentinelwp-s11-val-worker-scan
+    restart: unless-stopped
+    command: [
+      "celery", "-A", "core.tasks.celery_app", "worker",
+      "-Q", "scan",
+      "-c", "2",
+      "--max-tasks-per-child=50",
+      "--loglevel=INFO"
+    ]
+    stop_signal: SIGTERM
+    stop_grace_period: 30s
+    env_file:
+      - .env.sprint11.validation
+    volumes:
+      - sentinelwp_s11_val_appdata:/app/data
+    networks:
+      - sentinelwp-s11-val-backend
+      - sentinelwp-sprint10_sentinelwp-sprint10-net
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      disable: true
+    user: "1000:1000"
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp:size=128M,mode=1777
+
+  # 7. Celery Intel & Maintenance Worker
+  worker-intel:
+    build:
+      context: .
+      dockerfile: Dockerfile.prod
+    image: sentinelwp:4.1.0
+    container_name: sentinelwp-s11-val-worker-intel
+    restart: unless-stopped
+    command: [
+      "celery", "-A", "core.tasks.celery_app", "worker",
+      "-Q", "intel,maintenance",
+      "-c", "2",
+      "--max-tasks-per-child=50",
+      "--loglevel=INFO"
+    ]
+    stop_signal: SIGTERM
+    stop_grace_period: 30s
+    env_file:
+      - .env.sprint11.validation
+    volumes:
+      - sentinelwp_s11_val_appdata:/app/data
+    networks:
+      - sentinelwp-s11-val-backend
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      disable: true
+    user: "1000:1000"
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp:size=128M,mode=1777
+
+  # 8. Celery Beat Scheduler
+  beat:
+    build:
+      context: .
+      dockerfile: Dockerfile.prod
+    image: sentinelwp:4.1.0
+    container_name: sentinelwp-s11-val-beat
+    restart: unless-stopped
+    command: [
+      "celery", "-A", "core.tasks.celery_app", "beat",
+      "--schedule=/app/data/celerybeat-schedule",
+      "--loglevel=INFO"
+    ]
+    stop_signal: SIGTERM
+    env_file:
+      - .env.sprint11.validation
+    volumes:
+      - sentinelwp_s11_val_appdata:/app/data
+    networks:
+      - sentinelwp-s11-val-backend
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      disable: true
+    user: "1000:1000"
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp:size=64M,mode=1777
+
+networks:
+  sentinelwp-s11-val-frontend:
+    driver: bridge
+    name: sentinelwp-s11-val-frontend
+  sentinelwp-s11-val-backend:
+    driver: bridge
+    name: sentinelwp-s11-val-backend
+  sentinelwp-sprint10_sentinelwp-sprint10-net:
+    external: true
+
+volumes:
+  sentinelwp_s11_val_pgdata:
+    name: sentinelwp_s11_val_pgdata
+  sentinelwp_s11_val_redisdata:
+    name: sentinelwp_s11_val_redisdata
+  sentinelwp_s11_val_appdata:
+    name: sentinelwp_s11_val_appdata

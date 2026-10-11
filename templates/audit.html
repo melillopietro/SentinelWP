@@ -1,0 +1,117 @@
+{% extends "base.html" %}
+{% block title %}Security Audit Log - SentinelWP Enterprise{% endblock %}
+{% block content %}
+<div class="page-header" style="margin-bottom:20px;">
+    <h2>Security Audit Log</h2>
+    <p>Immutable append-only trail of all administrative, authentication, and scanning operations</p>
+</div>
+
+<!-- Filters Card -->
+<div class="card" style="margin-bottom:24px; padding:16px; background:var(--bg-secondary); border:1px solid var(--border); border-radius:var(--radius);">
+    <form method="GET" action="{{ url_for('audit_log') }}" style="display:flex; flex-wrap:wrap; gap:12px; align-items:flex-end;">
+        <div style="flex:1; min-width:160px;">
+            <label style="display:block; font-size:12px; color:var(--text-muted); margin-bottom:4px;">Actor Username</label>
+            <input type="text" name="actor" value="{{ filters.actor_username or '' }}" placeholder="Filter by username..." style="width:100%; padding:8px 12px; background:var(--bg-primary); border:1px solid var(--border); border-radius:var(--radius); color:var(--text-primary); font-size:13px;">
+        </div>
+        <div style="flex:1; min-width:160px;">
+            <label style="display:block; font-size:12px; color:var(--text-muted); margin-bottom:4px;">Action</label>
+            <select name="action" style="width:100%; padding:8px 12px; background:var(--bg-primary); border:1px solid var(--border); border-radius:var(--radius); color:var(--text-primary); font-size:13px;">
+                <option value="">All Actions</option>
+                <option value="user_login" {% if filters.action == 'user_login' %}selected{% endif %}>User Login</option>
+                <option value="user_logout" {% if filters.action == 'user_logout' %}selected{% endif %}>User Logout</option>
+                <option value="scan_started" {% if filters.action == 'scan_started' %}selected{% endif %}>Scan Started</option>
+                <option value="scan_denied" {% if filters.action == 'scan_denied' %}selected{% endif %}>Scan Denied (Guardrail)</option>
+                <option value="scan_deleted" {% if filters.action == 'scan_deleted' %}selected{% endif %}>Scan Deleted</option>
+                <option value="asset_created" {% if filters.action == 'asset_created' %}selected{% endif %}>Asset Created</option>
+                <option value="asset_updated" {% if filters.action == 'asset_updated' %}selected{% endif %}>Asset Updated</option>
+                <option value="asset_deleted" {% if filters.action == 'asset_deleted' %}selected{% endif %}>Asset Decommissioned</option>
+                <option value="scan_authorization_granted" {% if filters.action == 'scan_authorization_granted' %}selected{% endif %}>Authorization Granted</option>
+                <option value="scan_authorization_revoked" {% if filters.action == 'scan_authorization_revoked' %}selected{% endif %}>Authorization Revoked</option>
+                <option value="finding_edited" {% if filters.action == 'finding_edited' %}selected{% endif %}>Finding Triage Edited</option>
+                <option value="finding_deleted" {% if filters.action == 'finding_deleted' %}selected{% endif %}>Finding Deleted</option>
+                <option value="schedule_created" {% if filters.action == 'schedule_created' %}selected{% endif %}>Schedule Created</option>
+                <option value="schedule_deleted" {% if filters.action == 'schedule_deleted' %}selected{% endif %}>Schedule Deleted</option>
+                <option value="database_purged" {% if filters.action == 'database_purged' %}selected{% endif %}>Database Purged</option>
+                <option value="user_created" {% if filters.action == 'user_created' %}selected{% endif %}>User Created</option>
+                <option value="user_deleted" {% if filters.action == 'user_deleted' %}selected{% endif %}>User Deleted</option>
+            </select>
+        </div>
+        <div style="flex:1; min-width:140px;">
+            <label style="display:block; font-size:12px; color:var(--text-muted); margin-bottom:4px;">Result</label>
+            <select name="result" style="width:100%; padding:8px 12px; background:var(--bg-primary); border:1px solid var(--border); border-radius:var(--radius); color:var(--text-primary); font-size:13px;">
+                <option value="">All Results</option>
+                <option value="success" {% if filters.result == 'success' %}selected{% endif %}>Success</option>
+                <option value="denied" {% if filters.result == 'denied' %}selected{% endif %}>Denied</option>
+                <option value="failure" {% if filters.result == 'failure' %}selected{% endif %}>Failure</option>
+            </select>
+        </div>
+        <div style="display:flex; gap:8px;">
+            <button type="submit" class="btn btn-secondary btn-sm" style="height:35px; align-self:flex-end;">Filter</button>
+            <a href="{{ url_for('audit_log') }}" class="btn btn-secondary btn-sm" style="height:35px; align-self:flex-end;">Reset</a>
+        </div>
+    </form>
+</div>
+
+<!-- Audit Log Table -->
+{% if events %}
+<div class="table-wrap" style="background:var(--bg-secondary); border:1px solid var(--border); border-radius:var(--radius); overflow:hidden;">
+<table style="width:100%; border-collapse:collapse; font-size:13px;">
+    <thead>
+        <tr style="background:var(--bg-card); border-bottom:1px solid var(--border); text-align:left; color:var(--text-secondary);">
+            <th style="padding:12px 14px;">Timestamp (UTC)</th>
+            <th style="padding:12px 14px;">Actor</th>
+            <th style="padding:12px 14px;">Action</th>
+            <th style="padding:12px 14px;">Resource</th>
+            <th style="padding:12px 14px;">Result</th>
+            <th style="padding:12px 14px;">Metadata &amp; Context</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for ev in events %}
+        <tr style="border-bottom:1px solid var(--border); transition:background 0.15s;" onmouseover="this.style.background='var(--bg-hover)'" onmouseout="this.style.background='transparent'">
+            <td style="padding:12px 14px; font-family:monospace; color:var(--text-muted); white-space:nowrap;">
+                {{ ev.created_at[:19].replace('T', ' ') }}
+            </td>
+            <td style="padding:12px 14px; font-weight:600;">
+                {{ ev.actor_username or 'system' }}
+            </td>
+            <td style="padding:12px 14px; font-family:monospace; color:var(--text-primary);">
+                {{ ev.action }}
+            </td>
+            <td style="padding:12px 14px; font-size:12px;">
+                {% if ev.resource_type %}
+                <span style="color:var(--text-muted);">{{ ev.resource_type }}:</span>
+                <span style="font-family:monospace;">{{ ev.resource_id[:12] if ev.resource_id else '-' }}</span>
+                {% else %}
+                -
+                {% endif %}
+            </td>
+            <td style="padding:12px 14px;">
+                {% if ev.result == 'success' %}
+                <span style="font-size:11px; padding:2px 8px; border-radius:4px; background:rgba(16,185,129,0.15); color:var(--success); border:1px solid rgba(16,185,129,0.3); font-weight:600; text-transform:uppercase;">
+                    Success
+                </span>
+                {% elif ev.result == 'denied' %}
+                <span style="font-size:11px; padding:2px 8px; border-radius:4px; background:rgba(239,68,68,0.15); color:var(--danger); border:1px solid rgba(239,68,68,0.3); font-weight:600; text-transform:uppercase;">
+                    Denied
+                </span>
+                {% else %}
+                <span style="font-size:11px; padding:2px 8px; border-radius:4px; background:rgba(245,158,11,0.15); color:var(--warning); border:1px solid rgba(245,158,11,0.3); font-weight:600; text-transform:uppercase;">
+                    Failure
+                </span>
+                {% endif %}
+            </td>
+            <td style="padding:12px 14px; font-size:11px; font-family:monospace; color:var(--text-muted); max-width:320px; overflow:hidden; text-overflow:ellipsis;">
+                {{ ev.metadata | tojson if ev.metadata else '{}' }}
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+</div>
+{% else %}
+<div class="empty-state" style="text-align:center; padding:48px 24px; background:var(--bg-secondary); border:1px solid var(--border); border-radius:var(--radius);">
+    <p style="color:var(--text-muted); font-size:14px;">No audit events found matching query.</p>
+</div>
+{% endif %}
+{% endblock %}

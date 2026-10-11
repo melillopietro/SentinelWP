@@ -1,8 +1,35 @@
-# SentinelWP — WordPress Security Sentinel (v4.0.0)
+# SentinelWP — WordPress Security Sentinel (v4.1.0 Enterprise)
 
-Enterprise-grade, non-destructive WordPress security assessment and posture management platform.
+Enterprise-grade, non-destructive WordPress security assessment, posture management, and distributed vulnerability orchestration platform.
 
-SentinelWP is an advanced security auditing and reconnaissance tool designed to evaluate the security posture of WordPress websites and web applications. It provides detailed analysis of attack surfaces, misconfigurations, sensitive information exposure, and HTTP security header compliance without performing destructive actions.
+SentinelWP is an advanced enterprise security auditing platform designed to evaluate the security posture of WordPress websites and web applications at scale. Production deployments use a **stateless Flask/Gunicorn web tier**, **Celery workers**, **Redis**, and **PostgreSQL**; local development can run against **SQLite** with the same application code. SentinelWP provides deep attack surface reconnaissance, configuration audit, and vulnerability intelligence without performing destructive actions.
+
+---
+
+## SentinelWP v4.1.0 Enterprise
+
+**Version 4.1.0** is the integrated enterprise release on the public GitHub repository ([release notes](docs/release/RELEASE_NOTES_v4.1.0.md), [CHANGELOG](CHANGELOG.md)).
+
+| Capability | What you get in v4.1.0 |
+|------------|-------------------------|
+| **Enterprise Docker Compose** | Production topology in [`docker-compose.prod.yml`](docker-compose.prod.yml): Nginx TLS gateway, Gunicorn web, Celery scan/intel workers, Beat scheduler, PostgreSQL 16, Redis 7, ephemeral migrate job. |
+| **Flask / Gunicorn, PostgreSQL, Redis, Celery & Beat** | HTTP layer enqueues durable work; scanners run in worker processes, not in request threads. Beat drives scheduled scans with slot deduplication. |
+| **Multi-tenant auth & RBAC** | Workspace-scoped data, roles (Admin / Analyst / Viewer), optional organization slug at login, centralized object authorization (404 on cross-tenant access). |
+| **WordPress scanning & vuln intelligence** | Multi-signal WP detection, passive/safe-active/full modes, local Wordfence/CISA KEV pipeline and Threat Intelligence UI. |
+| **Atomic Scan Job claiming** | Workers claim jobs with database-level atomicity to prevent duplicate execution under horizontal scale. |
+| **SSRF security controls** | Target validation blocks private ranges and unsafe hosts at submission and again in workers (fail-closed). |
+| **Finding lifecycle & reporting** | Normalized findings, remediation workflow, executive PDF/HTML/Excel/SARIF exports. |
+| **Backup, restore & Alembic migrations** | Head revision `009_sprint11_schema_parity`; scripted PostgreSQL backup/restore and env validation for production. |
+
+**Documentation (start here for production):**
+
+- [Ubuntu / Docker deployment](docs/DEPLOYMENT_UBUNTU.md)
+- [Production configuration](docs/PRODUCTION_CONFIGURATION.md)
+- [Security hardening](docs/SECURITY_HARDENING.md)
+- [Backup & recovery](docs/BACKUP_RECOVERY.md)
+- [Upgrade & rollback](docs/UPGRADE_ROLLBACK.md)
+- [Operations runbook](docs/OPERATIONS_RUNBOOK.md)
+- [GitHub integration notes (v4.1.0)](docs/release/GITHUB_INTEGRATION_v4.1.0.md)
 
 ---
 
@@ -43,13 +70,62 @@ SentinelWP is an advanced security auditing and reconnaissance tool designed to 
   - Security flag analysis for HTTP response cookies (`Secure`, `HttpOnly`, `SameSite`).
 - **Passive DNS & WHOIS Audit**: Native domain WHOIS socket parser (expiration and registrar tracking) combined with secure DNS-over-HTTPS (DoH) audits for SPF and DMARC mail protection records.
 - **OASIS SARIF v2.1.0 Support**: Fully compliant SARIF exports for GitHub Actions and GitLab CI/CD pipeline integration.
+- **Multi-Tenant Workspaces & Tenant Partitioning**: Complete tenant isolation architecture (`Tenant` domain model). Every scan, finding, scheduled audit, asset, and authorization is strictly scoped to the active workspace. Seamless backward-compatible migration automatically seeds legacy records under a protected default workspace (`default-tenant`).
+- **Enterprise Asset Inventory & Asset 360**: Centralized enterprise target management (`/assets`) with automated URL canonicalization (HTTPS scheme normalization, default port removal, path preservation), asset tagging, environment tracking (Production, Staging, Development), and a dedicated Asset 360 profile (`/asset/<id>`) detailing historical scans and active security findings.
+- **Scan Authorization Guardrails**: Pre-flight authorization enforcement (`ScanAuthorization` model) ensuring scans against targets in `safe-active` mode are strictly gated by valid, unexpired owner authorization. Attempts to execute safe-active scans without authorization fail closed (HTTP 403) and generate security audit alerts.
+- **Centralized Tenant-Aware Object Authorization**: Enforces strict authorization policies across all routes and API endpoints (`core/authorization.py`). Unauthorized cross-tenant resource requests return `HTTP 404 Not Found` rather than `403 Forbidden` to prevent object enumeration and information disclosure (OWASP API1:2023 / BOLA prevention).
+- **Immutable Security Audit Logging**: Tamper-evident, append-only security audit trail (`/audit`) capturing security-critical actions (login, asset management, scan authorization grant/revocation, scan execution, role modifications). Automatically redacts passwords, tokens, API keys, and session cookies from metadata before persistence.
 - **Role-Based Access Control (RBAC)**: Multi-user management (Admin, Analyst, Viewer) with secure sessions.
+- **Stateless Web Cluster Architecture**: The web tier validates, authorizes, creates durable `ScanJob` records, and enqueues tasks to Celery via Redis. Scanners NEVER execute within the HTTP request cycle.
+- **PostgreSQL 16+ & Dual SQLite Support**: SQLAlchemy 2.x persistence layer with connection pooling, declarative models, and Alembic migrations. Full dual-compatibility with SQLite WAL mode for development.
+- **Distributed Celery Worker Queues**: Segregated task queues (`scan`, `intel`, `maintenance`) for independent horizontal scaling. Threat intelligence synchronization runs isolated from scan workloads.
+- **Centralized Celery Beat High-Availability Scheduler**: Atomic schedule claims backed by `ScheduledRun` unique constraints mathematically guarantee **0 duplicate scheduled scans** across distributed deployments.
+- **Pre-Flight Worker Authorization Guardrail**: Celery workers re-validate asset scan authorization immediately prior to target analysis, failing closed (HTTP 403 / denied) if permissions expired while queued.
+- **Automatic Stale Worker Recovery & Retries**: Active heartbeats flag worker crashes or timeouts, automatically retrying transient errors and recovering hung jobs.
+- **Enterprise Observability**: Distributed trace correlation (`X-Request-ID`), Kubernetes liveness/readiness probes (`/health`, `/ready`), and Prometheus telemetry (`/metrics`).
 
 ---
 
-## Installation Guide (Cross-Platform)
+## Enterprise Production Deployment (Docker Compose on Ubuntu Server LTS)
 
-SentinelWP requires **Python 3.10+** and runs seamlessly across **macOS**, **Linux**, and **Windows**.
+For enterprise-grade, high-availability deployments on Ubuntu Server LTS (22.04 / 24.04), SentinelWP provides a fully isolated, production-hardened Docker Compose topology:
+
+- **Isolated Stack**: Nginx Gateway (TLS 1.3 termination, HSTS, rate-limiting), Gunicorn WSGI (`sentinelwp-web`), segregated Celery workers (`worker-scan`, `worker-intel`), autonomous scheduler (`beat`), PostgreSQL 16 (`db`), and Redis 7 (`redis`).
+- **Container Hardening**: Python 3.12-slim, unprivileged non-root execution (`appuser` UID 1000), `read_only` filesystems, zero host exposure for PostgreSQL and Redis ports.
+- **Automated Migrations**: Ephemeral `migrate` container with PostgreSQL advisory locking (`85504753`).
+
+```bash
+# 1. Clone repository (v4.1.0 on main)
+git clone https://github.com/melillopietro/SentinelWP.git
+cd SentinelWP
+
+# 2. Configure environment & generate strong secrets
+cp .env.production.example .env.production
+chmod 600 .env.production
+bash scripts/validate_prod_env.sh .env.production
+
+# 3. Provision TLS certificate (or generate staging cert)
+bash scripts/generate_self_signed_cert.sh
+
+# 4. Build and start datastores
+docker compose -f docker-compose.prod.yml build
+docker compose -f docker-compose.prod.yml up -d db redis
+
+# 5. Run database migrations and start application stack
+docker compose -f docker-compose.prod.yml run --rm migrate
+docker compose -f docker-compose.prod.yml up -d
+
+# 6. Verify deployment
+bash scripts/verify_deployment.sh --host 127.0.0.1
+```
+
+See the **v4.1.0 Enterprise** section above for links to the full deployment and operations library.
+
+---
+
+## Local Development & Standalone Installation Guide (Cross-Platform)
+
+For **production**, use **Python 3.12** and [`requirements-prod.txt`](requirements-prod.txt) inside the Docker images (see CI and [`docs/release/CI_SECURITY_GATES.md`](docs/release/CI_SECURITY_GATES.md)). For **local development**, **Python 3.10+** is supported with [`requirements.txt`](requirements.txt) on **macOS**, **Linux**, and **Windows**.
 
 ---
 
@@ -188,11 +264,19 @@ python app.py
 
 ## Architecture & Technology Stack
 
-- **Backend & Web UI**: Python 3, Flask, Jinja2, Vanilla CSS (Dark Theme)
-- **Database**: SQLite3 (WAL mode enabled, automatic schema management)
-- **Async & Scheduling**: ThreadPoolExecutor, background daemon scheduler
-- **Reporting Engine**: ReportLab (PDF), OpenPyXL (Excel), SARIF v2.1.0 JSON generator, CSV exporter
-- **Security Core**: Requests, native socket WHOIS client, Google DoH DNS-over-HTTPS client, Python ipaddress validation, in-memory rate limiter
+**Production (v4.1.0 enterprise):**
+
+- **Web**: Python 3.12, Flask, Gunicorn, Jinja2
+- **Data**: PostgreSQL 16+ (SQLAlchemy 2.x, Alembic migrations), Redis 7
+- **Workers**: Celery (queues: `scan`, `intel`, `maintenance`), Celery Beat for schedules
+- **Edge**: Nginx TLS termination, health probes, Prometheus metrics where enabled
+- **Reporting**: ReportLab (PDF), OpenPyXL (Excel), SARIF 2.1.0, CSV
+- **Security**: SSRF guards, RBAC, audit log, rate limiting, optional strict DNS in production
+
+**Local development (optional):**
+
+- **Database**: SQLite (WAL) when `DATABASE_URL` is unset or points at a local file
+- **Scan execution**: Can use local backend or Celery depending on `SCAN_EXECUTION_BACKEND` and stack configuration
 
 ---
 
@@ -214,15 +298,38 @@ python app.py
 
 ---
 
-## Recent Updates & Changelog (v4.0.0)
+## Recent Updates & Changelog (v4.1.0)
 
-### v4.0.0 — WordPress 7.1.2 / CVE-2026-87902 & Scan Pipeline Hardening
-- **WordPress 7.1.2 curated intelligence**: Local seed for **CVE-2026-87902** (critical core template-resolution issue; fixed in 7.1.2). See [WordPress 7.1.2 release](https://wordpress.org/news/2026/09/wordpress-7-1-2-release/).
-- **Branch maintenance map**: Recommends latest security release per branch (7.1.2, 7.0.4, 6.9.x, …) during scans.
-- **Unified scan finalization**: Async and sync scans share the same CVE enrichment and version matching logic; WordPress core version is taken from detector signals (not plugin versions).
-- **CoreSecurityScanner**: Non-exploitative theme precondition hints for CVE-2026-87902.
-- **CVE disambiguation**: **CVE-2026-86902** is **not** a WordPress issue (Apple macOS); do not conflate with WordPress core tracking.
-- **Operational hardening**: Single-shot DB/scheduler init per process, TLS certificate verification on by default (`WSA_DISABLE_TLS_VERIFY=false`), `.env.example` aligned with `config.py`.
+See [CHANGELOG.md](CHANGELOG.md) for the authoritative release notes.
+
+### v4.1.0 — Enterprise Production Release (Sprint 11)
+- **Containerized production stack** with Nginx TLS gateway, Gunicorn, Celery workers, Redis, and PostgreSQL 16.
+- **Security remediation:** session RBAC, atomic scan job claims, SSRF preflight + worker enforcement, strict DNS in production.
+- **Operations:** Alembic migrations through `009_sprint11_schema_parity`, backup/restore scripts, production env validation.
+- **Multi-tenant login** with optional organization slug for duplicate usernames.
+
+### v3.7.0 — Enterprise Phase 2: Workspaces, Asset Inventory & Scan Authorization
+- **Multi-Tenant Partitioning & Workspace Context**:
+  - Introduced `Tenant` domain model and multi-tenant partitioning across all application data.
+  - Automatic zero-downtime migration backfills legacy records into `default-tenant`.
+  - Global Jinja2 workspace context injection (`current_tenant`, `current_tenant_id`) with header workspace badges.
+- **Enterprise Asset Inventory & Asset 360**:
+  - Full CRUD inventory management (`/assets`, `/asset/new`, `/asset/<id>`, `/asset/<id>/edit`, `/asset/<id>/delete`).
+  - Automated URL canonicalization utility (`core/canonical.py`) guaranteeing consistent scheme, port, and path handling.
+  - Dedicated Asset 360 profile view aggregating scan history, active risk statistics, and authorization status.
+- **Scan Authorization Guardrails**:
+  - Added `ScanAuthorization` domain model for verified site ownership and scanning permissions.
+  - Pre-flight authorization validation on active scans (`/scan/new`, `/scan/batch`, `/api/scan`) failing closed (`403 Forbidden`) when targets lack active authorizations.
+  - Granular authorization lifecycle management with creation and instant revocation.
+- **Centralized Object-Level Authorization (BOLA/IDOR Prevention)**:
+  - Centralized policy engine (`core/authorization.py`) enforcing role hierarchy and tenant boundaries.
+  - Cross-tenant access attempts return strict `404 Not Found` (rather than 403) to eliminate object enumeration.
+- **Immutable Security Audit Logging**:
+  - Append-only `audit_events` ledger recording all authentication, authorization, scan, and administrative actions.
+  - Automatic pre-persistence sanitization redacting credentials, tokens, cookies, and secret keys.
+  - Dedicated Administrator-only Audit Log dashboard (`/audit`).
+- **PostgreSQL & Alembic Enterprise Migration Path**:
+  - Complete blueprint (`docs/POSTGRESQL_MIGRATION_PLAN.md`) detailing schema migration, PostgreSQL Row-Level Security (RLS) policies, and dual-run cutover procedures.
 
 ### v3.6.0 — Modern Vulnerability Engine, User Panel & Enhanced Narrative Reports
 - **Modern Vulnerability & DevOps Exposure Engine**:

@@ -1,132 +1,304 @@
 {% extends "base.html" %}
-{% block title %}Scan History - WSA Pro{% endblock %}
+{% block title %}Operations &amp; Scans - SentinelWP Enterprise{% endblock %}
 {% block content %}
-<div class="page-header" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:16px; margin-bottom:20px;">
+<div class="workspace-header">
     <div>
-        <h2>Scan History</h2>
-        <p>{{ scans|length }} scan(s) recorded</p>
+        <h2>Operations &amp; Scans</h2>
+        <p>Unified scan execution, real-time job tracking, historical reports, and recurring schedules.</p>
     </div>
-    <div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
-        <a href="{{ url_for('export_scans_csv') }}" class="btn btn-secondary">Export CSV</a>
+    {% if session.get('role') in ('admin', 'analyst') %}
+    <div style="display:flex; gap:10px;">
+        <button type="button" onclick="openScanLauncher()" class="btn btn-primary btn-sm">
+            <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+            + Launch Scan
+        </button>
     </div>
+    {% endif %}
+</div>
+
+<!-- Workspace 4 Navigation Tabs -->
+<div class="workspace-tabs">
+    <a href="{{ url_for('scan_history', tab='history') }}" class="workspace-tab {% if active_tab == 'history' %}active{% endif %}">
+        <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+        Scan History &amp; Queue
+        <span class="tab-badge">{{ scans | length }}</span>
+    </a>
+    <a href="{{ url_for('scan_history', tab='schedules') }}" class="workspace-tab {% if active_tab == 'schedules' %}active{% endif %}">
+        <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+        Recurring Schedules
+        <span class="tab-badge">{{ schedules | length }}</span>
+    </a>
+</div>
+
+{% if active_tab == 'schedules' %}
+<!-- TAB 2: RECURRING SCHEDULES (CONSOLIDATING SCHEDULES.HTML) -->
+<div style="background:var(--bg-card); border:1px solid var(--border); border-radius:var(--radius); padding:20px;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+        <h3 style="font-size:16px; font-weight:600; color:var(--text-primary); margin:0;">Active Scan Schedules</h3>
+        {% if session.get('role') in ('admin', 'analyst') %}
+        <button type="button" onclick="openScanLauncher('scheduled')" class="btn btn-secondary btn-sm">+ New Schedule</button>
+        {% endif %}
+    </div>
+    {% if schedules %}
+    <div class="table-wrap">
+        <table>
+            <thead>
+                <tr>
+                    <th>Target URL</th>
+                    <th>Scan Mode</th>
+                    <th>Interval</th>
+                    <th>Next Run</th>
+                    <th>Status</th>
+                    <th style="text-align:right;">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for s in schedules %}
+                <tr>
+                    <td><strong>{{ s.target_url }}</strong></td>
+                    <td style="text-transform:capitalize;">{{ s.scan_mode }}</td>
+                    <td>Every {{ s.interval_hours }} hours</td>
+                    <td style="color:var(--text-muted); font-size:12px;">{{ s.next_run_at[:16].replace('T', ' ') if s.next_run_at else 'Imminent' }}</td>
+                    <td>
+                        {% if s.is_paused or s.status == 'paused' %}
+                        <span class="badge badge-warning">PAUSED</span>
+                        {% else %}
+                        <span class="badge badge-success">ACTIVE</span>
+                        {% endif %}
+                    </td>
+                    <td style="text-align:right;">
+                        {% if session.get('role') in ('admin', 'analyst') %}
+                        <form method="POST" action="{{ url_for('delete_schedule', sched_id=s.id) }}" onsubmit="return confirm('Delete this scan schedule?');" style="display:inline;">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                            <button type="submit" class="btn btn-danger btn-sm" style="padding:3px 8px; font-size:11px;">Delete</button>
+                        </form>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <p style="font-size:13px; color:var(--text-muted);">No recurring schedules defined. Click "+ Launch Scan" to schedule continuous scans.</p>
+    {% endif %}
+</div>
+
+{% else %}
+<!-- TAB 1: SCAN HISTORY & QUEUE (DEFAULT) -->
+<!-- Filters Toolbar -->
+<div class="card" style="margin-bottom:20px; padding:16px; background:var(--bg-secondary); border:1px solid var(--border); border-radius:var(--radius);">
+    <form method="GET" action="{{ url_for('scan_history') }}" style="display:flex; flex-wrap:wrap; gap:12px; align-items:flex-end;">
+        <input type="hidden" name="tab" value="history"/>
+        <div style="flex:2; min-width:200px;">
+            <label style="display:block; font-size:12px; color:var(--text-muted); margin-bottom:4px;">Target URL</label>
+            <input type="text" name="target_url" value="{{ filters.target_url or '' }}" placeholder="Search by URL..." style="width:100%; padding:8px 12px; background:var(--bg-primary); border:1px solid var(--border); border-radius:var(--radius); color:var(--text-primary); font-size:13px;">
+        </div>
+        <div style="flex:1; min-width:130px;">
+            <label style="display:block; font-size:12px; color:var(--text-muted); margin-bottom:4px;">Status</label>
+            <select name="status" style="width:100%; padding:8px 12px; background:var(--bg-primary); border:1px solid var(--border); border-radius:var(--radius); color:var(--text-primary); font-size:13px;">
+                <option value="">All Statuses</option>
+                <option value="completed" {% if filters.status == 'completed' %}selected{% endif %}>Completed</option>
+                <option value="running" {% if filters.status == 'running' %}selected{% endif %}>Running</option>
+                <option value="failed" {% if filters.status == 'failed' %}selected{% endif %}>Failed</option>
+                <option value="pending" {% if filters.status == 'pending' %}selected{% endif %}>Pending</option>
+            </select>
+        </div>
+        <div style="flex:1; min-width:130px;">
+            <label style="display:block; font-size:12px; color:var(--text-muted); margin-bottom:4px;">Mode</label>
+            <select name="scan_mode" style="width:100%; padding:8px 12px; background:var(--bg-primary); border:1px solid var(--border); border-radius:var(--radius); color:var(--text-primary); font-size:13px;">
+                <option value="">All Modes</option>
+                <option value="passive" {% if filters.scan_mode == 'passive' %}selected{% endif %}>Passive</option>
+                <option value="safe-active" {% if filters.scan_mode == 'safe-active' %}selected{% endif %}>Safe Active</option>
+                <option value="full" {% if filters.scan_mode == 'full' %}selected{% endif %}>Full</option>
+            </select>
+        </div>
+        <div style="display:flex; gap:8px;">
+            <button type="submit" class="btn btn-secondary btn-sm" style="height:35px; align-self:flex-end;">Filter</button>
+            <a href="{{ url_for('scan_history') }}" class="btn btn-secondary btn-sm" style="height:35px; align-self:flex-end;">Reset</a>
+        </div>
+    </form>
 </div>
 
 {% if scans %}
 <div class="table-wrap">
-<table id="scan-history-table">
-<thead>
-    <tr>
-        <th>Target</th>
-        <th>Score</th>
-        <th>Grade</th>
-        <th>WordPress / Version</th>
-        <th>Status</th>
-        <th>Date</th>
-        <th>WHOIS</th>
-        <th style="text-align:right;">Actions</th>
-    </tr>
-    <tr class="filter-row" style="background: rgba(15, 23, 42, 0.4);">
-        <th style="padding:6px 8px;"><input type="text" data-col="0" placeholder="Filter target..." onkeyup="filterHistoryColumns()" style="width:100%; padding:4px 8px; background:var(--bg-dark); border:1px solid var(--border); border-radius:4px; color:var(--text-primary); font-size:11px;"></th>
-        <th style="padding:6px 8px;"><input type="text" data-col="1" placeholder="Score..." onkeyup="filterHistoryColumns()" style="width:100%; padding:4px 6px; background:var(--bg-dark); border:1px solid var(--border); border-radius:4px; color:var(--text-primary); font-size:11px;"></th>
-        <th style="padding:6px 8px;">
-            <select data-col="2" onchange="filterHistoryColumns()" style="width:100%; padding:4px 4px; background:var(--bg-dark); border:1px solid var(--border); border-radius:4px; color:var(--text-primary); font-size:11px;">
-                <option value="">All</option>
-                <option value="A">A</option>
-                <option value="B">B</option>
-                <option value="C">C</option>
-                <option value="D">D</option>
-                <option value="E">E</option>
-                <option value="F">F</option>
-            </select>
-        </th>
-        <th style="padding:6px 8px;">
-            <select data-col="3" onchange="filterHistoryColumns()" style="width:100%; padding:4px 4px; background:var(--bg-dark); border:1px solid var(--border); border-radius:4px; color:var(--text-primary); font-size:11px;">
-                <option value="">All</option>
-                <option value="WP">WP Only</option>
-                <option value="Not WordPress">Not WP</option>
-            </select>
-        </th>
-        <th style="padding:6px 8px;">
-            <select data-col="4" onchange="filterHistoryColumns()" style="width:100%; padding:4px 4px; background:var(--bg-dark); border:1px solid var(--border); border-radius:4px; color:var(--text-primary); font-size:11px;">
-                <option value="">All</option>
-                <option value="completed">Completed</option>
-                <option value="running">Running</option>
-                <option value="failed">Failed</option>
-                <option value="pending">Pending</option>
-            </select>
-        </th>
-        <th style="padding:6px 8px;"><input type="text" data-col="5" placeholder="Filter date..." onkeyup="filterHistoryColumns()" style="width:100%; padding:4px 6px; background:var(--bg-dark); border:1px solid var(--border); border-radius:4px; color:var(--text-primary); font-size:11px;"></th>
-        <th style="padding:6px 8px;"><input type="text" data-col="6" placeholder="Filter WHOIS..." onkeyup="filterHistoryColumns()" style="width:100%; padding:4px 6px; background:var(--bg-dark); border:1px solid var(--border); border-radius:4px; color:var(--text-primary); font-size:11px;"></th>
-        <th style="padding:6px 8px; text-align:right;">
-            <button type="button" onclick="clearHistoryColumnFilters()" class="btn btn-secondary btn-sm" style="padding:3px 8px; font-size:11px;">Reset</button>
-        </th>
-    </tr>
-</thead>
-<tbody>
-{% for s in scans %}
-<tr>
-    <td><a href="{{ url_for('scan_detail', scan_id=s.id) }}">{{ s.target_url[:50] }}</a></td>
-    <td>{{ s.score if s.score is not none else '-' }}</td>
-    <td>{% if s.grade %}<span class="badge {% if s.grade.startswith('A') %}badge-info{% elif s.grade.startswith('B') %}badge-low{% elif s.grade.startswith('C') %}badge-medium{% else %}badge-critical{% endif %}">{{ s.grade }}</span>{% else %}-{% endif %}</td>
-    <td>
-        {% if s.is_wordpress %}
-            <span class="badge badge-info">WP {{ s.wp_version or 'Detected' }}</span>
-        {% else %}
-            <span class="badge" style="background:var(--border); color:var(--text-muted);">{{ s.wp_version or 'Not WordPress' }}</span>
-        {% endif %}
-    </td>
-    <td><span class="badge badge-info">{{ s.status.value if s.status.value is defined else s.status }}</span></td>
-    <td style="color:var(--text-muted);font-size:12px;">{{ s.started_at[:16] }}</td>
-    <td style="font-size:12px;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="{{ s.whois_info or '-' }}">{{ s.whois_info or '-' }}</td>
-    <td style="text-align:right;">
-        <div class="btn-group">
-            <a href="{{ url_for('scan_detail', scan_id=s.id) }}" class="btn btn-secondary btn-sm">View</a>
-            <form method="POST" action="{{ url_for('delete_scan', scan_id=s.id) }}" style="display:inline;" onsubmit="return confirm('Delete this scan?')">
-                <button type="submit" class="btn btn-danger btn-sm">Delete</button>
-            </form>
-        </div>
-    </td>
-</tr>
-{% endfor %}
-</tbody>
+<table>
+    <thead>
+        <tr>
+            <th>Target URL</th>
+            <th>Scan Mode</th>
+            <th>Grade &amp; Score</th>
+            <th>WordPress Detected</th>
+            <th>Status</th>
+            <th>Execution Time</th>
+            <th style="text-align:right;">Actions</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for s in scans %}
+        <tr>
+            <td>
+                <div style="font-weight:600; color:var(--text-primary);">
+                    <a href="{{ url_for('scan_detail', scan_id=s.id) }}">{{ s.target_url }}</a>
+                </div>
+                <div style="font-size:11px; font-family:monospace; color:var(--text-muted); margin-top:2px;">
+                    #{{ s.id[:8] }}
+                </div>
+            </td>
+            <td style="text-transform:capitalize;">{{ s.scan_mode }}</td>
+            <td>
+                {% if s.grade %}
+                <span class="badge {% if s.grade.startswith('A') %}badge-info{% elif s.grade.startswith('B') %}badge-low{% elif s.grade.startswith('C') %}badge-medium{% else %}badge-critical{% endif %}">{{ s.grade }} ({{ s.score }})</span>
+                {% else %}-{% endif %}
+            </td>
+            <td>
+                {% if s.is_wordpress %}
+                <span class="badge badge-info">{% if s.wp_version and s.wp_version not in ('Unknown', 'Not WordPress') %}WP {{ s.wp_version }}{% else %}WordPress{% endif %}</span>
+                {% else %}
+                <span class="badge" style="background:var(--border); color:var(--text-muted);">Not WordPress</span>
+                {% endif %}
+            </td>
+            <td>
+                <span class="badge {% if s.status.value == 'completed' or s.status == 'completed' %}badge-success{% elif s.status.value == 'failed' or s.status == 'failed' %}badge-critical{% else %}badge-warning{% endif %}">
+                    {{ s.status.value if s.status.value is defined else s.status }}
+                </span>
+            </td>
+            <td style="color:var(--text-muted); font-size:12px;">{{ s.started_at[:16].replace('T', ' ') if s.started_at else '-' }}</td>
+            <td style="text-align:right;">
+                <a href="{{ url_for('scan_detail', scan_id=s.id) }}" class="btn btn-secondary btn-sm">View Report</a>
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
 </table>
 </div>
 {% else %}
-<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:40px;text-align:center;">
-    <p style="color:var(--text-muted);">No scans recorded yet.</p>
+<div style="background:var(--bg-card); border:1px solid var(--border); border-radius:var(--radius); padding:40px; text-align:center;">
+    <p style="color:var(--text-muted); margin-bottom:12px;">No scan executions recorded yet.</p>
+    {% if session.get('role') in ('admin', 'analyst') %}
+    <button type="button" onclick="openScanLauncher()" class="btn btn-primary btn-sm">+ Launch Scan</button>
+    {% endif %}
 </div>
 {% endif %}
+{% endif %}
+
+<!-- Unified Scan Launcher Modal -->
+<div id="scan-launcher-modal" class="modal-backdrop">
+    <div class="modal-container">
+        <div class="modal-header">
+            <h3>Unified Scan Launcher</h3>
+            <button type="button" class="modal-close-btn" onclick="closeScanLauncher()">&times;</button>
+        </div>
+
+        <!-- Launcher Mode Selector -->
+        <div style="display:flex; gap:8px; margin-bottom:20px; background:var(--bg-secondary); padding:4px; border-radius:var(--radius); border:1px solid var(--border);">
+            <button type="button" id="tab-btn-single" onclick="switchLauncherMode('single')" class="btn btn-sm" style="flex:1; justify-content:center; background:var(--accent); color:#fff;">Single Scan</button>
+            <button type="button" id="tab-btn-batch" onclick="switchLauncherMode('batch')" class="btn btn-sm" style="flex:1; justify-content:center; background:transparent; color:var(--text-secondary);">Batch Scan</button>
+            <button type="button" id="tab-btn-scheduled" onclick="switchLauncherMode('scheduled')" class="btn btn-sm" style="flex:1; justify-content:center; background:transparent; color:var(--text-secondary);">Scheduled Scan</button>
+        </div>
+
+        <!-- Mode 1: Single Scan Form -->
+        <form id="form-single" method="POST" action="{{ url_for('new_scan') }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+            <div class="form-group">
+                <label>Target URL <span style="color:var(--danger)">*</span></label>
+                <input type="url" name="target_url" required placeholder="https://example.com" style="width:100%; padding:10px 14px; background:var(--bg-primary); border:1px solid var(--border); border-radius:var(--radius); color:var(--text-primary); font-size:14px;"/>
+            </div>
+            <div class="form-group">
+                <label>Scan Profile</label>
+                <select name="scan_mode" style="width:100%; padding:10px 14px; background:var(--bg-primary); border:1px solid var(--border); border-radius:var(--radius); color:var(--text-primary); font-size:13px;">
+                    <option value="passive">Passive Discovery (Headers, Robots, Public metadata)</option>
+                    <option value="safe-active" selected>Safe Active (Authorized non-destructive probes)</option>
+                    <option value="full">Full Audit (Aggressive checks)</option>
+                </select>
+            </div>
+            <div class="form-group" style="margin-top:16px;">
+                <label style="display:flex; align-items:center; gap:8px; font-size:13px; color:var(--text-secondary); cursor:pointer;">
+                    <input type="checkbox" name="authorization_confirmed" value="yes" required style="width:auto;"/>
+                    I confirm that I am authorized to scan this target in accordance with platform security policies.
+                </label>
+            </div>
+            <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:20px;">
+                <button type="button" class="btn btn-secondary btn-sm" onclick="closeScanLauncher()">Cancel</button>
+                <button type="submit" class="btn btn-primary btn-sm">Launch Single Scan</button>
+            </div>
+        </form>
+
+        <!-- Mode 2: Batch Scan Form -->
+        <form id="form-batch" method="POST" action="{{ url_for('batch_scan') }}" style="display:none;">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+            <div class="form-group">
+                <label>Targets (One URL per line) <span style="color:var(--danger)">*</span></label>
+                <textarea name="targets" required placeholder="https://site1.example.com&#10;https://site2.example.com" style="width:100%; min-height:120px; padding:10px 14px; background:var(--bg-primary); border:1px solid var(--border); border-radius:var(--radius); color:var(--text-primary); font-size:13px; font-family:monospace;"></textarea>
+            </div>
+            <div class="form-group">
+                <label>Scan Profile</label>
+                <select name="scan_mode" style="width:100%; padding:10px 14px; background:var(--bg-primary); border:1px solid var(--border); border-radius:var(--radius); color:var(--text-primary); font-size:13px;">
+                    <option value="passive" selected>Passive Discovery</option>
+                    <option value="safe-active">Safe Active</option>
+                </select>
+            </div>
+            <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:20px;">
+                <button type="button" class="btn btn-secondary btn-sm" onclick="closeScanLauncher()">Cancel</button>
+                <button type="submit" class="btn btn-primary btn-sm">Launch Batch Scans</button>
+            </div>
+        </form>
+
+        <!-- Mode 3: Scheduled Scan Form -->
+        <form id="form-scheduled" method="POST" action="{{ url_for('create_schedule') }}" style="display:none;">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+            <div class="form-group">
+                <label>Target URL <span style="color:var(--danger)">*</span></label>
+                <input type="url" name="target_url" required placeholder="https://example.com" style="width:100%; padding:10px 14px; background:var(--bg-primary); border:1px solid var(--border); border-radius:var(--radius); color:var(--text-primary); font-size:14px;"/>
+            </div>
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+                <div class="form-group">
+                    <label>Cadence Interval</label>
+                    <select name="interval_hours" style="width:100%; padding:10px 14px; background:var(--bg-primary); border:1px solid var(--border); border-radius:var(--radius); color:var(--text-primary); font-size:13px;">
+                        <option value="12">Every 12 Hours</option>
+                        <option value="24" selected>Daily (Every 24 Hours)</option>
+                        <option value="168">Weekly (Every 7 Days)</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Scan Profile</label>
+                    <select name="scan_mode" style="width:100%; padding:10px 14px; background:var(--bg-primary); border:1px solid var(--border); border-radius:var(--radius); color:var(--text-primary); font-size:13px;">
+                        <option value="passive">Passive</option>
+                        <option value="safe-active" selected>Safe Active</option>
+                    </select>
+                </div>
+            </div>
+            <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:20px;">
+                <button type="button" class="btn btn-secondary btn-sm" onclick="closeScanLauncher()">Cancel</button>
+                <button type="submit" class="btn btn-primary btn-sm">Create Schedule</button>
+            </div>
+        </form>
+    </div>
+</div>
 
 <script>
-function filterHistoryColumns() {
-    const table = document.getElementById("scan-history-table");
-    if (!table) return;
-    const rows = table.querySelectorAll("tbody tr");
-    const inputs = table.querySelectorAll("thead tr.filter-row input, thead tr.filter-row select");
-    
-    rows.forEach(row => {
-        let show = true;
-        inputs.forEach(input => {
-            const colIdx = parseInt(input.getAttribute("data-col"));
-            const val = input.value.trim().toLowerCase();
-            if (val && !isNaN(colIdx)) {
-                const cell = row.children[colIdx];
-                if (cell) {
-                    const text = cell.textContent.trim().toLowerCase();
-                    if (!text.includes(val)) {
-                        show = false;
-                    }
-                }
-            }
-        });
-        row.style.display = show ? "" : "none";
-    });
+function openScanLauncher(mode) {
+    document.getElementById('scan-launcher-modal').classList.add('show');
+    if (mode) switchLauncherMode(mode);
 }
-
-function clearHistoryColumnFilters() {
-    const inputs = document.querySelectorAll("thead tr.filter-row input, thead tr.filter-row select");
-    inputs.forEach(i => i.value = "");
-    filterHistoryColumns();
+function closeScanLauncher() {
+    document.getElementById('scan-launcher-modal').classList.remove('show');
+}
+function switchLauncherMode(mode) {
+    const modes = ['single', 'batch', 'scheduled'];
+    modes.forEach(m => {
+        const form = document.getElementById('form-' + m);
+        const btn = document.getElementById('tab-btn-' + m);
+        if (m === mode) {
+            form.style.display = 'block';
+            btn.style.background = 'var(--accent)';
+            btn.style.color = '#fff';
+        } else {
+            form.style.display = 'none';
+            btn.style.background = 'transparent';
+            btn.style.color = 'var(--text-secondary)';
+        }
+    });
 }
 </script>
 {% endblock %}

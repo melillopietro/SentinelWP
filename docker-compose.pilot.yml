@@ -1,0 +1,87 @@
+# Docker Compose configuration for SentinelWP Sprint 9 Pilot Environment
+# Project Name: sentinelwp-pilot
+# Isolated network, synthetic credentials, non-conflicting loopback ports
+
+name: sentinelwp-pilot
+
+networks:
+  sentinelwp-pilot-net:
+    driver: bridge
+
+volumes:
+  sentinelwp_pilot_pgdata:
+  sentinelwp_pilot_dbdata:
+  sentinelwp_pilot_wpdata:
+
+services:
+  pilot-postgres:
+    image: postgres:16-alpine
+    container_name: sentinelwp-pilot-postgres
+    restart: unless-stopped
+    networks:
+      - sentinelwp-pilot-net
+    environment:
+      POSTGRES_DB: ${PILOT_POSTGRES_DB:-sentinelwp_pilot}
+      POSTGRES_USER: ${PILOT_POSTGRES_USER:-pilot_user}
+      POSTGRES_PASSWORD: ${PILOT_POSTGRES_PASSWORD:-pilot_dev_password_123}
+    volumes:
+      - sentinelwp_pilot_pgdata:/var/lib/postgresql/data
+    ports:
+      - "127.0.0.1:5439:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  pilot-redis:
+    image: redis:7-alpine
+    container_name: sentinelwp-pilot-redis
+    restart: unless-stopped
+    networks:
+      - sentinelwp-pilot-net
+    ports:
+      - "127.0.0.1:6389:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  pilot-mariadb:
+    image: mariadb:10.5
+    container_name: sentinelwp-pilot-mariadb
+    restart: unless-stopped
+    networks:
+      - sentinelwp-pilot-net
+    environment:
+      MYSQL_ROOT_PASSWORD: ${PILOT_MARIADB_ROOT_PASSWORD:-pilot_root_pass}
+      MYSQL_DATABASE: ${PILOT_MARIADB_DATABASE:-wordpress}
+      MYSQL_USER: ${PILOT_MARIADB_USER:-wp_pilot}
+      MYSQL_PASSWORD: ${PILOT_MARIADB_PASSWORD:-wp_pilot_pass}
+    volumes:
+      - sentinelwp_pilot_dbdata:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -u root -p$$MYSQL_ROOT_PASSWORD || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 8
+
+  pilot-wordpress:
+    image: wordpress:6.4-apache
+    container_name: sentinelwp-pilot-wordpress
+    restart: unless-stopped
+    networks:
+      - sentinelwp-pilot-net
+    depends_on:
+      pilot-mariadb:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:8099:80"
+    environment:
+      WORDPRESS_DB_HOST: pilot-mariadb:3306
+      WORDPRESS_DB_USER: ${PILOT_MARIADB_USER:-wp_pilot}
+      WORDPRESS_DB_PASSWORD: ${PILOT_MARIADB_PASSWORD:-wp_pilot_pass}
+      WORDPRESS_DB_NAME: ${PILOT_MARIADB_DATABASE:-wordpress}
+    volumes:
+      - sentinelwp_pilot_wpdata:/var/www/html

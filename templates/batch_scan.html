@@ -9,6 +9,7 @@
 <div style="max-width:600px;">
 <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:24px;">
     <form method="POST">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <div class="form-group">
             <label>Target URLs (one per line)</label>
             <textarea name="targets" placeholder="https://site1.com&#10;https://site2.com&#10;https://site3.com" rows="8" required autofocus></textarea>
@@ -18,15 +19,21 @@
             <select name="scan_mode">
                 <option value="passive" selected>Passive — Homepage & linked assets analysis only</option>
                 <option value="safe-active">Safe Active — Known WP endpoints (non-destructive)</option>
-                <option value="full">Full — Includes default credentials audit</option>
+                <option value="full">Full — Comprehensive deep audit (all scanners)</option>
             </select>
         </div>
         <div style="background:var(--bg-secondary);border:1px solid var(--border);border-radius:var(--radius);padding:12px;margin-bottom:16px;">
             <p style="font-size:12px;color:var(--text-muted);margin:0;">
-                <strong style="color:var(--text-secondary);">Passive:</strong> WordPress detection, security headers, TLS/SSL, active theme, WAF, cookie flags.<br>
-                <strong style="color:var(--text-secondary);">Safe Active:</strong> + user enumeration, exposed files, plugin/theme probing, XML-RPC methods, REST API, directory listing, backups.<br>
-                <strong style="color:var(--text-secondary);">Full:</strong> + common default credentials audit (max 20 attempts).
+                <strong style="color:var(--text-secondary);">Passive:</strong> WordPress detection, security headers, TLS/SSL, active theme, WAF, cookie flags, DNS.<br>
+                <strong style="color:var(--text-secondary);">Safe Active:</strong> + user enumeration, exposed files, plugin & theme probing, XML-RPC methods, REST API, directory listing, backups.<br>
+                <strong style="color:var(--text-secondary);">Full:</strong> + complete deep audit across all scanners and endpoints.
             </p>
+        </div>
+        <div class="form-group" style="margin-bottom:16px;">
+            <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;color:var(--text-primary);">
+                <input type="checkbox" name="auto_authorize" value="1" checked style="width:auto;margin:0;">
+                <span>Authorize security audit on these targets</span>
+            </label>
         </div>
         <button type="submit" class="btn btn-primary">Start Batch Scan</button>
     </form>

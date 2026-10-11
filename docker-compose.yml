@@ -1,0 +1,169 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: sentinelwp-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-sentinelwp}
+      POSTGRES_USER: ${POSTGRES_USER:-sentinelwp}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-sentinelwp_dev_password}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "${POSTGRES_PORT:-5433}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sentinelwp -d sentinelwp"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: sentinelwp-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  web:
+    build: .
+    container_name: sentinelwp-web
+    restart: unless-stopped
+    environment:
+      ENVIRONMENT: production
+      WSA_SECRET_KEY: ${WSA_SECRET_KEY:-REPLACE_WITH_SECURE_32_CHAR_RANDOM_SECRET_KEY_PROD}
+      DATABASE_URL: ${DATABASE_URL:-postgresql+psycopg://sentinelwp:sentinelwp_dev_password@postgres:5432/sentinelwp}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+      CELERY_BROKER_URL: ${CELERY_BROKER_URL:-redis://redis:6379/0}
+      CELERY_RESULT_BACKEND: ${CELERY_RESULT_BACKEND:-redis://redis:6379/0}
+      SCAN_EXECUTION_BACKEND: celery
+      WSA_SESSION_COOKIE_SECURE: ${WSA_SESSION_COOKIE_SECURE:-false}
+      WSA_ALLOW_PRIVATE_TARGETS: ${WSA_ALLOW_PRIVATE_TARGETS:-true}
+      PORT: 8080
+    ports:
+      - "${WEB_PORT:-8085}:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/ready"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+    volumes:
+      - appdata:/app/data
+    cap_drop:
+      - ALL
+    cap_add:
+      - NET_BIND_SERVICE
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp
+
+  worker-scan:
+    build: .
+    container_name: sentinelwp-worker-scan
+    restart: unless-stopped
+    command: ["celery", "-A", "core.tasks.celery_app", "worker", "-Q", "scan", "-c", "4", "--loglevel=info"]
+    environment:
+      ENVIRONMENT: production
+      WSA_SECRET_KEY: ${WSA_SECRET_KEY:-REPLACE_WITH_SECURE_32_CHAR_RANDOM_SECRET_KEY_PROD}
+      DATABASE_URL: ${DATABASE_URL:-postgresql+psycopg://sentinelwp:sentinelwp_dev_password@postgres:5432/sentinelwp}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+      CELERY_BROKER_URL: ${CELERY_BROKER_URL:-redis://redis:6379/0}
+      CELERY_RESULT_BACKEND: ${CELERY_RESULT_BACKEND:-redis://redis:6379/0}
+      SCAN_EXECUTION_BACKEND: celery
+      WSA_ALLOW_PRIVATE_TARGETS: ${WSA_ALLOW_PRIVATE_TARGETS:-true}
+    healthcheck:
+      disable: true
+    volumes:
+      - appdata:/app/data
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp
+
+  worker-intel:
+    build: .
+    container_name: sentinelwp-worker-intel
+    restart: unless-stopped
+    command: ["celery", "-A", "core.tasks.celery_app", "worker", "-Q", "intel,maintenance", "-c", "2", "--loglevel=info"]
+    environment:
+      ENVIRONMENT: production
+      WSA_SECRET_KEY: ${WSA_SECRET_KEY:-REPLACE_WITH_SECURE_32_CHAR_RANDOM_SECRET_KEY_PROD}
+      DATABASE_URL: ${DATABASE_URL:-postgresql+psycopg://sentinelwp:sentinelwp_dev_password@postgres:5432/sentinelwp}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+      CELERY_BROKER_URL: ${CELERY_BROKER_URL:-redis://redis:6379/0}
+      CELERY_RESULT_BACKEND: ${CELERY_RESULT_BACKEND:-redis://redis:6379/0}
+      SCAN_EXECUTION_BACKEND: celery
+      WORDFENCE_API_KEY: ${WORDFENCE_API_KEY:-}
+      NVD_API_KEY: ${NVD_API_KEY:-}
+      WSA_ALLOW_PRIVATE_TARGETS: ${WSA_ALLOW_PRIVATE_TARGETS:-true}
+    healthcheck:
+      disable: true
+    volumes:
+      - appdata:/app/data
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp
+
+  beat:
+    build: .
+    container_name: sentinelwp-beat
+    restart: unless-stopped
+    command: ["celery", "-A", "core.tasks.celery_app", "beat", "--loglevel=info"]
+    environment:
+      ENVIRONMENT: production
+      WSA_SECRET_KEY: ${WSA_SECRET_KEY:-REPLACE_WITH_SECURE_32_CHAR_RANDOM_SECRET_KEY_PROD}
+      DATABASE_URL: ${DATABASE_URL:-postgresql+psycopg://sentinelwp:sentinelwp_dev_password@postgres:5432/sentinelwp}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+      CELERY_BROKER_URL: ${CELERY_BROKER_URL:-redis://redis:6379/0}
+      CELERY_RESULT_BACKEND: ${CELERY_RESULT_BACKEND:-redis://redis:6379/0}
+      SCAN_EXECUTION_BACKEND: celery
+    healthcheck:
+      disable: true
+    volumes:
+      - appdata:/app/data
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp
+
+volumes:
+  pgdata:
+    driver: local
+  appdata:
+    driver: local

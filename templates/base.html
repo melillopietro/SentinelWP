@@ -3,6 +3,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
+<meta name="csrf-token" content="{{ csrf_token() }}"/>
 <title>{% block title %}SentinelWP{% endblock %}</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -215,6 +216,119 @@ textarea { min-height: 120px; resize: vertical; }
 .grade-d { color: var(--high); }
 .grade-e, .grade-f { color: var(--danger); }
 
+/* Workspace Tabs & Navigation Design System */
+.workspace-tabs {
+    display: flex;
+    gap: 8px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 24px;
+    padding-bottom: 2px;
+    overflow-x: auto;
+}
+.workspace-tab {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 18px;
+    border-radius: var(--radius) var(--radius) 0 0;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-secondary);
+    text-decoration: none;
+    border-bottom: 2px solid transparent;
+    transition: all 0.15s;
+    white-space: nowrap;
+}
+.workspace-tab:hover {
+    color: var(--text-primary);
+    background: var(--bg-hover);
+}
+.workspace-tab.active {
+    color: var(--accent);
+    border-bottom-color: var(--accent);
+    background: var(--bg-card);
+    font-weight: 600;
+}
+.tab-badge {
+    padding: 2px 7px;
+    font-size: 11px;
+    border-radius: 10px;
+    background: var(--bg-secondary);
+    color: var(--text-muted);
+}
+.workspace-tab.active .tab-badge {
+    background: rgba(99,102,241,0.15);
+    color: var(--accent);
+}
+
+/* Modal Dialogs */
+.modal-backdrop {
+    display: none;
+    position: fixed;
+    top: 0; left: 0; width: 100vw; height: 100vh;
+    background: rgba(0,0,0,0.65);
+    backdrop-filter: blur(2px);
+    z-index: 1000;
+    align-items: center;
+    justify-content: center;
+}
+.modal-backdrop.show { display: flex !important; }
+.modal-container {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    width: 90%;
+    max-width: 620px;
+    max-height: 90vh;
+    overflow-y: auto;
+    box-shadow: 0 20px 25px -5px rgba(0,0,0,0.5);
+    padding: 24px;
+}
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--border);
+}
+.modal-header h3 {
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin: 0;
+}
+.modal-close-btn {
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    font-size: 22px;
+    cursor: pointer;
+    line-height: 1;
+}
+.modal-close-btn:hover { color: var(--text-primary); }
+
+/* Action Header */
+.workspace-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 24px;
+    gap: 16px;
+    flex-wrap: wrap;
+}
+.workspace-header h2 {
+    font-size: 24px;
+    font-weight: 700;
+    color: var(--text-primary);
+    letter-spacing: -0.5px;
+}
+.workspace-header p {
+    font-size: 14px;
+    color: var(--text-muted);
+    margin-top: 4px;
+}
+
 /* Responsive */
 html[data-theme="light"] {
     --bg-primary: #f8fafc;
@@ -247,6 +361,11 @@ function setTheme(theme) {
         updateThemeUI(theme);
     }
 }
+function toggleTheme() {
+    var current = document.documentElement.getAttribute('data-theme') || 'dark';
+    var next = current === 'dark' ? 'light' : 'dark';
+    setTheme(next);
+}
 </script>
 </head>
 <body>
@@ -254,32 +373,47 @@ function setTheme(theme) {
 <aside class="sidebar">
     <div class="sidebar-brand">
         <h1>SentinelWP</h1>
-        <p>WordPress Security Sentinel v4.0.0</p>
+        <p>Enterprise Edition v{{ app_version }}</p>
+        <div style="margin-top:8px; display:inline-flex; align-items:center; gap:6px; padding:3px 8px; border-radius:4px; background:rgba(99,102,241,0.15); border:1px solid rgba(99,102,241,0.3); font-size:11px; color:var(--accent);">
+            <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>
+            <span>{{ current_tenant.name if current_tenant else 'Default Workspace' }}</span>
+        </div>
     </div>
     <nav class="sidebar-nav">
-        <a href="{{ url_for('dashboard') }}" class="{% if request.endpoint == 'dashboard' %}active{% endif %}">
-            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"/></svg>
-            Dashboard
+        <!-- 1. OVERVIEW -->
+        <a href="{{ url_for('dashboard') }}" class="{% if request.endpoint in ('dashboard', 'portfolio_dashboard', 'business_unit_dashboard', 'executive_report_view') %}active{% endif %}" title="Unified Security Posture & Portfolio">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
+            Overview
         </a>
-        <a href="{{ url_for('new_scan') }}" class="{% if request.endpoint == 'new_scan' %}active{% endif %}">
-            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
-            New Scan
+
+        <!-- 2. ASSETS -->
+        <a href="{{ url_for('assets') }}" class="{% if request.endpoint in ('assets', 'new_asset', 'asset_detail', 'edit_asset', 'data_quality_dashboard') %}active{% endif %}" title="Asset Inventory, Groups & Data Quality">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>
+            Assets
         </a>
-        <a href="{{ url_for('batch_scan') }}" class="{% if request.endpoint == 'batch_scan' %}active{% endif %}">
-            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>
-            Batch Scan
+
+        <!-- 3. VULNERABILITIES -->
+        <a href="{{ url_for('findings_list') }}" class="{% if request.endpoint in ('findings_list', 'finding_detail', 'remediation_dashboard', 'sla_dashboard', 'risk_acceptance_list') %}active{% endif %}" title="Findings, Remediation Backlog & SLA Governance">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+            Vulnerabilities
         </a>
-        <a href="{{ url_for('scan_history') }}" class="{% if request.endpoint == 'scan_history' %}active{% endif %}">
-            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-            Scan History
+
+        <!-- 4. OPERATIONS & SCANS -->
+        <a href="{{ url_for('scan_history') }}" class="{% if request.endpoint in ('scan_history', 'scan_detail', 'new_scan', 'batch_scan', 'schedules') %}active{% endif %}" title="Scan Launcher, Queue, History & Schedules">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+            Operations
         </a>
-        <a href="{{ url_for('schedules') }}" class="{% if request.endpoint == 'schedules' %}active{% endif %}">
-            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
-            Schedules
-        </a>
-        <a href="{{ url_for('vuln_intel_dashboard') }}" class="{% if request.endpoint == 'vuln_intel_dashboard' or request.endpoint == 'vuln_intel_list' %}active{% endif %}">
+
+        <!-- 5. THREAT INTELLIGENCE -->
+        <a href="{{ url_for('vuln_intel_dashboard') }}" class="{% if request.endpoint in ('vuln_intel_dashboard', 'vuln_intel_list') %}active{% endif %}" title="Threat Feeds, CISA KEV & Advisory Database">
             <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
             Threat Intel
+        </a>
+
+        <!-- 6. ADMINISTRATION -->
+        <a href="{{ url_for('settings') }}" class="{% if request.endpoint in ('settings', 'users', 'audit_log') %}active{% endif %}" title="Settings, User Management, API Keys & Audit Log">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+            Administration
         </a>
     </nav>
     <div class="sidebar-footer" style="position:relative; padding:16px;">
@@ -300,7 +434,11 @@ function setTheme(theme) {
         <div id="user-menu-dropdown" style="display:none; position:absolute; bottom:calc(100% + 8px); left:16px; right:16px; background:var(--bg-card); border:1px solid var(--border); border-radius:var(--radius); box-shadow:0 10px 25px -5px rgba(0,0,0,0.5); z-index:200; padding:6px; flex-direction:column; gap:2px;">
             <a href="{{ url_for('settings') }}" style="display:flex; align-items:center; gap:10px; padding:10px 12px; font-size:13px; color:var(--text-primary); border-radius:4px; text-decoration:none; transition:background 0.15s;" onmouseover="this.style.background='var(--bg-hover)'" onmouseout="this.style.background='transparent'">
                 <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="color:var(--accent);"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
-                User Panel &amp; Settings
+                Administration &amp; Settings
+            </a>
+            <a href="javascript:void(0)" onclick="toggleTheme()" style="display:flex; align-items:center; gap:10px; padding:10px 12px; font-size:13px; color:var(--text-primary); border-radius:4px; text-decoration:none; transition:background 0.15s;" onmouseover="this.style.background='var(--bg-hover)'" onmouseout="this.style.background='transparent'">
+                <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="color:var(--warning);"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
+                Toggle Theme (Dark / Light)
             </a>
             <a href="{{ url_for('changelog') }}" style="display:flex; align-items:center; gap:10px; padding:10px 12px; font-size:13px; color:var(--text-primary); border-radius:4px; text-decoration:none; transition:background 0.15s;" onmouseover="this.style.background='var(--bg-hover)'" onmouseout="this.style.background='transparent'">
                 <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="color:var(--text-muted);"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>

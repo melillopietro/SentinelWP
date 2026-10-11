@@ -10,6 +10,9 @@ __pycache__/
 venv/
 ENV/
 env/
+.env
+.env.*
+!.env.production.example
 
 # Database & Runtime Data
 data/
@@ -23,6 +26,11 @@ data/
 .pytest_cache/
 .coverage
 htmlcov/
+celerybeat-schedule*
+tests/e2e/logs/
+tests/e2e/screenshots/
+.venv-e2e/
+*.sql
 
 # IDE & OS
 .DS_Store
@@ -34,3 +42,9 @@ htmlcov/
 # Zip / Archives
 *.zip
 *.tar.gz
+*.dump
+backups/
+
+# TLS Certificates
+nginx/certs/*.crt
+nginx/certs/*.key

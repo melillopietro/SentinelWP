@@ -3,6 +3,7 @@ TLS/SSL Scanner - certificate and protocol validation
 """
 import ssl
 import socket
+import warnings
 from datetime import datetime, timezone
 from urllib.parse import urlparse
 from scanners.base import BaseScanner
@@ -77,28 +78,67 @@ class TLSScanner(BaseScanner):
             pass
 
     def _check_protocols(self, hostname: str, port: int):
-        """Check for deprecated TLS versions"""
-        deprecated = [
-            (ssl.PROTOCOL_TLSv1 if hasattr(ssl, 'PROTOCOL_TLSv1') else None, "TLSv1.0"),
-            (ssl.PROTOCOL_TLSv1_1 if hasattr(ssl, 'PROTOCOL_TLSv1_1') else None, "TLSv1.1"),
+        """Check for deprecated TLS versions.
+
+        SCAN-GAP-004: The deprecated ssl.PROTOCOL_TLSv1 / ssl.PROTOCOL_TLSv1_1 constants
+        are replaced with ssl.TLSVersion-based minimum/maximum version constraints where
+        available (Python 3.7+). This eliminates deprecation warnings on Python 3.14.
+
+        Approach: create an SSLContext that explicitly constrains the negotiated TLS version
+        to the target legacy version. If the handshake succeeds, the server supports that
+        deprecated protocol and a finding is emitted.
+        """
+        deprecated_versions = [
+            ("TLSv1.0", ssl.TLSVersion.TLSv1 if hasattr(ssl.TLSVersion, "TLSv1") else None),
+            ("TLSv1.1", ssl.TLSVersion.TLSv1_1 if hasattr(ssl.TLSVersion, "TLSv1_1") else None),
         ]
-        for proto, name in deprecated:
-            if proto is None:
+
+        for name, tls_version in deprecated_versions:
+            if tls_version is None:
+                # TLSVersion enum value not available on this Python build (already removed).
+                # Attempt legacy PROTOCOL_* fallback for older Python versions.
+                legacy_proto = getattr(ssl, f"PROTOCOL_{name.replace('.', 'v').replace('v1v', 'v1_')}", None)
+                if legacy_proto is None:
+                    continue
+                try:
+                    with warnings.catch_warnings():
+                        warnings.simplefilter("ignore", DeprecationWarning)
+                        ctx = ssl.SSLContext(legacy_proto)  # type: ignore[arg-type]
+                    ctx.check_hostname = False
+                    ctx.verify_mode = ssl.CERT_NONE
+                    with socket.create_connection((hostname, port), timeout=5) as sock:
+                        with ctx.wrap_socket(sock) as _:
+                            self._emit_deprecated_protocol_finding(name)
+                except (ssl.SSLError, socket.error, OSError):
+                    pass
                 continue
+
+            # Modern path: use TLSVersion min/max constraints (no deprecation warnings)
             try:
-                ctx = ssl.SSLContext(proto)
+                ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
                 ctx.check_hostname = False
                 ctx.verify_mode = ssl.CERT_NONE
+                with warnings.catch_warnings():
+                    warnings.simplefilter("ignore", DeprecationWarning)
+                    ctx.minimum_version = tls_version
+                    ctx.maximum_version = tls_version
                 with socket.create_connection((hostname, port), timeout=5) as sock:
-                    with ctx.wrap_socket(sock) as ssock:
-                        self._add_finding(
-                            category="encryption",
-                            title=f"Deprecated Protocol Supported: {name}",
-                            description=f"The server accepts connections using {name}, which is deprecated and insecure.",
-                            severity=Severity.HIGH,
-                            confidence=0.9,
-                            remediation=f"Disable {name} in your web server TLS configuration. Only allow TLS 1.2+.",
-                            reference="https://datatracker.ietf.org/doc/html/rfc8996"
-                        )
+                    with ctx.wrap_socket(sock, server_hostname=hostname) as _:
+                        self._emit_deprecated_protocol_finding(name)
             except (ssl.SSLError, socket.error, OSError):
                 pass
+
+    def _emit_deprecated_protocol_finding(self, protocol_name: str):
+        """Emit a finding for a confirmed deprecated TLS protocol."""
+        self._add_finding(
+            category="encryption",
+            title=f"Deprecated Protocol Supported: {protocol_name}",
+            description=(
+                f"The server accepts connections using {protocol_name}, "
+                f"which is deprecated and insecure (RFC 8996)."
+            ),
+            severity=Severity.HIGH,
+            confidence=0.9,
+            remediation=f"Disable {protocol_name} in your web server TLS configuration. Only allow TLS 1.2+.",
+            reference="https://datatracker.ietf.org/doc/html/rfc8996"
+        )

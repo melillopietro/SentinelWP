@@ -1,15 +1,17 @@
 """
-WordPress Password Brute-Force Scanner
+WordPress Password Brute-Force Scanner (Controlled Credential Verification)
 - Tests common/default credentials via wp-login.php
-- Tests via xmlrpc.php system.multicall if available
 - Rate-limited and responsible (max 20 attempts)
+- P0 Hardening: Strict zero-password persistence policy.
+  Passwords and cleartext credentials are NEVER saved in findings, descriptions,
+  raw_data, databases, logs, or reports.
 """
-import re
+import hashlib
+from datetime import datetime, timezone
 from scanners.base import BaseScanner
 from core.models import Severity
 
-
-# Only test extremely common/default passwords - this is an audit, not an attack
+# Common default credentials audit dictionary
 DEFAULT_CREDENTIALS = [
     ("admin", "admin"),
     ("admin", "password"),
@@ -32,23 +34,35 @@ DEFAULT_CREDENTIALS = [
 
 class BruteForceScanner(BaseScanner):
     """
-    Responsible brute-force: only tests common default credentials.
-    Max 20 attempts. Designed for audit purposes only.
+    Controlled Credential Verification Scanner.
+
+    DEPRECATED (FUNC-003, Sprint 1): This scanner is excluded from all automated
+    scan profiles (passive, safe-active, full) and will be removed in a future
+    release. It must only be invoked with explicit written authorization for the
+    target system.  Calling scan() without setting ALLOW_BRUTEFORCE = True raises
+    RuntimeError to prevent accidental execution.
     """
     MAX_ATTEMPTS = 20
+    # Callers must explicitly opt in; this is never True in normal operation.
+    ALLOW_BRUTEFORCE: bool = False
 
     def scan(self) -> list:
+        if not self.ALLOW_BRUTEFORCE:
+            raise RuntimeError(
+                "BruteForceScanner is deprecated and disabled. "
+                "Set ALLOW_BRUTEFORCE = True only after obtaining explicit written "
+                "authorization for the target system."
+            )
         self._test_default_credentials()
         return self.findings
 
     def _test_default_credentials(self):
         url = f"{self.target_url}/wp-login.php"
-        # First check if wp-login.php is accessible
         check = self._get(url)
         if not check or check.status_code != 200:
             return
 
-        compromised = []
+        compromised_usernames = []
         attempts = 0
 
         for username, password in DEFAULT_CREDENTIALS:
@@ -68,40 +82,63 @@ class BruteForceScanner(BaseScanner):
             if not resp:
                 continue
 
-            # Successful login: redirect to wp-admin (302) or contains dashboard cookie
+            # Check if login succeeded (redirect to wp-admin or session cookie set)
+            login_success = False
             if resp.status_code == 302:
                 location = resp.headers.get("Location", "")
                 if "wp-admin" in location or "dashboard" in location:
-                    compromised.append({"username": username, "password": password})
-            # Some configs return 200 with logged-in content
+                    login_success = True
             elif resp.status_code == 200:
                 cookies = "; ".join(f"{c.name}" for c in resp.cookies)
                 if "wordpress_logged_in" in cookies:
-                    compromised.append({"username": username, "password": password})
+                    login_success = True
 
-        if compromised:
-            usernames = [c["username"] + ":" + c["password"] for c in compromised]
-            creds_desc = ", ".join(usernames)
+            if login_success:
+                if username not in compromised_usernames:
+                    compromised_usernames.append(username)
+
+        # Non-reversible account identifier hashes
+        account_hashes = [
+            hashlib.sha256(u.encode("utf-8")).hexdigest()[:16]
+            for u in compromised_usernames
+        ]
+
+        if compromised_usernames:
             self._add_finding(
                 category="authentication",
-                title=f"Default Credentials Found ({len(compromised)} account(s))",
-                description=f"Weak/default credentials allow login: {creds_desc}. "
-                            "Immediate password change required.",
+                title=f"Weak Default Credentials Verified ({len(compromised_usernames)} account(s))",
+                description=(
+                    f"Controlled credential verification identified {len(compromised_usernames)} account(s) "
+                    "using weak or default passwords. Immediate credential rotation, account review, and "
+                    "multi-factor authentication (2FA) enforcement are required."
+                ),
                 severity=Severity.CRITICAL,
                 confidence=0.99,
-                remediation="Change all default passwords immediately. "
-                            "Implement strong password policy and 2FA. "
-                            "Consider disabling wp-login.php in favor of SSO.",
-                raw_data={"compromised_accounts": compromised, "attempts": attempts}
+                remediation=(
+                    "Rotate all passwords immediately. Enforce a strong password policy and mandatory 2FA. "
+                    "Consider restricting wp-login.php access by IP or implementing Single Sign-On (SSO)."
+                ),
+                raw_data={
+                    "credential_control_failed": True,
+                    "account_identifier_hashes": account_hashes,
+                    "attempt_count": attempts,
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                }
             )
         else:
             self._add_finding(
                 category="authentication",
                 title="Default Credentials Not Found",
-                description=f"Tested {attempts} common credential pairs - none successful. "
-                            "This does not guarantee strong passwords are in use.",
+                description=(
+                    f"Tested {attempts} common credential baseline pairs; none were accepted. "
+                    "This verifies default passwords are not present, but does not guarantee strong entropy."
+                ),
                 severity=Severity.INFO,
                 confidence=0.7,
-                remediation="Continue enforcing strong password policies and 2FA.",
-                raw_data={"attempts": attempts}
+                remediation="Continue enforcing strong password policies and multi-factor authentication (2FA).",
+                raw_data={
+                    "credential_control_failed": False,
+                    "attempt_count": attempts,
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                }
             )

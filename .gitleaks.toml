@@ -1,0 +1,12 @@
+# Gitleaks configuration — allow documented test/lab fixtures (not production secrets).
+title = "SentinelWP gitleaks"
+
+[allowlist]
+  description = "Test fixtures, example env templates, and audit artifacts"
+  paths = [
+    '''\.env\.(.*\.)?example$''',
+    '''docs/audit/reports/''',
+    '''tests/e2e/logs/''',
+    '''tests/test_.*\.py''',
+    '''ENTERPRISE_.*_REPORT\.md''',
+  ]

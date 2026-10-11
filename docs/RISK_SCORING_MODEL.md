@@ -1,5 +1,7 @@
 # Risk Scoring Model - Detailed Documentation
 
+> **Note (v4.1.0):** This document describes the public **4.0.0** calibration narrative. The shipped **4.1.0** enterprise line implements scoring in `core/risk_engine.py` (decay `0.7`, weights as coded). Use pytest (`tests/test_risk_engine_deterministic.py`, Sprint pilot tests) as the authoritative regression guard—not every parameter in this file.
+
 ## Overview
 
 SentinelWP implements a **4-tier enterprise risk scoring engine** that converts individual security findings into a unified 0-100 risk score with letter grades (A+ to F). This document explains the model, calibration methodology, and rationale for each parameter.

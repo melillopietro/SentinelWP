@@ -1,0 +1,146 @@
+# Security CI — blocking gates documented in docs/release/CI_SECURITY_GATES.md
+name: Security CI & Automated Verification
+
+on:
+  push:
+    branches:
+      - main
+      - enterprise-*
+      - fix/*
+      - release/**
+  pull_request:
+    branches:
+      - main
+      - enterprise-*
+      - release/**
+
+jobs:
+  security-tests:
+    name: Test Suite & Security Validation
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_DB: sentinelwp_test
+          POSTGRES_USER: sentinelwp
+          POSTGRES_PASSWORD: sentinelwp_password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      CI_PG_URL: postgresql+psycopg://sentinelwp:sentinelwp_password@localhost:5432/sentinelwp_test
+      WSA_SECRET_KEY: ci-test-secret-key-minimum-32-characters-long
+      ENVIRONMENT: test
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python 3.12 (production target)
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Install production and test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-prod.txt
+          pip install -r requirements.txt
+          pip install pytest pytest-cov bandit flake8 pip-audit
+
+      - name: Static Security Analysis — Bandit (blocking, severity HIGH+)
+        run: |
+          # --exit-zero: JSON report only; HIGH gate enforced by script below (see CI_SECURITY_GATES.md).
+          bandit -r core/ scanners/ -x "tests/,scanners/test_*" -f json -o bandit-report.json -q --exit-zero
+          python - <<'PY'
+          import json
+          import sys
+          data = json.load(open("bandit-report.json", encoding="utf-8"))
+          highs = [r for r in data.get("results", []) if r.get("issue_severity") == "HIGH"]
+          if highs:
+              for r in highs[:20]:
+                  print(f"HIGH: {r.get('filename')}:{r.get('line_number')} {r.get('test_id')} {r.get('issue_text')}")
+              print(f"Bandit blocking: {len(highs)} HIGH severity finding(s)")
+              sys.exit(1)
+          print("Bandit: 0 HIGH severity findings")
+          PY
+
+      - name: Code Quality & Flake8 Linting
+        run: |
+          flake8 core/ scanners/ --count --select=E9,F63,F7,F82 --show-source --statistics
+
+      - name: Dependency audit — pip-audit on requirements-prod.txt (blocking)
+        run: |
+          pip-audit -r requirements-prod.txt --strict --desc on
+
+      - name: Secret detection — Gitleaks (blocking)
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Regression Guard (WordPress Version Detection)
+        run: |
+          pytest tests/test_wordpress_version_regression.py -q --tb=short
+
+      - name: PostgreSQL Alembic migration (disposable service)
+        env:
+          DATABASE_URL: ${{ env.CI_PG_URL }}
+        run: |
+          python scripts/run_migrations.py --confirm
+          python scripts/run_migrations.py --check
+
+      - name: Full regression suite (SQLite isolation)
+        env:
+          SCAN_EXECUTION_BACKEND: local
+          SENTINELWP_DISABLE_BACKGROUND: "1"
+        run: |
+          env -u DATABASE_URL -u WSA_DATABASE_URL pytest tests/ \
+            --ignore=tests/test_sprint10_phase1_persistence_guard.py \
+            --ignore=tests/test_sprint10_phase2_postgres_vertical_slice.py \
+            --ignore=tests/test_sprint10_phase3_postgres_scans_jobs.py \
+            --ignore=tests/test_sprint10_phase4_postgres_findings_remediation.py \
+            --ignore=tests/test_sprint10_phase5_postgres_scheduling_outbox_governance.py \
+            -q --tb=line
+
+      - name: Sprint 10 PostgreSQL integration (disposable service)
+        env:
+          SENTINELWP_SPRINT10_PG_URL: ${{ env.CI_PG_URL }}
+          SCAN_EXECUTION_BACKEND: local
+          SENTINELWP_DISABLE_BACKGROUND: "1"
+        run: |
+          pytest tests/test_sprint10_phase1_persistence_guard.py \
+            tests/test_sprint10_phase2_postgres_vertical_slice.py \
+            tests/test_sprint10_phase3_postgres_scans_jobs.py \
+            tests/test_sprint10_phase4_postgres_findings_remediation.py \
+            tests/test_sprint10_phase5_postgres_scheduling_outbox_governance.py \
+            -q --tb=short
+
+      - name: Generate CycloneDX SBOM
+        run: |
+          python scripts/generate_sbom.py sbom.json
+
+      - name: Archive SBOM Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: sentinelwp-cyclonedx-sbom
+          path: sbom.json

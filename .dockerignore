@@ -1,0 +1,57 @@
+# Git and version control
+.git
+.gitignore
+.gitattributes
+
+# Python byte-code and cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+*.egg-info/
+dist/
+build/
+
+# Local databases, dumps, and state
+data/*.db
+data/*.db-journal
+data/*.db-wal
+data/*.db-shm
+data/*.dump
+data/*.sql
+data/celerybeat-schedule*
+*.sqlite*
+
+# Environment and secrets
+.env*
+!.env.production.example
+
+# IDE and OS artifacts
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# Documentation, tests and design artifacts
+docs/
+tests/
+artifacts/
+
+# Temporary directories and test logs
+tmp/
+temp/
+*.log
+
+# TLS certificates
+nginx/certs/
+
+# Disposable test target volumes / pilots
+wordpress/
+mariadb/

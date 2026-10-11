@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% block title %}Data Quality Governance — SentinelWP{% endblock %}
+
+{% block content %}
+<div class="page-header" style="margin-bottom:24px;">
+    <h2>Exposure Data Quality Controls</h2>
+    <p>Automated detection of incomplete metadata, unverified assets, unassigned owners, and evidence gaps.</p>
+</div>
+
+<div class="stats-grid" style="grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); margin-bottom:24px;">
+    <div class="stat-card">
+        <div class="label">Open Issues</div>
+        <div class="value" style="color:var(--warning);">{{ open_issues | length }}</div>
+    </div>
+    <div class="stat-card">
+        <div class="label">Critical Issues</div>
+        <div class="value" style="color:var(--danger);">
+            {{ (open_issues | selectattr("severity", "equalto", "critical") | list) | length }}
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="label">Resolved Issues</div>
+        <div class="value" style="color:var(--success);">{{ resolved_issues | length }}</div>
+    </div>
+</div>
+
+<div class="table-wrap">
+    <div style="padding:16px 20px; border-bottom:1px solid var(--border); font-size:15px; font-weight:600;">
+        Active Quality Gaps
+    </div>
+    <table class="data-table" style="width:100%; border-collapse:collapse; font-size:13px;">
+        <thead>
+            <tr style="border-bottom:1px solid var(--border); text-align:left; color:var(--text-muted);">
+                <th style="padding:12px 16px;">Severity</th>
+                <th style="padding:12px 16px;">Type</th>
+                <th style="padding:12px 16px;">Entity</th>
+                <th style="padding:12px 16px;">Description</th>
+                <th style="padding:12px 16px;">Detected</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for issue in open_issues %}
+            <tr style="border-bottom:1px solid var(--border);">
+                <td style="padding:12px 16px;">
+                    <span style="display:inline-block; padding:2px 8px; border-radius:4px; font-size:11px; font-weight:600; text-transform:uppercase; {% if issue.severity == 'critical' %}background:rgba(220,38,38,0.2); color:var(--critical);{% elif issue.severity == 'high' %}background:rgba(234,88,12,0.2); color:var(--high);{% else %}background:rgba(217,119,6,0.2); color:var(--warning);{% endif %}">
+                        {{ issue.severity }}
+                    </span>
+                </td>
+                <td style="padding:12px 16px; font-family:monospace; color:var(--accent);">{{ issue.issue_type }}</td>
+                <td style="padding:12px 16px; text-transform:capitalize;">{{ issue.entity_type }} ({{ issue.entity_id[:8] }})</td>
+                <td style="padding:12px 16px;">{{ issue.description }}</td>
+                <td style="padding:12px 16px; color:var(--text-muted);">{{ issue.detected_at[:16] }}</td>
+            </tr>
+            {% else %}
+            <tr>
+                <td colspan="5" style="padding:24px; text-align:center; color:var(--text-muted);">
+                    No active data quality issues detected. All assets, findings, and governance entities comply with quality rules.
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}
