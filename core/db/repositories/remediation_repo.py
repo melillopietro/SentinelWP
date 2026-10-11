@@ -3,7 +3,7 @@ Remediation and SLA Repository using SQLAlchemy 2.x
 """
 from typing import Optional, List
 from datetime import datetime, timezone
-from sqlalchemy import select, and_
+from sqlalchemy import select, and_, delete
 from sqlalchemy.orm import Session
 from core.models import Remediation, RemediationAction, SLAPolicy
 from core.db.models import RemediationModel, RemediationActionModel, SLAPolicyModel
