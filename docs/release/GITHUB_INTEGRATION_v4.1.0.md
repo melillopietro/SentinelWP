@@ -3,7 +3,7 @@
 **Date:** 2026-10-11  
 **Public `origin/main` (preserved):** `ad1de5ec8dc10df1648e946663405e88c642ac09`  
 **Release candidate source:** `3bb5b96188e8077ca5e466d859ba9386b19fbe47`  
-**Integration branch HEAD:** `69c590b95c8ad8e6d5eed441078538407dfd6a3d`
+**Integration commits:** `69c590b` (v4.1.0 import + reconciliation), `0bdd751` (integration report SHA); branch HEAD `0bdd751`.
 
 ## Strategy
 
