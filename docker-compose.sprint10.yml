@@ -1,0 +1,87 @@
+# Docker Compose configuration for SentinelWP Sprint 10 Production Validation
+# Project Name: sentinelwp-sprint10
+# Isolated network, synthetic credentials, non-conflicting loopback ports (127.0.0.1)
+
+name: sentinelwp-sprint10
+
+networks:
+  sentinelwp-sprint10-net:
+    driver: bridge
+
+volumes:
+  sentinelwp_s10_pgdata:
+  sentinelwp_s10_dbdata:
+  sentinelwp_s10_wpdata:
+
+services:
+  sprint10-postgres:
+    image: postgres:16-alpine
+    container_name: sentinelwp-sprint10-postgres
+    restart: unless-stopped
+    networks:
+      - sentinelwp-sprint10-net
+    environment:
+      POSTGRES_DB: ${PILOT_POSTGRES_DB:-sentinelwp_s10}
+      POSTGRES_USER: ${PILOT_POSTGRES_USER:-s10_user}
+      POSTGRES_PASSWORD: ${PILOT_POSTGRES_PASSWORD:-s10_dev_password_123}
+    volumes:
+      - sentinelwp_s10_pgdata:/var/lib/postgresql/data
+    ports:
+      - "127.0.0.1:5439:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  sprint10-redis:
+    image: redis:7-alpine
+    container_name: sentinelwp-sprint10-redis
+    restart: unless-stopped
+    networks:
+      - sentinelwp-sprint10-net
+    ports:
+      - "127.0.0.1:6389:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  sprint10-mariadb:
+    image: mariadb:10.5
+    container_name: sentinelwp-sprint10-mariadb
+    restart: unless-stopped
+    networks:
+      - sentinelwp-sprint10-net
+    environment:
+      MYSQL_ROOT_PASSWORD: ${PILOT_MARIADB_ROOT_PASSWORD:-s10_root_pass}
+      MYSQL_DATABASE: ${PILOT_MARIADB_DATABASE:-wordpress}
+      MYSQL_USER: ${PILOT_MARIADB_USER:-wp_s10}
+      MYSQL_PASSWORD: ${PILOT_MARIADB_PASSWORD:-wp_s10_pass}
+    volumes:
+      - sentinelwp_s10_dbdata:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -u root -p$$MYSQL_ROOT_PASSWORD || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 8
+
+  sprint10-wordpress:
+    image: wordpress:6.4-apache
+    container_name: sentinelwp-sprint10-wordpress
+    restart: unless-stopped
+    networks:
+      - sentinelwp-sprint10-net
+    depends_on:
+      sprint10-mariadb:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:8099:80"
+    environment:
+      WORDPRESS_DB_HOST: sprint10-mariadb:3306
+      WORDPRESS_DB_USER: ${PILOT_MARIADB_USER:-wp_s10}
+      WORDPRESS_DB_PASSWORD: ${PILOT_MARIADB_PASSWORD:-wp_s10_pass}
+      WORDPRESS_DB_NAME: ${PILOT_MARIADB_DATABASE:-wordpress}
+    volumes:
+      - sentinelwp_s10_wpdata:/var/www/html

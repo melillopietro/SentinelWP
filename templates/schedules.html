@@ -10,16 +10,18 @@
 <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:24px;">
     <h3 style="font-size:16px;margin-bottom:16px;">Add New Recurring Audit</h3>
     <form method="POST" action="{{ url_for('create_schedule') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <div class="form-group">
-            <label>Target URL</label>
-            <input type="url" name="target_url" required placeholder="https://example.com">
+            <label for="targets">Target URLs (one per line)</label>
+            <textarea name="targets" id="targets" rows="6" required placeholder="https://example.com&#10;https://shop.example.com&#10;blog.example.com" style="width:100%;box-sizing:border-box;font-family:monospace;padding:10px;background:var(--bg-secondary);color:var(--text-primary);border:1px solid var(--border);border-radius:var(--radius);"></textarea>
+            <small style="color:var(--text-muted);display:block;margin-top:4px;">One authorized target per line. Duplicate URLs are ignored.</small>
         </div>
         <div class="form-group">
             <label>Scan Mode</label>
             <select name="scan_mode">
                 <option value="passive">Passive — Zero impact</option>
                 <option value="safe-active" selected>Safe Active — Non-destructive</option>
-                <option value="full">Full — Includes default creds check</option>
+                <option value="full">Full — Comprehensive audit (all scanners)</option>
             </select>
         </div>
         <div class="form-group">
@@ -60,6 +62,7 @@
     </td>
     <td>
         <form method="POST" action="{{ url_for('delete_schedule', sched_id=s.id) }}" style="display:inline;" onsubmit="return confirm('Delete this scheduled scan?')">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <button type="submit" class="btn btn-danger btn-sm">Delete</button>
         </form>
     </td>

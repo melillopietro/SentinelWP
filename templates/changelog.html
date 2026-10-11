@@ -9,40 +9,47 @@
 <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:24px;margin-bottom:24px;">
     <div style="display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--border);padding-bottom:16px;margin-bottom:20px;">
         <div>
-            <h3 style="font-size:20px;color:var(--text-primary);">SentinelWP v4.0.0 (Production Ready)</h3>
+            <h3 style="font-size:20px;color:var(--text-primary);">SentinelWP v{{ app_version }} (Enterprise)</h3>
             <p style="font-size:12px;color:var(--text-muted);margin-top:4px;">Released: October 2026</p>
         </div>
-        <span class="badge badge-success" style="padding:6px 12px;font-size:12px;">Current Version</span>
+        <span class="badge badge-success" style="padding:6px 12px;font-size:12px;">Active Version</span>
     </div>
 
     <div style="display:flex;flex-direction:column;gap:24px;">
         <div>
-            <h4 style="font-size:15px;color:var(--accent);margin-bottom:10px;text-transform:uppercase;letter-spacing:0.5px;">Major Release: Unified Batch Intelligence Platform</h4>
+            <h4 style="font-size:15px;color:var(--accent);margin-bottom:10px;text-transform:uppercase;letter-spacing:0.5px;">v4.1.0 — Production Packaging &amp; Security Hardening</h4>
             <ul style="padding-left:20px;line-height:1.8;font-size:13px;color:var(--text-primary);">
-                <li><strong>Unified Version Detection Engine</strong>: Centralized plugin, theme, and WordPress version detection with HIGH/MEDIUM/LOW confidence scoring.</li>
-                <li><strong>Batch Intelligence & Trend Analysis</strong>: Analyze security trends across multiple targets, identify improving/worsening sites, and get AI-powered scheduling recommendations.</li>
-                <li><strong>Recommendations Engine</strong>: AI-driven security suggestions with compliance assessment and risk timeline prioritization.</li>
-                <li><strong>IBM Carbon Design System</strong>: Enterprise-grade UI redesign with IBM Plex Sans font and professional color palette (no emoji).</li>
-                <li><strong>Batch Scanning with Scheduling</strong>: Submit multiple URLs for scanning with optional automatic recurring scans (Daily/Weekly/Bi-weekly/Monthly).</li>
-                <li><strong>Read-Only History & Separate Schedules</strong>: Clean separation between scan history (read-only storage) and schedule management (recurring configuration).</li>
-                <li><strong>Comprehensive Production Deployment Documentation</strong>: Installation guide, system requirements, technical architecture, and release notes.</li>
+                <li><strong>Enterprise Docker deployment</strong> with hardened Nginx ingress, non-root containers, and pinned production dependencies.</li>
+                <li><strong>PostgreSQL + Celery HA</strong> with autonomous Beat scheduling, atomic scan job claiming, and stale worker recovery.</li>
+                <li><strong>SSRF defense in depth</strong> at scan submission, worker execution, and per-request scanner I/O.</li>
+                <li><strong>Multi-tenant authentication</strong> with optional organization slug and session RBAC alignment.</li>
             </ul>
         </div>
 
         <div>
-            <h4 style="font-size:15px;color:var(--accent);margin-bottom:10px;text-transform:uppercase;letter-spacing:0.5px;">Maturity Assessment</h4>
+            <h4 style="font-size:15px;color:var(--accent);margin-bottom:10px;text-transform:uppercase;letter-spacing:0.5px;">User Panel &amp; Preferences, Theme Switcher &amp; Navigation Cleanup (v3.6.0)</h4>
             <ul style="padding-left:20px;line-height:1.8;font-size:13px;color:var(--text-primary);">
-                <li><strong>Overall Score: 8/10</strong> - Production Ready</li>
-                <li><strong>Functionality: 9/10</strong> - All core features operational</li>
-                <li><strong>Code Quality: 8/10</strong> - Clean, maintainable architecture</li>
-                <li><strong>Architecture: 9/10</strong> - Layered design with clear separation of concerns</li>
-                <li><strong>Documentation: 7/10</strong> - Comprehensive setup and deployment guides</li>
-                <li><strong>Deployment: 8/10</strong> - Ready for production environments</li>
-                <li><strong>UI/UX: 9/10</strong> - Professional enterprise design</li>
+                <li><strong>Unified User Panel &amp; Preferences (<code>/settings</code>)</strong>: Created a centralized hub for account settings, password management, theme selection, changelog access, and admin user controls.</li>
+                <li><strong>Dark &amp; Light Theme Switcher</strong>: Full support for Dark Theme (default) and Light Theme (White) with instant client-side switching and persistent local storage.</li>
+                <li><strong>Streamlined Navigation UI</strong>: Cleaned up top-level navigation links by moving Admin User Management and Changelog into the User Panel, preserving clean scanning-focused UI for all users.</li>
+                <li><strong>Column-by-Column Table Headers</strong>: Integrated interactive real-time search and filter controls directly into table header rows across Dashboard and Scan History.</li>
+            </ul>
+        </div>
+
+        <div>
+            <h4 style="font-size:15px;color:var(--accent);margin-bottom:10px;text-transform:uppercase;letter-spacing:0.5px;">Modern Vulnerabilities &amp; Advanced Attack Surface Auditing</h4>
+            <ul style="padding-left:20px;line-height:1.8;font-size:13px;color:var(--text-primary);">
+                <li><strong>Git Repository Leaks (<code>/.git/HEAD</code>)</strong>: Automatic detection of exposed Git repositories with commit verification to prevent complete source code and history dumping.</li>
+                <li><strong>Environment Secrets Leaks (<code>/.env</code>)</strong>: Scans for exposed environment dotenv files across modern containerized (Docker/Bedrock/Roots) setups with credential redaction.</li>
+                <li><strong>Database Management &amp; Diagnostic Tools Leaks</strong>: Detects exposed standalone database managers (<code>adminer.php</code>) and diagnostic scripts (<code>phpinfo.php</code>).</li>
+                <li><strong>Open User Registration Detection</strong>: Audits <code>users_can_register</code> on <code>wp-login.php?action=register</code> to flag unauthenticated subscriber privilege escalation surfaces.</li>
+                <li><strong>REST API Rewrite Bypass (<code>/?rest_route=</code>)</strong>: Tests WAF and rewrite bypass vectors on REST endpoints to ensure robust protection against user enumeration.</li>
+                <li><strong>Anti-False-Positive Engine</strong>: Implemented deep payload inspection and Soft-404 rejection for sensitive files (<code>.bak</code>, <code>.log</code>, <code>.env</code>, <code>.sql</code>).</li>
+                <li><strong>Modern Security Headers (COOP &amp; CORP)</strong>: Audits <code>Cross-Origin-Opener-Policy</code> and <code>Cross-Origin-Resource-Policy</code> for modern browser isolation.</li>
+                <li><strong>Python 3.12+ Engine Modernization</strong>: Deprecated legacy <code>datetime.utcnow()</code> in favor of timezone-aware <code>datetime.now(timezone.utc)</code>.</li>
             </ul>
         </div>
     </div>
-
 </div>
 
 <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:24px;margin-bottom:24px;">

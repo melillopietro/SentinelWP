@@ -1,0 +1,124 @@
+{% extends "base.html" %}
+{% block title %}{{ 'Edit Asset' if asset else 'Register Asset' }} - SentinelWP Enterprise{% endblock %}
+{% block content %}
+<div class="page-header" style="margin-bottom:24px;">
+    <div style="margin-bottom:8px;">
+        <a href="{{ url_for('assets') }}" style="color:var(--text-muted); font-size:13px; display:inline-flex; align-items:center; gap:6px;">
+            <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
+            Back to Inventory
+        </a>
+    </div>
+    <h2>{{ 'Edit Asset Profile' if asset else 'Register New Asset' }}</h2>
+    <p>Define governance, environment, criticality, and scan policy for target</p>
+</div>
+
+<div class="card" style="max-width:800px; background:var(--bg-secondary); border:1px solid var(--border); border-radius:var(--radius); padding:24px;">
+    <form method="POST" action="{{ url_for('edit_asset', asset_id=asset.id) if asset else url_for('create_asset') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+
+        <div style="margin-bottom:20px;">
+            <label style="display:block; font-size:13px; font-weight:600; margin-bottom:6px; color:var(--text-primary);">
+                Target URL <span style="color:var(--danger)">*</span>
+            </label>
+            <input type="text" name="target_url" value="{{ asset.canonical_url if asset else '' }}" placeholder="https://example.com or https://example.com/blog" required {% if asset %}readonly style="opacity:0.8; cursor:not-allowed;"{% endif %} style="width:100%; padding:10px 14px; background:var(--bg-primary); border:1px solid var(--border); border-radius:var(--radius); color:var(--text-primary); font-size:14px;">
+            <span style="display:block; font-size:11px; color:var(--text-muted); margin-top:4px;">
+                URL is automatically normalized (canonical hostname, default ports removed, subdirectory preserved).
+            </span>
+        </div>
+
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:20px;">
+            <div>
+                <label style="display:block; font-size:13px; font-weight:600; margin-bottom:6px; color:var(--text-primary);">Display Name</label>
+                <input type="text" name="display_name" value="{{ asset.display_name if asset else '' }}" placeholder="e.g. Corporate Blog, Customer Portal" style="width:100%; padding:10px 14px; background:var(--bg-primary); border:1px solid var(--border); border-radius:var(--radius); color:var(--text-primary); font-size:14px;">
+            </div>
+            <div>
+                <label style="display:block; font-size:13px; font-weight:600; margin-bottom:6px; color:var(--text-primary);">Environment</label>
+                <select name="environment" style="width:100%; padding:10px 14px; background:var(--bg-primary); border:1px solid var(--border); border-radius:var(--radius); color:var(--text-primary); font-size:14px;">
+                    <option value="production" {% if asset and asset.environment == 'production' %}selected{% endif %}>Production</option>
+                    <option value="staging" {% if asset and asset.environment == 'staging' %}selected{% endif %}>Staging</option>
+                    <option value="development" {% if asset and asset.environment == 'development' %}selected{% endif %}>Development</option>
+                    <option value="internal" {% if asset and asset.environment == 'internal' %}selected{% endif %}>Internal Network</option>
+                </select>
+            </div>
+        </div>
+
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:20px;">
+            <div>
+                <label style="display:block; font-size:13px; font-weight:600; margin-bottom:6px; color:var(--text-primary);">Business Owner</label>
+                <input type="text" name="business_owner" value="{{ asset.business_owner if asset else '' }}" placeholder="Department or owner email" style="width:100%; padding:10px 14px; background:var(--bg-primary); border:1px solid var(--border); border-radius:var(--radius); color:var(--text-primary); font-size:14px;">
+            </div>
+            <div>
+                <label style="display:block; font-size:13px; font-weight:600; margin-bottom:6px; color:var(--text-primary);">Technical Owner</label>
+                <input type="text" name="technical_owner" value="{{ asset.technical_owner if asset else '' }}" placeholder="Lead engineer or DevOps team" style="width:100%; padding:10px 14px; background:var(--bg-primary); border:1px solid var(--border); border-radius:var(--radius); color:var(--text-primary); font-size:14px;">
+            </div>
+        </div>
+
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:20px;">
+            <div>
+                <label style="display:block; font-size:13px; font-weight:600; margin-bottom:6px; color:var(--text-primary);">Criticality</label>
+                <select name="criticality" style="width:100%; padding:10px 14px; background:var(--bg-primary); border:1px solid var(--border); border-radius:var(--radius); color:var(--text-primary); font-size:14px;">
+                    <option value="critical" {% if asset and asset.criticality == 'critical' %}selected{% endif %}>Critical (Mission-Critical Tier 1)</option>
+                    <option value="high" {% if asset and asset.criticality == 'high' %}selected{% endif %}>High (Key Service Tier 2)</option>
+                    <option value="medium" {% if not asset or asset.criticality == 'medium' %}selected{% endif %}>Medium (Standard Tier 3)</option>
+                    <option value="low" {% if asset and asset.criticality == 'low' %}selected{% endif %}>Low (Non-Critical)</option>
+                </select>
+            </div>
+            <div>
+                <label style="display:block; font-size:13px; font-weight:600; margin-bottom:6px; color:var(--text-primary);">Data Classification</label>
+                <select name="data_classification" style="width:100%; padding:10px 14px; background:var(--bg-primary); border:1px solid var(--border); border-radius:var(--radius); color:var(--text-primary); font-size:14px;">
+                    <option value="public" {% if asset and asset.data_classification == 'public' %}selected{% endif %}>Public</option>
+                    <option value="internal" {% if asset and asset.data_classification == 'internal' %}selected{% endif %}>Internal</option>
+                    <option value="confidential" {% if not asset or asset.data_classification == 'confidential' %}selected{% endif %}>Confidential</option>
+                    <option value="restricted" {% if asset and asset.data_classification == 'restricted' %}selected{% endif %}>Restricted / Regulated</option>
+                </select>
+            </div>
+        </div>
+
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:20px;">
+            <div>
+                <label style="display:block; font-size:13px; font-weight:600; margin-bottom:6px; color:var(--text-primary);">Internet Exposure</label>
+                <select name="internet_exposure" style="width:100%; padding:10px 14px; background:var(--bg-primary); border:1px solid var(--border); border-radius:var(--radius); color:var(--text-primary); font-size:14px;">
+                    <option value="external" {% if not asset or asset.internet_exposure == 'external' %}selected{% endif %}>External (Publicly Accessible)</option>
+                    <option value="internal" {% if asset and asset.internet_exposure == 'internal' %}selected{% endif %}>Internal (Intranet / VPN only)</option>
+                    <option value="restricted" {% if asset and asset.internet_exposure == 'restricted' %}selected{% endif %}>Restricted (IP Allowlisted)</option>
+                </select>
+            </div>
+            <div>
+                <label style="display:block; font-size:13px; font-weight:600; margin-bottom:6px; color:var(--text-primary);">Tags</label>
+                <input type="text" name="tags" value="{{ asset.tags if asset else '' }}" placeholder="ecommerce, marketing, legacy" style="width:100%; padding:10px 14px; background:var(--bg-primary); border:1px solid var(--border); border-radius:var(--radius); color:var(--text-primary); font-size:14px;">
+            </div>
+        </div>
+
+        {% if not asset %}
+        <!-- Optional Initial Scan Authorization -->
+        <div style="margin-top:24px; padding-top:20px; border-top:1px solid var(--border);">
+            <div style="display:flex; align-items:center; gap:8px; margin-bottom:12px;">
+                <input type="checkbox" id="grant_auth" name="grant_auth" value="1" onchange="document.getElementById('auth-section').style.display = this.checked ? 'block' : 'none';" style="width:auto;">
+                <label for="grant_auth" style="font-weight:600; font-size:13px; color:var(--text-primary); cursor:pointer;">
+                    Grant Active Scan Authorization Immediately
+                </label>
+            </div>
+            <div id="auth-section" style="display:none; background:var(--bg-card); padding:16px; border-radius:var(--radius); border:1px solid var(--border);">
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
+                    <div>
+                        <label style="display:block; font-size:12px; color:var(--text-muted); margin-bottom:4px;">Authorization Valid Until</label>
+                        <input type="date" name="auth_valid_until" style="width:100%; padding:8px 12px; background:var(--bg-primary); border:1px solid var(--border); border-radius:var(--radius); color:var(--text-primary); font-size:13px;">
+                    </div>
+                    <div>
+                        <label style="display:block; font-size:12px; color:var(--text-muted); margin-bottom:4px;">Request Budget Limit</label>
+                        <input type="number" name="auth_request_budget" value="1000" min="100" max="50000" style="width:100%; padding:8px 12px; background:var(--bg-primary); border:1px solid var(--border); border-radius:var(--radius); color:var(--text-primary); font-size:13px;">
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <div style="margin-top:24px; display:flex; gap:12px;">
+            <button type="submit" class="btn btn-primary">
+                {{ 'Save Asset Changes' if asset else 'Register Asset' }}
+            </button>
+            <a href="{{ url_for('assets') }}" class="btn btn-secondary">Cancel</a>
+        </div>
+    </form>
+</div>
+{% endblock %}

@@ -3,7 +3,7 @@ Live Vulnerability Intelligence Integration (OSV.dev & CIRCL CVE APIs).
 Enriches findings for detected plugins/themes/core with real CVE IDs and CVSS scores.
 """
 import requests
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 from core.models import Finding, Severity
 
 # OSV.dev REST API endpoint (free, no API key required)
@@ -52,27 +52,80 @@ def lookup_osv_vulnerabilities(package_name: str, version: str, ecosystem: str =
         return []
 
 
+def _cvss_to_severity(cvss_score: Optional[float]) -> Optional[Severity]:
+    """
+    Map a CVSS base score to a Severity enum value using the standard CVSS v3 scale.
+    Returns None if the score is missing or not a usable float.
+
+    INTEL-GAP-004: replaces the unconditional Severity.HIGH assignment in
+    enrich_findings_with_cves() with a score-based mapping.
+
+    CVSS v3 bands:
+      9.0–10.0 → CRITICAL
+      7.0–8.9  → HIGH
+      4.0–6.9  → MEDIUM
+      0.1–3.9  → LOW
+      0.0      → INFO
+    """
+    if cvss_score is None:
+        return None
+    try:
+        score = float(cvss_score)
+    except (TypeError, ValueError):
+        return None
+    if score >= 9.0:
+        return Severity.CRITICAL
+    if score >= 7.0:
+        return Severity.HIGH
+    if score >= 4.0:
+        return Severity.MEDIUM
+    if score > 0.0:
+        return Severity.LOW
+    return Severity.INFO
+
+
 def enrich_findings_with_cves(findings: List[Finding]) -> List[Finding]:
     """
     Enrich a list of findings with real CVE data from OSV.dev.
+
+    INTEL-GAP-004: severity is now derived from the CVE's CVSS score (if available)
+    rather than unconditionally set to HIGH. If CVSS data is absent from the OSV record,
+    the finding's existing severity is preserved (never inflated).
     """
     for f in findings:
         is_core = "WordPress CMS Detected" in f.title or "WordPress Version Exposed" in f.title
         if f.category in ("plugins", "information_disclosure") or is_core:
             slug = f.raw_data.get("slug") or f.raw_data.get("plugin") or f.raw_data.get("theme")
             version = f.raw_data.get("version")
-            
+
             if is_core and not slug and version:
                 slug = "wordpress"
-            
+
             if slug and version:
                 cves = lookup_osv_vulnerabilities(slug, version)
                 if cves:
                     cve_ids = [c["cve_id"] for c in cves]
                     f.title += f" [CVE: {', '.join(cve_ids[:2])}]"
-                    f.description += f" Live Vulnerability Feed Match: Found {len(cves)} vulnerability entry/entries ({', '.join(cve_ids[:3])})."
-                    f.severity = Severity.HIGH
+                    f.description += (
+                        f" Live Vulnerability Feed Match: Found {len(cves)} vulnerability "
+                        f"entry/entries ({', '.join(cve_ids[:3])})."
+                    )
+                    # INTEL-GAP-004: derive severity from CVSS score; never unconditionally HIGH
+                    best_cvss = None
+                    for cve_entry in cves:
+                        cvss = cve_entry.get("cvss_score")
+                        if cvss is not None:
+                            try:
+                                best_cvss = max(best_cvss or 0.0, float(cvss))
+                            except (TypeError, ValueError):
+                                pass
+                    derived_severity = _cvss_to_severity(best_cvss)
+                    if derived_severity is not None:
+                        # Only update severity if CVSS data is present and trustworthy
+                        f.severity = derived_severity
+                    # If no CVSS data in OSV records, preserve existing finding severity
                     f.raw_data["cve_matches"] = cves
+                    f.raw_data["osv_cvss_score"] = best_cvss
                     f.reference = cves[0]["references"][0] if cves[0].get("references") else f.reference
 
     return findings

@@ -1,0 +1,1891 @@
+{
+  "$schema": "https://raw.githubusercontent.com/oasis-tcs/sarif-spec/master/Schemas/sarif-schema-2.1.0.json",
+  "version": "2.1.0",
+  "runs": [
+    {
+      "tool": {
+        "driver": {
+          "name": "SentinelWP",
+          "version": "3.6.0",
+          "informationUri": "https://github.com/melillopietro/SentinelWP",
+          "rules": [
+            {
+              "id": "SENTINEL-INFORMATION_DISCLOSURE-5915",
+              "name": "WordPressCMSDetected",
+              "shortDescription": {
+                "text": "WordPress CMS Detected"
+              },
+              "fullDescription": {
+                "text": "WordPress detected at http://127.0.0.1:8099 (confidence: 100%) — Version: 6.4.3 (source: meta_generator, reliability: high)"
+              },
+              "help": {
+                "text": "Remove version meta tags and generator references from page source."
+              },
+              "properties": {
+                "tags": [
+                  "security",
+                  "wordpress",
+                  "information_disclosure"
+                ]
+              }
+            },
+            {
+              "id": "SENTINEL-INFORMATION_DISCLOSURE-0580",
+              "name": "WordPressVersionExposed:6.4.3",
+              "shortDescription": {
+                "text": "WordPress Version Exposed: 6.4.3"
+              },
+              "fullDescription": {
+                "text": "WordPress version (6.4.3) is publicly visible. Source: meta_generator (reliability: high). This enables targeted exploit research."
+              },
+              "help": {
+                "text": "Remove the generator meta tag. Use security plugins to hide version info."
+              },
+              "properties": {
+                "tags": [
+                  "security",
+                  "wordpress",
+                  "information_disclosure"
+                ]
+              }
+            },
+            {
+              "id": "SENTINEL-ENUMERATION-3646",
+              "name": "RESTAPIWAF/RewriteBypassforUserEnumeration(?rest_route=/wp/v2/users)",
+              "shortDescription": {
+                "text": "REST API WAF/Rewrite Bypass for User Enumeration (?rest_route=/wp/v2/users)"
+              },
+              "fullDescription": {
+                "text": "Path-based blocking on /wp-json/wp/v2/users was bypassed using the query parameter ?rest_route=/wp/v2/users. Disclosed 1 user account(s)."
+              },
+              "help": {
+                "text": "Ensure WAF and rewrite rules inspect both URL paths and query parameters (?rest_route=). Disable the endpoint at application level using the rest_endpoints filter."
+              },
+              "properties": {
+                "tags": [
+                  "security",
+                  "wordpress",
+                  "enumeration"
+                ]
+              }
+            },
+            {
+              "id": "SENTINEL-ENUMERATION-7113",
+              "name": "AuthorArchiveUserEnumeration",
+              "shortDescription": {
+                "text": "Author Archive User Enumeration"
+              },
+              "fullDescription": {
+                "text": "User enumeration via author archives or RSS feeds is possible. Identified 1 public author account(s)."
+              },
+              "help": {
+                "text": "Disable author archives or redirect them. Add to .htaccess: RewriteCond %{QUERY_STRING} ^author= [NC] RewriteRule .* - [F,L]. Alternatively use a plugin to disable author enumeration."
+              },
+              "properties": {
+                "tags": [
+                  "security",
+                  "wordpress",
+                  "enumeration"
+                ]
+              }
+            },
+            {
+              "id": "SENTINEL-EXPOSURE-8947",
+              "name": "wp-adminPubliclyAccessible(LoginRequired)",
+              "shortDescription": {
+                "text": "wp-admin Publicly Accessible (Login Required)"
+              },
+              "fullDescription": {
+                "text": "The /wp-admin/ path is publicly reachable and redirects to login. Consider restricting access by IP or VPN."
+              },
+              "help": {
+                "text": "Restrict /wp-admin/ access via .htaccess IP whitelist, VPN requirement, or a WAF rule. Example: <Files wp-login.php> Order Deny,Allow Deny from all Allow from YOUR_IP </Files>"
+              },
+              "properties": {
+                "tags": [
+                  "security",
+                  "wordpress",
+                  "exposure"
+                ]
+              }
+            },
+            {
+              "id": "SENTINEL-EXPOSURE-3449",
+              "name": "install.phpAccessible(AlreadyInstalled)",
+              "shortDescription": {
+                "text": "install.php Accessible (Already Installed)"
+              },
+              "fullDescription": {
+                "text": "wp-admin/install.php is publicly accessible. While WordPress reports already installed, this endpoint should be blocked."
+              },
+              "help": {
+                "text": "Block access to install.php via .htaccess or server rules."
+              },
+              "properties": {
+                "tags": [
+                  "security",
+                  "wordpress",
+                  "exposure"
+                ]
+              }
+            },
+            {
+              "id": "SENTINEL-INFORMATION_DISCLOSURE-5117",
+              "name": "WordPressreadme.htmlAccessible",
+              "shortDescription": {
+                "text": "WordPress readme.html Accessible"
+              },
+              "fullDescription": {
+                "text": "readme.html is publicly readable and confirms WordPress installation."
+              },
+              "help": {
+                "text": "Delete or block access to readme.html via server configuration."
+              },
+              "properties": {
+                "tags": [
+                  "security",
+                  "wordpress",
+                  "information_disclosure"
+                ]
+              }
+            },
+            {
+              "id": "SENTINEL-INFORMATION_DISCLOSURE-8710",
+              "name": "WordPresslicense.txtAccessible",
+              "shortDescription": {
+                "text": "WordPress license.txt Accessible"
+              },
+              "fullDescription": {
+                "text": "license.txt is publicly readable and confirms WordPress installation. Version reference found: 2"
+              },
+              "help": {
+                "text": "Delete or block access to license.txt via server configuration."
+              },
+              "properties": {
+                "tags": [
+                  "security",
+                  "wordpress",
+                  "information_disclosure"
+                ]
+              }
+            },
+            {
+              "id": "SENTINEL-EXPOSURE-8728",
+              "name": "wp-cron.phpPubliclyAccessible",
+              "shortDescription": {
+                "text": "wp-cron.php Publicly Accessible"
+              },
+              "fullDescription": {
+                "text": "wp-cron.php is accessible. On high-traffic sites this can be used for DoS. It also reveals that WordPress is installed."
+              },
+              "help": {
+                "text": "Disable wp-cron via wp-config.php (define('DISABLE_WP_CRON', true)) and use a system cron job instead. Block public access via .htaccess."
+              },
+              "properties": {
+                "tags": [
+                  "security",
+                  "wordpress",
+                  "exposure"
+                ]
+              }
+            },
+            {
+              "id": "SENTINEL-HEADERS-2444",
+              "name": "MissingSecurityHeader:Strict-Transport-Security",
+              "shortDescription": {
+                "text": "Missing Security Header: Strict-Transport-Security"
+              },
+              "fullDescription": {
+                "text": "HSTS header missing. Browser may allow HTTP connections, enabling MITM attacks. (Note: this is a general hardening recommendation, not a WordPress-specific vulnerability.)"
+              },
+              "help": {
+                "text": "Add header: Strict-Transport-Security: max-age=31536000; includeSubDomains; preload"
+              },
+              "properties": {
+                "tags": [
+                  "security",
+                  "wordpress",
+                  "headers"
+                ]
+              }
+            },
+            {
+              "id": "SENTINEL-HEADERS-3232",
+              "name": "MissingSecurityHeader:Content-Security-Policy",
+              "shortDescription": {
+                "text": "Missing Security Header: Content-Security-Policy"
+              },
+              "fullDescription": {
+                "text": "CSP header missing. The site is more vulnerable to XSS and injection attacks. (Note: this is a general hardening recommendation, not a WordPress-specific vulnerability.)"
+              },
+              "help": {
+                "text": "Implement a Content-Security-Policy header appropriate for your site."
+              },
+              "properties": {
+                "tags": [
+                  "security",
+                  "wordpress",
+                  "headers"
+                ]
+              }
+            },
+            {
+              "id": "SENTINEL-HEADERS-1160",
+              "name": "MissingSecurityHeader:X-Content-Type-Options",
+              "shortDescription": {
+                "text": "Missing Security Header: X-Content-Type-Options"
+              },
+              "fullDescription": {
+                "text": "X-Content-Type-Options header missing. Browser may MIME-sniff responses. (Note: this is a general hardening recommendation, not a WordPress-specific vulnerability.)"
+              },
+              "help": {
+                "text": "Add header: X-Content-Type-Options: nosniff"
+              },
+              "properties": {
+                "tags": [
+                  "security",
+                  "wordpress",
+                  "headers"
+                ]
+              }
+            },
+            {
+              "id": "SENTINEL-HEADERS-7290",
+              "name": "MissingSecurityHeader:X-Frame-Options",
+              "shortDescription": {
+                "text": "Missing Security Header: X-Frame-Options"
+              },
+              "fullDescription": {
+                "text": "X-Frame-Options header missing. The site may be vulnerable to clickjacking. (Note: this is a general hardening recommendation, not a WordPress-specific vulnerability.)"
+              },
+              "help": {
+                "text": "Add header: X-Frame-Options: DENY (or SAMEORIGIN if framing is needed internally)."
+              },
+              "properties": {
+                "tags": [
+                  "security",
+                  "wordpress",
+                  "headers"
+                ]
+              }
+            },
+            {
+              "id": "SENTINEL-HEADERS-1333",
+              "name": "MissingSecurityHeader:Referrer-Policy",
+              "shortDescription": {
+                "text": "Missing Security Header: Referrer-Policy"
+              },
+              "fullDescription": {
+                "text": "Referrer-Policy header missing. Full URL may be sent as referrer to third parties. (Note: this is a general hardening recommendation, not a WordPress-specific vulnerability.)"
+              },
+              "help": {
+                "text": "Add header: Referrer-Policy: strict-origin-when-cross-origin"
+              },
+              "properties": {
+                "tags": [
+                  "security",
+                  "wordpress",
+                  "headers"
+                ]
+              }
+            },
+            {
+              "id": "SENTINEL-HEADERS-0815",
+              "name": "MissingSecurityHeader:Permissions-Policy",
+              "shortDescription": {
+                "text": "Missing Security Header: Permissions-Policy"
+              },
+              "fullDescription": {
+                "text": "Permissions-Policy header missing. Browser features are not explicitly restricted. (Note: this is a general hardening recommendation, not a WordPress-specific vulnerability.)"
+              },
+              "help": {
+                "text": "Add a Permissions-Policy header to restrict unnecessary browser features (camera, microphone, geolocation)."
+              },
+              "properties": {
+                "tags": [
+                  "security",
+                  "wordpress",
+                  "headers"
+                ]
+              }
+            },
+            {
+              "id": "SENTINEL-HEADERS-9509",
+              "name": "MissingSecurityHeader:X-XSS-Protection",
+              "shortDescription": {
+                "text": "Missing Security Header: X-XSS-Protection"
+              },
+              "fullDescription": {
+                "text": "X-XSS-Protection header missing (relevant for older browsers). (Note: this is a general hardening recommendation, not a WordPress-specific vulnerability.)"
+              },
+              "help": {
+                "text": "Add header: X-XSS-Protection: 1; mode=block (or 0 if CSP is properly configured)."
+              },
+              "properties": {
+                "tags": [
+                  "security",
+                  "wordpress",
+                  "headers"
+                ]
+              }
+            },
+            {
+              "id": "SENTINEL-HEADERS-3691",
+              "name": "MissingSecurityHeader:Cross-Origin-Opener-Policy",
+              "shortDescription": {
+                "text": "Missing Security Header: Cross-Origin-Opener-Policy"
+              },
+              "fullDescription": {
+                "text": "Cross-Origin-Opener-Policy (COOP) header missing. Isolates top-level browsing context from cross-origin windows. (Note: this is a general hardening recommendation, not a WordPress-specific vulnerability.)"
+              },
+              "help": {
+                "text": "Add header: Cross-Origin-Opener-Policy: same-origin"
+              },
+              "properties": {
+                "tags": [
+                  "security",
+                  "wordpress",
+                  "headers"
+                ]
+              }
+            },
+            {
+              "id": "SENTINEL-HEADERS-0533",
+              "name": "MissingSecurityHeader:Cross-Origin-Resource-Policy",
+              "shortDescription": {
+                "text": "Missing Security Header: Cross-Origin-Resource-Policy"
+              },
+              "fullDescription": {
+                "text": "Cross-Origin-Resource-Policy (CORP) header missing. Restricts cross-origin resource reading and embedding. (Note: this is a general hardening recommendation, not a WordPress-specific vulnerability.)"
+              },
+              "help": {
+                "text": "Add header: Cross-Origin-Resource-Policy: same-origin (or same-site)"
+              },
+              "properties": {
+                "tags": [
+                  "security",
+                  "wordpress",
+                  "headers"
+                ]
+              }
+            },
+            {
+              "id": "SENTINEL-HEADERS-9051",
+              "name": "InformationDisclosureHeader:Server",
+              "shortDescription": {
+                "text": "Information Disclosure Header: Server"
+              },
+              "fullDescription": {
+                "text": "Server header exposes web server software and version. Value: Apache/2.4.57 (Debian)"
+              },
+              "help": {
+                "text": "Remove or obfuscate the Server header in your web server configuration."
+              },
+              "properties": {
+                "tags": [
+                  "security",
+                  "wordpress",
+                  "headers"
+                ]
+              }
+            },
+            {
+              "id": "SENTINEL-HEADERS-9193",
+              "name": "InformationDisclosureHeader:X-Powered-By",
+              "shortDescription": {
+                "text": "Information Disclosure Header: X-Powered-By"
+              },
+              "fullDescription": {
+                "text": "X-Powered-By header exposes backend technology. Value: PHP/8.2.17"
+              },
+              "help": {
+                "text": "Remove the X-Powered-By header. PHP: expose_php = Off in php.ini."
+              },
+              "properties": {
+                "tags": [
+                  "security",
+                  "wordpress",
+                  "headers"
+                ]
+              }
+            },
+            {
+              "id": "SENTINEL-HEADERS-2329",
+              "name": "ServerBannerRevealsVersionDetails",
+              "shortDescription": {
+                "text": "Server Banner Reveals Version Details"
+              },
+              "fullDescription": {
+                "text": "The Server header contains version information: 'Apache/2.4.57 (Debian)'. This assists attackers in identifying exploitable software versions."
+              },
+              "help": {
+                "text": "Configure the web server to suppress version numbers. Apache: ServerTokens Prod. Nginx: server_tokens off;"
+              },
+              "properties": {
+                "tags": [
+                  "security",
+                  "wordpress",
+                  "headers"
+                ]
+              }
+            },
+            {
+              "id": "SENTINEL-ENCRYPTION-1662",
+              "name": "SiteNotUsingHTTPS",
+              "shortDescription": {
+                "text": "Site Not Using HTTPS"
+              },
+              "fullDescription": {
+                "text": "The target URL uses HTTP instead of HTTPS. All traffic is unencrypted."
+              },
+              "help": {
+                "text": "Configure TLS/SSL certificate and redirect all HTTP traffic to HTTPS."
+              },
+              "properties": {
+                "tags": [
+                  "security",
+                  "wordpress",
+                  "encryption"
+                ]
+              }
+            },
+            {
+              "id": "SENTINEL-INFORMATION_DISCLOSURE-5164",
+              "name": "ThemeIdentified:twentytwentyfour",
+              "shortDescription": {
+                "text": "Theme Identified: twentytwentyfour"
+              },
+              "fullDescription": {
+                "text": "Active theme detected from page source: twentytwentyfour (version 1.0, confidence: high)"
+              },
+              "help": {
+                "text": "Consider hiding theme paths with a security plugin."
+              },
+              "properties": {
+                "tags": [
+                  "security",
+                  "wordpress",
+                  "information_disclosure"
+                ]
+              }
+            },
+            {
+              "id": "SENTINEL-INFORMATION_DISCLOSURE-5204",
+              "name": "DefaultThemePresent:twentytwentyfour",
+              "shortDescription": {
+                "text": "Default Theme Present: twentytwentyfour"
+              },
+              "fullDescription": {
+                "text": "Default WordPress theme 'twentytwentyfour' detected on server (version 1.0, confidence: high). Unused themes should be removed to reduce attack surface."
+              },
+              "help": {
+                "text": "Delete unused default theme 'twentytwentyfour' from wp-content/themes/ if not in use."
+              },
+              "properties": {
+                "tags": [
+                  "security",
+                  "wordpress",
+                  "information_disclosure"
+                ]
+              }
+            },
+            {
+              "id": "SENTINEL-INFORMATION_DISCLOSURE-8457",
+              "name": "DefaultThemePresent:twentytwentythree",
+              "shortDescription": {
+                "text": "Default Theme Present: twentytwentythree"
+              },
+              "fullDescription": {
+                "text": "Default WordPress theme 'twentytwentythree' detected on server (version 1.3, confidence: high). Unused themes should be removed to reduce attack surface."
+              },
+              "help": {
+                "text": "Delete unused default theme 'twentytwentythree' from wp-content/themes/ if not in use."
+              },
+              "properties": {
+                "tags": [
+                  "security",
+                  "wordpress",
+                  "information_disclosure"
+                ]
+              }
+            },
+            {
+              "id": "SENTINEL-INFORMATION_DISCLOSURE-1807",
+              "name": "DefaultThemePresent:twentytwentytwo",
+              "shortDescription": {
+                "text": "Default Theme Present: twentytwentytwo"
+              },
+              "fullDescription": {
+                "text": "Default WordPress theme 'twentytwentytwo' detected on server (version 1.6, confidence: high). Unused themes should be removed to reduce attack surface."
+              },
+              "help": {
+                "text": "Delete unused default theme 'twentytwentytwo' from wp-content/themes/ if not in use."
+              },
+              "properties": {
+                "tags": [
+                  "security",
+                  "wordpress",
+                  "information_disclosure"
+                ]
+              }
+            },
+            {
+              "id": "SENTINEL-INFORMATION_DISCLOSURE-6967",
+              "name": "DefaultThemePresent:twentytwentyone",
+              "shortDescription": {
+                "text": "Default Theme Present: twentytwentyone"
+              },
+              "fullDescription": {
+                "text": "Default WordPress theme 'twentytwentyone' detected on server. Unused themes should be removed to reduce attack surface."
+              },
+              "help": {
+                "text": "Delete unused default theme 'twentytwentyone' from wp-content/themes/ if not in use."
+              },
+              "properties": {
+                "tags": [
+                  "security",
+                  "wordpress",
+                  "information_disclosure"
+                ]
+              }
+            },
+            {
+              "id": "SENTINEL-INFORMATION_DISCLOSURE-7687",
+              "name": "DefaultThemePresent:twentytwenty",
+              "shortDescription": {
+                "text": "Default Theme Present: twentytwenty"
+              },
+              "fullDescription": {
+                "text": "Default WordPress theme 'twentytwenty' detected on server. Unused themes should be removed to reduce attack surface."
+              },
+              "help": {
+                "text": "Delete unused default theme 'twentytwenty' from wp-content/themes/ if not in use."
+              },
+              "properties": {
+                "tags": [
+                  "security",
+                  "wordpress",
+                  "information_disclosure"
+                ]
+              }
+            },
+            {
+              "id": "SENTINEL-INFORMATION_DISCLOSURE-2078",
+              "name": "DefaultThemePresent:twentynineteen",
+              "shortDescription": {
+                "text": "Default Theme Present: twentynineteen"
+              },
+              "fullDescription": {
+                "text": "Default WordPress theme 'twentynineteen' detected on server. Unused themes should be removed to reduce attack surface."
+              },
+              "help": {
+                "text": "Delete unused default theme 'twentynineteen' from wp-content/themes/ if not in use."
+              },
+              "properties": {
+                "tags": [
+                  "security",
+                  "wordpress",
+                  "information_disclosure"
+                ]
+              }
+            },
+            {
+              "id": "SENTINEL-INFORMATION_DISCLOSURE-6198",
+              "name": "DefaultThemePresent:twentyeighteen",
+              "shortDescription": {
+                "text": "Default Theme Present: twentyeighteen"
+              },
+              "fullDescription": {
+                "text": "Default WordPress theme 'twentyeighteen' detected on server. Unused themes should be removed to reduce attack surface."
+              },
+              "help": {
+                "text": "Delete unused default theme 'twentyeighteen' from wp-content/themes/ if not in use."
+              },
+              "properties": {
+                "tags": [
+                  "security",
+                  "wordpress",
+                  "information_disclosure"
+                ]
+              }
+            },
+            {
+              "id": "SENTINEL-INFORMATION_DISCLOSURE-4238",
+              "name": "DefaultThemePresent:twentyseventeen",
+              "shortDescription": {
+                "text": "Default Theme Present: twentyseventeen"
+              },
+              "fullDescription": {
+                "text": "Default WordPress theme 'twentyseventeen' detected on server. Unused themes should be removed to reduce attack surface."
+              },
+              "help": {
+                "text": "Delete unused default theme 'twentyseventeen' from wp-content/themes/ if not in use."
+              },
+              "properties": {
+                "tags": [
+                  "security",
+                  "wordpress",
+                  "information_disclosure"
+                ]
+              }
+            },
+            {
+              "id": "SENTINEL-INFORMATION_DISCLOSURE-4162",
+              "name": "DefaultThemePresent:twentysixteen",
+              "shortDescription": {
+                "text": "Default Theme Present: twentysixteen"
+              },
+              "fullDescription": {
+                "text": "Default WordPress theme 'twentysixteen' detected on server. Unused themes should be removed to reduce attack surface."
+              },
+              "help": {
+                "text": "Delete unused default theme 'twentysixteen' from wp-content/themes/ if not in use."
+              },
+              "properties": {
+                "tags": [
+                  "security",
+                  "wordpress",
+                  "information_disclosure"
+                ]
+              }
+            },
+            {
+              "id": "SENTINEL-INFORMATION_DISCLOSURE-1027",
+              "name": "DefaultThemePresent:twentyfifteen",
+              "shortDescription": {
+                "text": "Default Theme Present: twentyfifteen"
+              },
+              "fullDescription": {
+                "text": "Default WordPress theme 'twentyfifteen' detected on server. Unused themes should be removed to reduce attack surface."
+              },
+              "help": {
+                "text": "Delete unused default theme 'twentyfifteen' from wp-content/themes/ if not in use."
+              },
+              "properties": {
+                "tags": [
+                  "security",
+                  "wordpress",
+                  "information_disclosure"
+                ]
+              }
+            },
+            {
+              "id": "SENTINEL-INFORMATION_DISCLOSURE-7353",
+              "name": "DefaultThemePresent:twentyfourteen",
+              "shortDescription": {
+                "text": "Default Theme Present: twentyfourteen"
+              },
+              "fullDescription": {
+                "text": "Default WordPress theme 'twentyfourteen' detected on server. Unused themes should be removed to reduce attack surface."
+              },
+              "help": {
+                "text": "Delete unused default theme 'twentyfourteen' from wp-content/themes/ if not in use."
+              },
+              "properties": {
+                "tags": [
+                  "security",
+                  "wordpress",
+                  "information_disclosure"
+                ]
+              }
+            },
+            {
+              "id": "SENTINEL-INFORMATION_DISCLOSURE-0374",
+              "name": "DefaultThemePresent:twentythirteen",
+              "shortDescription": {
+                "text": "Default Theme Present: twentythirteen"
+              },
+              "fullDescription": {
+                "text": "Default WordPress theme 'twentythirteen' detected on server. Unused themes should be removed to reduce attack surface."
+              },
+              "help": {
+                "text": "Delete unused default theme 'twentythirteen' from wp-content/themes/ if not in use."
+              },
+              "properties": {
+                "tags": [
+                  "security",
+                  "wordpress",
+                  "information_disclosure"
+                ]
+              }
+            },
+            {
+              "id": "SENTINEL-INFORMATION_DISCLOSURE-6171",
+              "name": "DefaultThemePresent:twentytwelve",
+              "shortDescription": {
+                "text": "Default Theme Present: twentytwelve"
+              },
+              "fullDescription": {
+                "text": "Default WordPress theme 'twentytwelve' detected on server. Unused themes should be removed to reduce attack surface."
+              },
+              "help": {
+                "text": "Delete unused default theme 'twentytwelve' from wp-content/themes/ if not in use."
+              },
+              "properties": {
+                "tags": [
+                  "security",
+                  "wordpress",
+                  "information_disclosure"
+                ]
+              }
+            },
+            {
+              "id": "SENTINEL-CONFIGURATION-5695",
+              "name": "NoWAFDetected",
+              "shortDescription": {
+                "text": "No WAF Detected"
+              },
+              "fullDescription": {
+                "text": "No Web Application Firewall was detected. The application may be directly exposed to attacks."
+              },
+              "help": {
+                "text": "Consider deploying a WAF (Cloudflare, Sucuri, AWS WAF, or ModSecurity)."
+              },
+              "properties": {
+                "tags": [
+                  "security",
+                  "wordpress",
+                  "configuration"
+                ]
+              }
+            },
+            {
+              "id": "SENTINEL-AUTHENTICATION-9251",
+              "name": "XML-RPCsystem.multicallAvailable",
+              "shortDescription": {
+                "text": "XML-RPC system.multicall Available"
+              },
+              "fullDescription": {
+                "text": "system.multicall is enabled, allowing attackers to attempt thousands of password guesses in a single HTTP request. Total methods available: 80."
+              },
+              "help": {
+                "text": "Disable XML-RPC or specifically block system.multicall. Use a security plugin to disable multicall or rate-limit attempts."
+              },
+              "properties": {
+                "tags": [
+                  "security",
+                  "wordpress",
+                  "authentication"
+                ]
+              }
+            },
+            {
+              "id": "SENTINEL-EXPOSURE-9625",
+              "name": "XML-RPCPingbackAvailable(DDoSVector)",
+              "shortDescription": {
+                "text": "XML-RPC Pingback Available (DDoS Vector)"
+              },
+              "fullDescription": {
+                "text": "pingback.ping method is available. This can be abused for DDoS amplification and internal port scanning (SSRF)."
+              },
+              "help": {
+                "text": "Disable pingbacks: add_filter('xmlrpc_methods', function($methods) { unset($methods['pingback.ping']); return $methods; });"
+              },
+              "properties": {
+                "tags": [
+                  "security",
+                  "wordpress",
+                  "exposure"
+                ]
+              }
+            },
+            {
+              "id": "SENTINEL-ENUMERATION-9512",
+              "name": "XML-RPCUserMethodsAvailable",
+              "shortDescription": {
+                "text": "XML-RPC User Methods Available"
+              },
+              "fullDescription": {
+                "text": "User-related XML-RPC methods are available (wp.getUsersBlogs, wp.getUsers). These can be used for credential testing."
+              },
+              "help": {
+                "text": "Disable XML-RPC or restrict these methods via security plugin."
+              },
+              "properties": {
+                "tags": [
+                  "security",
+                  "wordpress",
+                  "enumeration"
+                ]
+              }
+            },
+            {
+              "id": "SENTINEL-INFORMATION_DISCLOSURE-2228",
+              "name": "XML-RPCMethodsEnumerated:80methods",
+              "shortDescription": {
+                "text": "XML-RPC Methods Enumerated: 80 methods"
+              },
+              "fullDescription": {
+                "text": "system.listMethods returned 80 available methods."
+              },
+              "help": {
+                "text": "Disable system.listMethods or restrict XML-RPC access entirely."
+              },
+              "properties": {
+                "tags": [
+                  "security",
+                  "wordpress",
+                  "information_disclosure"
+                ]
+              }
+            },
+            {
+              "id": "SENTINEL-CONFIGURATION-4746",
+              "name": "CookiesMissingSecureFlag",
+              "shortDescription": {
+                "text": "Cookies Missing Secure Flag"
+              },
+              "fullDescription": {
+                "text": "The following cookie(s) are missing the 'Secure' flag: wordpress_test_cookie. Cookies without the Secure flag can be transmitted over unencrypted HTTP connections, exposing sensitive data to interception via man-in-the-middle (MITM) attacks."
+              },
+              "help": {
+                "text": "Configure the server to include the 'Secure' attribute for all Set-Cookie headers."
+              },
+              "properties": {
+                "tags": [
+                  "security",
+                  "wordpress",
+                  "configuration"
+                ]
+              }
+            },
+            {
+              "id": "SENTINEL-CONFIGURATION-8759",
+              "name": "CookiesMissingHttpOnlyFlag",
+              "shortDescription": {
+                "text": "Cookies Missing HttpOnly Flag"
+              },
+              "fullDescription": {
+                "text": "The following cookie(s) are missing the 'HttpOnly' flag: wordpress_test_cookie. Cookies without HttpOnly can be accessed by client-side JavaScript, making them vulnerable to theft via Cross-Site Scripting (XSS) attacks."
+              },
+              "help": {
+                "text": "Set the 'HttpOnly' attribute on all cookies, especially session cookies."
+              },
+              "properties": {
+                "tags": [
+                  "security",
+                  "wordpress",
+                  "configuration"
+                ]
+              }
+            },
+            {
+              "id": "SENTINEL-CONFIGURATION-3636",
+              "name": "CookiesMissingSameSiteAttribute",
+              "shortDescription": {
+                "text": "Cookies Missing SameSite Attribute"
+              },
+              "fullDescription": {
+                "text": "The following cookie(s) are missing the 'SameSite' attribute: wordpress_test_cookie. Without SameSite, cookies may be included in cross-site requests, increasing vulnerability to Cross-Site Request Forgery (CSRF) attacks."
+              },
+              "help": {
+                "text": "Set the 'SameSite' attribute ('Strict' or 'Lax') on all cookies."
+              },
+              "properties": {
+                "tags": [
+                  "security",
+                  "wordpress",
+                  "configuration"
+                ]
+              }
+            },
+            {
+              "id": "SENTINEL-INFORMATION_DISCLOSURE-8608",
+              "name": "WHOISInformationRetrieved",
+              "shortDescription": {
+                "text": "WHOIS Information Retrieved"
+              },
+              "fullDescription": {
+                "text": "WHOIS lookup succeeded for 0.1. Registrar: Unknown | Expiration Date: Unknown."
+              },
+              "help": {
+                "text": "No remediation needed. Keep domain registration details updated."
+              },
+              "properties": {
+                "tags": [
+                  "security",
+                  "wordpress",
+                  "information_disclosure"
+                ]
+              }
+            },
+            {
+              "id": "SENTINEL-CONFIGURATION-7287",
+              "name": "MissingSecurityPolicyFile(security.txt)",
+              "shortDescription": {
+                "text": "Missing Security Policy File (security.txt)"
+              },
+              "fullDescription": {
+                "text": "No security policy file (security.txt) was found in /.well-known/security.txt or /security.txt. It is a best practice to publish contact info for vulnerability disclosure."
+              },
+              "help": {
+                "text": "Create a security.txt file adhering to RFC 9116 and place it in the /.well-known/ directory."
+              },
+              "properties": {
+                "tags": [
+                  "security",
+                  "wordpress",
+                  "configuration"
+                ]
+              }
+            },
+            {
+              "id": "SENTINEL-ENCRYPTION-9791",
+              "name": "MissingSPFRecord",
+              "shortDescription": {
+                "text": "Missing SPF Record"
+              },
+              "fullDescription": {
+                "text": "Domain 127.0.0.1 is missing an SPF (Sender Policy Framework) TXT record. Spammers can spoof email originating from this domain, damaging brand reputation."
+              },
+              "help": {
+                "text": "Create a TXT record for the domain with a valid SPF configuration (e.g., 'v=spf1 include:_spf.example.com ~all')."
+              },
+              "properties": {
+                "tags": [
+                  "security",
+                  "wordpress",
+                  "encryption"
+                ]
+              }
+            },
+            {
+              "id": "SENTINEL-ENCRYPTION-5373",
+              "name": "MissingDMARCRecord",
+              "shortDescription": {
+                "text": "Missing DMARC Record"
+              },
+              "fullDescription": {
+                "text": "Domain 127.0.0.1 is missing a DMARC record. This increases vulnerability to email phishing, spoofing, and brand abuse."
+              },
+              "help": {
+                "text": "Add a TXT record at _dmarc.yourdomain.com with policy settings, e.g., 'v=DMARC1; p=quarantine; pct=100; rua=mailto:security@yourdomain.com'."
+              },
+              "properties": {
+                "tags": [
+                  "security",
+                  "wordpress",
+                  "encryption"
+                ]
+              }
+            }
+          ]
+        }
+      },
+      "results": [
+        {
+          "ruleId": "SENTINEL-INFORMATION_DISCLOSURE-5915",
+          "level": "note",
+          "message": {
+            "text": "WordPress CMS Detected: WordPress detected at http://127.0.0.1:8099 (confidence: 100%) — Version: 6.4.3 (source: meta_generator, reliability: high)"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "http://127.0.0.1:8099"
+                },
+                "region": {
+                  "startLine": 1
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "SENTINEL-INFORMATION_DISCLOSURE-0580",
+          "level": "warning",
+          "message": {
+            "text": "WordPress Version Exposed: 6.4.3: WordPress version (6.4.3) is publicly visible. Source: meta_generator (reliability: high). This enables targeted exploit research."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "http://127.0.0.1:8099"
+                },
+                "region": {
+                  "startLine": 1
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "SENTINEL-ENUMERATION-3646",
+          "level": "error",
+          "message": {
+            "text": "REST API WAF/Rewrite Bypass for User Enumeration (?rest_route=/wp/v2/users): Path-based blocking on /wp-json/wp/v2/users was bypassed using the query parameter ?rest_route=/wp/v2/users. Disclosed 1 user account(s)."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "http://127.0.0.1:8099"
+                },
+                "region": {
+                  "startLine": 1
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "SENTINEL-ENUMERATION-7113",
+          "level": "error",
+          "message": {
+            "text": "Author Archive User Enumeration: User enumeration via author archives or RSS feeds is possible. Identified 1 public author account(s)."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "http://127.0.0.1:8099"
+                },
+                "region": {
+                  "startLine": 1
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "SENTINEL-EXPOSURE-8947",
+          "level": "note",
+          "message": {
+            "text": "wp-admin Publicly Accessible (Login Required): The /wp-admin/ path is publicly reachable and redirects to login. Consider restricting access by IP or VPN."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "http://127.0.0.1:8099"
+                },
+                "region": {
+                  "startLine": 1
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "SENTINEL-EXPOSURE-3449",
+          "level": "note",
+          "message": {
+            "text": "install.php Accessible (Already Installed): wp-admin/install.php is publicly accessible. While WordPress reports already installed, this endpoint should be blocked."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "http://127.0.0.1:8099"
+                },
+                "region": {
+                  "startLine": 1
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "SENTINEL-INFORMATION_DISCLOSURE-5117",
+          "level": "note",
+          "message": {
+            "text": "WordPress readme.html Accessible: readme.html is publicly readable and confirms WordPress installation."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "http://127.0.0.1:8099"
+                },
+                "region": {
+                  "startLine": 1
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "SENTINEL-INFORMATION_DISCLOSURE-8710",
+          "level": "note",
+          "message": {
+            "text": "WordPress license.txt Accessible: license.txt is publicly readable and confirms WordPress installation. Version reference found: 2"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "http://127.0.0.1:8099"
+                },
+                "region": {
+                  "startLine": 1
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "SENTINEL-EXPOSURE-8728",
+          "level": "note",
+          "message": {
+            "text": "wp-cron.php Publicly Accessible: wp-cron.php is accessible. On high-traffic sites this can be used for DoS. It also reveals that WordPress is installed."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "http://127.0.0.1:8099"
+                },
+                "region": {
+                  "startLine": 1
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "SENTINEL-HEADERS-2444",
+          "level": "error",
+          "message": {
+            "text": "Missing Security Header: Strict-Transport-Security: HSTS header missing. Browser may allow HTTP connections, enabling MITM attacks. (Note: this is a general hardening recommendation, not a WordPress-specific vulnerability.)"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "http://127.0.0.1:8099"
+                },
+                "region": {
+                  "startLine": 1
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "SENTINEL-HEADERS-3232",
+          "level": "warning",
+          "message": {
+            "text": "Missing Security Header: Content-Security-Policy: CSP header missing. The site is more vulnerable to XSS and injection attacks. (Note: this is a general hardening recommendation, not a WordPress-specific vulnerability.)"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "http://127.0.0.1:8099"
+                },
+                "region": {
+                  "startLine": 1
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "SENTINEL-HEADERS-1160",
+          "level": "warning",
+          "message": {
+            "text": "Missing Security Header: X-Content-Type-Options: X-Content-Type-Options header missing. Browser may MIME-sniff responses. (Note: this is a general hardening recommendation, not a WordPress-specific vulnerability.)"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "http://127.0.0.1:8099"
+                },
+                "region": {
+                  "startLine": 1
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "SENTINEL-HEADERS-7290",
+          "level": "warning",
+          "message": {
+            "text": "Missing Security Header: X-Frame-Options: X-Frame-Options header missing. The site may be vulnerable to clickjacking. (Note: this is a general hardening recommendation, not a WordPress-specific vulnerability.)"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "http://127.0.0.1:8099"
+                },
+                "region": {
+                  "startLine": 1
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "SENTINEL-HEADERS-1333",
+          "level": "note",
+          "message": {
+            "text": "Missing Security Header: Referrer-Policy: Referrer-Policy header missing. Full URL may be sent as referrer to third parties. (Note: this is a general hardening recommendation, not a WordPress-specific vulnerability.)"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "http://127.0.0.1:8099"
+                },
+                "region": {
+                  "startLine": 1
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "SENTINEL-HEADERS-0815",
+          "level": "note",
+          "message": {
+            "text": "Missing Security Header: Permissions-Policy: Permissions-Policy header missing. Browser features are not explicitly restricted. (Note: this is a general hardening recommendation, not a WordPress-specific vulnerability.)"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "http://127.0.0.1:8099"
+                },
+                "region": {
+                  "startLine": 1
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "SENTINEL-HEADERS-9509",
+          "level": "note",
+          "message": {
+            "text": "Missing Security Header: X-XSS-Protection: X-XSS-Protection header missing (relevant for older browsers). (Note: this is a general hardening recommendation, not a WordPress-specific vulnerability.)"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "http://127.0.0.1:8099"
+                },
+                "region": {
+                  "startLine": 1
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "SENTINEL-HEADERS-3691",
+          "level": "note",
+          "message": {
+            "text": "Missing Security Header: Cross-Origin-Opener-Policy: Cross-Origin-Opener-Policy (COOP) header missing. Isolates top-level browsing context from cross-origin windows. (Note: this is a general hardening recommendation, not a WordPress-specific vulnerability.)"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "http://127.0.0.1:8099"
+                },
+                "region": {
+                  "startLine": 1
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "SENTINEL-HEADERS-0533",
+          "level": "note",
+          "message": {
+            "text": "Missing Security Header: Cross-Origin-Resource-Policy: Cross-Origin-Resource-Policy (CORP) header missing. Restricts cross-origin resource reading and embedding. (Note: this is a general hardening recommendation, not a WordPress-specific vulnerability.)"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "http://127.0.0.1:8099"
+                },
+                "region": {
+                  "startLine": 1
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "SENTINEL-HEADERS-9051",
+          "level": "note",
+          "message": {
+            "text": "Information Disclosure Header: Server: Server header exposes web server software and version. Value: Apache/2.4.57 (Debian)"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "http://127.0.0.1:8099"
+                },
+                "region": {
+                  "startLine": 1
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "SENTINEL-HEADERS-9193",
+          "level": "note",
+          "message": {
+            "text": "Information Disclosure Header: X-Powered-By: X-Powered-By header exposes backend technology. Value: PHP/8.2.17"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "http://127.0.0.1:8099"
+                },
+                "region": {
+                  "startLine": 1
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "SENTINEL-HEADERS-2329",
+          "level": "warning",
+          "message": {
+            "text": "Server Banner Reveals Version Details: The Server header contains version information: 'Apache/2.4.57 (Debian)'. This assists attackers in identifying exploitable software versions."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "http://127.0.0.1:8099"
+                },
+                "region": {
+                  "startLine": 1
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "SENTINEL-ENCRYPTION-1662",
+          "level": "error",
+          "message": {
+            "text": "Site Not Using HTTPS: The target URL uses HTTP instead of HTTPS. All traffic is unencrypted."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "http://127.0.0.1:8099"
+                },
+                "region": {
+                  "startLine": 1
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "SENTINEL-INFORMATION_DISCLOSURE-5164",
+          "level": "note",
+          "message": {
+            "text": "Theme Identified: twentytwentyfour: Active theme detected from page source: twentytwentyfour (version 1.0, confidence: high)"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "http://127.0.0.1:8099"
+                },
+                "region": {
+                  "startLine": 1
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "SENTINEL-INFORMATION_DISCLOSURE-5204",
+          "level": "note",
+          "message": {
+            "text": "Default Theme Present: twentytwentyfour: Default WordPress theme 'twentytwentyfour' detected on server (version 1.0, confidence: high). Unused themes should be removed to reduce attack surface."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "http://127.0.0.1:8099"
+                },
+                "region": {
+                  "startLine": 1
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "SENTINEL-INFORMATION_DISCLOSURE-8457",
+          "level": "note",
+          "message": {
+            "text": "Default Theme Present: twentytwentythree: Default WordPress theme 'twentytwentythree' detected on server (version 1.3, confidence: high). Unused themes should be removed to reduce attack surface."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "http://127.0.0.1:8099"
+                },
+                "region": {
+                  "startLine": 1
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "SENTINEL-INFORMATION_DISCLOSURE-1807",
+          "level": "note",
+          "message": {
+            "text": "Default Theme Present: twentytwentytwo: Default WordPress theme 'twentytwentytwo' detected on server (version 1.6, confidence: high). Unused themes should be removed to reduce attack surface."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "http://127.0.0.1:8099"
+                },
+                "region": {
+                  "startLine": 1
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "SENTINEL-INFORMATION_DISCLOSURE-6967",
+          "level": "note",
+          "message": {
+            "text": "Default Theme Present: twentytwentyone: Default WordPress theme 'twentytwentyone' detected on server. Unused themes should be removed to reduce attack surface."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "http://127.0.0.1:8099"
+                },
+                "region": {
+                  "startLine": 1
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "SENTINEL-INFORMATION_DISCLOSURE-7687",
+          "level": "note",
+          "message": {
+            "text": "Default Theme Present: twentytwenty: Default WordPress theme 'twentytwenty' detected on server. Unused themes should be removed to reduce attack surface."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "http://127.0.0.1:8099"
+                },
+                "region": {
+                  "startLine": 1
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "SENTINEL-INFORMATION_DISCLOSURE-2078",
+          "level": "note",
+          "message": {
+            "text": "Default Theme Present: twentynineteen: Default WordPress theme 'twentynineteen' detected on server. Unused themes should be removed to reduce attack surface."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "http://127.0.0.1:8099"
+                },
+                "region": {
+                  "startLine": 1
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "SENTINEL-INFORMATION_DISCLOSURE-6198",
+          "level": "note",
+          "message": {
+            "text": "Default Theme Present: twentyeighteen: Default WordPress theme 'twentyeighteen' detected on server. Unused themes should be removed to reduce attack surface."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "http://127.0.0.1:8099"
+                },
+                "region": {
+                  "startLine": 1
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "SENTINEL-INFORMATION_DISCLOSURE-4238",
+          "level": "note",
+          "message": {
+            "text": "Default Theme Present: twentyseventeen: Default WordPress theme 'twentyseventeen' detected on server. Unused themes should be removed to reduce attack surface."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "http://127.0.0.1:8099"
+                },
+                "region": {
+                  "startLine": 1
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "SENTINEL-INFORMATION_DISCLOSURE-4162",
+          "level": "note",
+          "message": {
+            "text": "Default Theme Present: twentysixteen: Default WordPress theme 'twentysixteen' detected on server. Unused themes should be removed to reduce attack surface."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "http://127.0.0.1:8099"
+                },
+                "region": {
+                  "startLine": 1
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "SENTINEL-INFORMATION_DISCLOSURE-1027",
+          "level": "note",
+          "message": {
+            "text": "Default Theme Present: twentyfifteen: Default WordPress theme 'twentyfifteen' detected on server. Unused themes should be removed to reduce attack surface."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "http://127.0.0.1:8099"
+                },
+                "region": {
+                  "startLine": 1
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "SENTINEL-INFORMATION_DISCLOSURE-7353",
+          "level": "note",
+          "message": {
+            "text": "Default Theme Present: twentyfourteen: Default WordPress theme 'twentyfourteen' detected on server. Unused themes should be removed to reduce attack surface."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "http://127.0.0.1:8099"
+                },
+                "region": {
+                  "startLine": 1
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "SENTINEL-INFORMATION_DISCLOSURE-0374",
+          "level": "note",
+          "message": {
+            "text": "Default Theme Present: twentythirteen: Default WordPress theme 'twentythirteen' detected on server. Unused themes should be removed to reduce attack surface."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "http://127.0.0.1:8099"
+                },
+                "region": {
+                  "startLine": 1
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "SENTINEL-INFORMATION_DISCLOSURE-6171",
+          "level": "note",
+          "message": {
+            "text": "Default Theme Present: twentytwelve: Default WordPress theme 'twentytwelve' detected on server. Unused themes should be removed to reduce attack surface."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "http://127.0.0.1:8099"
+                },
+                "region": {
+                  "startLine": 1
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "SENTINEL-CONFIGURATION-5695",
+          "level": "warning",
+          "message": {
+            "text": "No WAF Detected: No Web Application Firewall was detected. The application may be directly exposed to attacks."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "http://127.0.0.1:8099"
+                },
+                "region": {
+                  "startLine": 1
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "SENTINEL-AUTHENTICATION-9251",
+          "level": "error",
+          "message": {
+            "text": "XML-RPC system.multicall Available: system.multicall is enabled, allowing attackers to attempt thousands of password guesses in a single HTTP request. Total methods available: 80."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "http://127.0.0.1:8099"
+                },
+                "region": {
+                  "startLine": 1
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "SENTINEL-EXPOSURE-9625",
+          "level": "warning",
+          "message": {
+            "text": "XML-RPC Pingback Available (DDoS Vector): pingback.ping method is available. This can be abused for DDoS amplification and internal port scanning (SSRF)."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "http://127.0.0.1:8099"
+                },
+                "region": {
+                  "startLine": 1
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "SENTINEL-ENUMERATION-9512",
+          "level": "warning",
+          "message": {
+            "text": "XML-RPC User Methods Available: User-related XML-RPC methods are available (wp.getUsersBlogs, wp.getUsers). These can be used for credential testing."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "http://127.0.0.1:8099"
+                },
+                "region": {
+                  "startLine": 1
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "SENTINEL-INFORMATION_DISCLOSURE-2228",
+          "level": "note",
+          "message": {
+            "text": "XML-RPC Methods Enumerated: 80 methods: system.listMethods returned 80 available methods."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "http://127.0.0.1:8099"
+                },
+                "region": {
+                  "startLine": 1
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "SENTINEL-CONFIGURATION-4746",
+          "level": "warning",
+          "message": {
+            "text": "Cookies Missing Secure Flag: The following cookie(s) are missing the 'Secure' flag: wordpress_test_cookie. Cookies without the Secure flag can be transmitted over unencrypted HTTP connections, exposing sensitive data to interception via man-in-the-middle (MITM) attacks."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "http://127.0.0.1:8099"
+                },
+                "region": {
+                  "startLine": 1
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "SENTINEL-CONFIGURATION-8759",
+          "level": "warning",
+          "message": {
+            "text": "Cookies Missing HttpOnly Flag: The following cookie(s) are missing the 'HttpOnly' flag: wordpress_test_cookie. Cookies without HttpOnly can be accessed by client-side JavaScript, making them vulnerable to theft via Cross-Site Scripting (XSS) attacks."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "http://127.0.0.1:8099"
+                },
+                "region": {
+                  "startLine": 1
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "SENTINEL-CONFIGURATION-3636",
+          "level": "note",
+          "message": {
+            "text": "Cookies Missing SameSite Attribute: The following cookie(s) are missing the 'SameSite' attribute: wordpress_test_cookie. Without SameSite, cookies may be included in cross-site requests, increasing vulnerability to Cross-Site Request Forgery (CSRF) attacks."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "http://127.0.0.1:8099"
+                },
+                "region": {
+                  "startLine": 1
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "SENTINEL-INFORMATION_DISCLOSURE-8608",
+          "level": "note",
+          "message": {
+            "text": "WHOIS Information Retrieved: WHOIS lookup succeeded for 0.1. Registrar: Unknown | Expiration Date: Unknown."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "http://127.0.0.1:8099"
+                },
+                "region": {
+                  "startLine": 1
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "SENTINEL-CONFIGURATION-7287",
+          "level": "note",
+          "message": {
+            "text": "Missing Security Policy File (security.txt): No security policy file (security.txt) was found in /.well-known/security.txt or /security.txt. It is a best practice to publish contact info for vulnerability disclosure."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "http://127.0.0.1:8099"
+                },
+                "region": {
+                  "startLine": 1
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "SENTINEL-ENCRYPTION-9791",
+          "level": "error",
+          "message": {
+            "text": "Missing SPF Record: Domain 127.0.0.1 is missing an SPF (Sender Policy Framework) TXT record. Spammers can spoof email originating from this domain, damaging brand reputation."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "http://127.0.0.1:8099"
+                },
+                "region": {
+                  "startLine": 1
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "SENTINEL-ENCRYPTION-5373",
+          "level": "error",
+          "message": {
+            "text": "Missing DMARC Record: Domain 127.0.0.1 is missing a DMARC record. This increases vulnerability to email phishing, spoofing, and brand abuse."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "http://127.0.0.1:8099"
+                },
+                "region": {
+                  "startLine": 1
+                }
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

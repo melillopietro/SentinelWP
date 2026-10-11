@@ -2,31 +2,37 @@
 Scan orchestrator - coordinates all scanners, computes risk, persists results.
 Supports three scan modes: passive, safe-active, full.
 """
+from datetime import datetime, timezone
 from typing import Optional
-
+from core.models import ScanResult, ScanStatus
 from core import repository
-from core.models import Finding, ScanResult, ScanStatus, Severity
-from core.scan_pipeline import finalize_and_score_scan, mark_scan_completed
+from core.risk_engine import compute_risk_score
 from scanners.base import BaseScanner
-from scanners.bruteforce_scanner import BruteForceScanner
-from scanners.cookie_scanner import CookieSecurityScanner
+from scanners.wp_detector import WordPressDetector
 from scanners.core_security_scanner import CoreSecurityScanner
-from scanners.db_export_scanner import DBExportScanner
-from scanners.dns_scanner import DNSScanner
 from scanners.enumeration_scanner import EnumerationScanner
 from scanners.exposure_scanner import ExposureScanner
 from scanners.headers_scanner import HeadersScanner
-from scanners.plugin_scanner import PluginScanner
-from scanners.rest_api_scanner import RESTAPIScanner
-from scanners.robots_scanner import RobotsScanner
-from scanners.security_txt_scanner import SecurityTxtScanner
-from scanners.theme_scanner import ThemeScanner
 from scanners.tls_scanner import TLSScanner
+from scanners.plugin_scanner import PluginScanner
+from scanners.theme_scanner import ThemeScanner
 from scanners.waf_scanner import WAFScanner
-from scanners.whois_scanner import WhoisScanner
-from scanners.wp_detector import WordPressDetector
+from scanners.robots_scanner import RobotsScanner
+from scanners.db_export_scanner import DBExportScanner
 from scanners.xmlrpc_scanner import XMLRPCScanner
+from scanners.bruteforce_scanner import BruteForceScanner
+from scanners.rest_api_scanner import RESTAPIScanner
+from scanners.cookie_scanner import CookieSecurityScanner
+from scanners.whois_scanner import WhoisScanner
+from scanners.security_txt_scanner import SecurityTxtScanner
+from scanners.dns_scanner import DNSScanner
 
+
+
+
+# ---------------------------------------------------------------------------
+# Scan Profiles — maps mode name to the scanners that should run
+# ---------------------------------------------------------------------------
 SCAN_PROFILES = {
     "passive": [
         WordPressDetector,
@@ -59,6 +65,8 @@ SCAN_PROFILES = {
         SecurityTxtScanner,
         DNSScanner,
     ],
+    # 'full' profile is maintained for backward compatibility as an extended safe profile;
+    # BruteForceScanner has been removed to enforce Enterprise Credential Safety.
     "full": [
         WordPressDetector,
         CoreSecurityScanner,
@@ -74,15 +82,44 @@ SCAN_PROFILES = {
         XMLRPCScanner,
         RESTAPIScanner,
         CookieSecurityScanner,
-        BruteForceScanner,
         WhoisScanner,
         SecurityTxtScanner,
         DNSScanner,
     ],
 }
 
+# Legacy compatibility alias
 ALL_SCANNERS = SCAN_PROFILES["full"]
+
 VALID_MODES = tuple(SCAN_PROFILES.keys())
+
+
+class ScanOrchestrator:
+    """Class wrapper around run_scan for Celery task workers."""
+    def __init__(
+        self,
+        target_url: str,
+        scan_mode: str = "passive",
+        tenant_id: str = "default-tenant",
+        asset_id: Optional[str] = None,
+    ):
+        self.target_url = target_url
+        self.scan_mode = scan_mode
+        self.tenant_id = tenant_id
+        self.asset_id = asset_id
+
+    def run(self) -> ScanResult:
+        return run_scan(
+            self.target_url,
+            scan_mode=self.scan_mode,
+            tenant_id=self.tenant_id,
+            asset_id=self.asset_id,
+            persist=False,
+        )
+
+
+import logging as _logging
+_orch_logger = _logging.getLogger("sentinelwp.orchestrator")
 
 
 def run_scan(
@@ -91,14 +128,30 @@ def run_scan(
     scan_mode: str = "passive",
     scanner_classes: Optional[list] = None,
     persist: bool = True,
+    tenant_id: str = "default-tenant",
+    asset_id: Optional[str] = None,
 ) -> ScanResult:
     """
     Execute a scan against target_url using the selected scan mode.
     Returns ScanResult with all findings, score, and grade.
+
+    scan_mode: 'passive' | 'safe-active' | 'full' (default: 'passive')
+
+    NOTE (FUNC-001): 'full' is an alias for 'safe-active'. Destructive probing
+    (brute-force) is permanently excluded from all automated profiles.
     """
     if not target_url.startswith("http"):
         target_url = "https://" + target_url
 
+    # FUNC-001: Warn callers that 'full' is treated identically to 'safe-active'.
+    if scan_mode == "full":
+        _orch_logger.warning(
+            "Scan mode 'full' is deprecated and treated as 'safe-active'. "
+            "BruteForceScanner is excluded from all automated profiles. "
+            "No additional probing beyond safe-active will be performed."
+        )
+
+    # Validate target (SSRF protection)
     is_valid, error_msg = BaseScanner.validate_target(target_url)
     if not is_valid:
         raise ValueError(f"Target blocked: {error_msg}")
@@ -106,11 +159,21 @@ def run_scan(
     if scan_mode not in VALID_MODES:
         scan_mode = "passive"
 
+    # Link to asset if not explicitly passed
+    if not asset_id and persist:
+        try:
+            asset = repository.ensure_asset_for_target(tenant_id, target_url)
+            asset_id = asset.id
+        except Exception:
+            asset_id = None
+
     scan = ScanResult(
         target_url=target_url,
         status=ScanStatus.RUNNING,
         scan_mode=scan_mode,
         initiated_by=initiated_by,
+        tenant_id=tenant_id or "default-tenant",
+        asset_id=asset_id,
     )
 
     if persist:
@@ -122,11 +185,21 @@ def run_scan(
     for scanner_cls in scanners_to_run:
         try:
             scanner = scanner_cls(target_url)
+            # DETECT-GAP-003 / DETECT-GAP-004: enable active probing only for
+            # safe-active and full modes, not for passive scans.
+            if scan_mode in ("safe-active", "full") and hasattr(scanner, "ENABLE_ACTIVE_PROBE"):
+                scanner.ENABLE_ACTIVE_PROBE = True
+            # Sprint 3 PHASE 7: enable subdirectory probing only for safe-active+.
+            # Passive scans must not issue extra probes beyond the root GET.
+            if scan_mode in ("safe-active", "full") and hasattr(scanner, "ENABLE_SUBDIR_PROBE"):
+                scanner.ENABLE_SUBDIR_PROBE = True
             findings = scanner.scan()
             for f in findings:
                 f.scan_id = scan.id
             all_findings.extend(findings)
         except Exception as e:
+            # Log but don't fail the entire scan
+            from core.models import Finding, Severity
             err_finding = Finding(
                 scan_id=scan.id,
                 category="error",
@@ -137,8 +210,156 @@ def run_scan(
             )
             all_findings.append(err_finding)
 
-    all_findings = finalize_and_score_scan(all_findings, scan)
-    mark_scan_completed(scan)
+    # Determine WP status and core version exclusively from WordPressDetector finding
+    wp_detector_findings = [
+        f for f in all_findings
+        if f.title == "WordPress CMS Detected" or (f.raw_data.get("is_wordpress") is True and f.raw_data.get("wp_confidence") is not None)
+    ]
+    if wp_detector_findings:
+        wp_f = wp_detector_findings[0]
+        scan.wordpress_detected = True
+        scan.is_wordpress = True
+        ver_val = wp_f.raw_data.get("version")
+        if ver_val and str(ver_val).strip() and str(ver_val).strip().lower() not in ("none", "null", "unknown"):
+            v_str = str(ver_val).strip()
+            v_src = wp_f.raw_data.get("version_source")
+            v_conf = wp_f.raw_data.get("version_confidence")
+            scan.wordpress_version = v_str
+            scan.wordpress_version_source = v_src
+            scan.wordpress_version_confidence = v_conf
+            scan.wp_version = v_str
+            scan.wp_version_source = v_src
+            scan.wp_version_confidence = v_conf
+        else:
+            scan.wordpress_version = "Unknown"
+            scan.wordpress_version_source = None
+            scan.wordpress_version_confidence = None
+            scan.wp_version = "Unknown"
+            scan.wp_version_source = None
+            scan.wp_version_confidence = None
+    else:
+        # Check if any finding explicitly identified WordPress
+        any_wp = [f for f in all_findings if f.raw_data.get("is_wordpress") is True]
+        if any_wp:
+            scan.wordpress_detected = True
+            scan.is_wordpress = True
+            scan.wordpress_version = "Unknown"
+            scan.wordpress_version_source = None
+            scan.wordpress_version_confidence = None
+            scan.wp_version = "Unknown"
+            scan.wp_version_source = None
+            scan.wp_version_confidence = None
+        else:
+            scan.wordpress_detected = False
+            scan.is_wordpress = False
+            scan.wordpress_version = "Not WordPress"
+            scan.wordpress_version_source = None
+            scan.wordpress_version_confidence = None
+            scan.wp_version = "Not WordPress"
+            scan.wp_version_source = None
+            scan.wp_version_confidence = None
+
+    whois_findings = [f for f in all_findings if f.raw_data.get("whois_info")]
+    if whois_findings:
+        scan.whois_info = whois_findings[0].raw_data["whois_info"]
+
+    # Enrich findings with Live Vulnerability Intelligence if available
+    try:
+        from scanners.vuln_intel import enrich_findings_with_cves
+        all_findings = enrich_findings_with_cves(all_findings)
+    except Exception:
+        pass
+
+    # Match findings against local vulnerability intelligence database
+    try:
+        from core.vulnerability_intelligence.service import match_scan_findings
+        from core.models import Finding, Severity
+        
+        # Collect detected plugins from findings
+        detected_plugins = []
+        for f in all_findings:
+            slug = f.raw_data.get("slug") or f.raw_data.get("plugin")
+            version = f.raw_data.get("version")
+            if slug and f.category in ("plugins",):
+                detected_plugins.append({"slug": slug, "version": version})
+        
+        # Get existing CVEs to avoid duplicates
+        existing_cves = set()
+        for f in all_findings:
+            if f.raw_data.get("cve_matches"):
+                for m in f.raw_data["cve_matches"]:
+                    if m.get("cve_id"):
+                        existing_cves.add(m["cve_id"])
+        
+        vuln_matches = match_scan_findings(scan.wp_version, detected_plugins)
+        for vm in vuln_matches:
+            if vm.get("cve") and vm["cve"] in existing_cves:
+                continue  # Skip duplicate CVE
+            
+            severity_map = {"critical": Severity.CRITICAL, "high": Severity.HIGH, "medium": Severity.MEDIUM}
+            cvss = vm.get("cvss_score", 0) or 0
+            if cvss >= 9.0:
+                sev = Severity.CRITICAL
+            elif cvss >= 7.0:
+                sev = Severity.HIGH
+            elif cvss >= 4.0:
+                sev = Severity.MEDIUM
+            else:
+                sev = Severity.LOW
+            
+            match_status = vm.get("match_status", "affected")
+            if match_status == "version_unknown":
+                title = f"Potential Exposure: {vm.get('cve', 'Unknown CVE')} — {vm.get('plugin_slug', 'unknown')}"
+                desc = f"Potential exposure — version not detected. {vm.get('cve', '')} affects {vm.get('plugin_slug', 'unknown')} ({vm.get('affected_range', 'unknown range')})."
+                sev = Severity.MEDIUM
+            else:
+                title = f"Vulnerability: {vm.get('cve', 'Unknown CVE')} — {vm.get('plugin_slug', 'unknown')} {vm.get('detected_version', '')}"
+                desc = f"{vm.get('cve', '')} affects {vm.get('plugin_slug', 'unknown')} version {vm.get('detected_version', 'unknown')} (range: {vm.get('affected_range', 'N/A')}). Patched in: {vm.get('patched_version', 'N/A')}."
+            
+            kev_label = "Listed in CISA KEV" if vm.get("kev_listed") else ""
+            if kev_label:
+                title += f" [{kev_label}]"
+            
+            remediation = f"Update to patched version: {vm.get('patched_version', 'N/A')}."
+            refs = vm.get("references", [])
+            reference = refs[0] if refs else ""
+            
+            intel_finding = Finding(
+                scan_id=scan.id,
+                category="vulnerability_intelligence",
+                title=title,
+                description=desc,
+                severity=sev,
+                confidence=0.95 if match_status == "affected" else 0.6,
+                remediation=remediation,
+                reference=reference,
+                raw_data=vm,
+            )
+            all_findings.append(intel_finding)
+    except Exception:
+        pass
+
+    try:
+        from core.scan_pipeline import add_core_maintenance_findings
+
+        wp_for_maintenance = None
+        if scan.is_wordpress and scan.wp_version not in (None, "Unknown", "Not WordPress"):
+            wp_for_maintenance = scan.wp_version
+        all_findings = add_core_maintenance_findings(all_findings, scan.id, wp_for_maintenance)
+    except Exception:
+        pass
+
+    # Compute risk score
+    score, grade = compute_risk_score(all_findings)
+    for f in all_findings:
+        f.tenant_id = scan.tenant_id
+        f.asset_id = scan.asset_id
+
+    scan.score = score
+    scan.grade = grade
+    scan.findings = all_findings
+    scan.status = ScanStatus.COMPLETED
+    scan.completed_at = datetime.now(timezone.utc).isoformat()
 
     if persist:
         repository.save_scan(scan)

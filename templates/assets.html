@@ -1,0 +1,317 @@
+{% extends "base.html" %}
+{% block title %}Assets - SentinelWP Enterprise{% endblock %}
+{% block content %}
+<div class="workspace-header">
+    <div>
+        <h2>Asset Inventory &amp; Attack Surface</h2>
+        <p>Managed WordPress websites, organizational units, and data quality assurance.</p>
+    </div>
+    {% if session.get('role') in ('admin', 'analyst') %}
+    <div style="display:flex; gap:10px;">
+        <button type="button" onclick="document.getElementById('add-asset-modal').classList.add('show')" class="btn btn-primary btn-sm">
+            <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+            + Add New Asset
+        </button>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Workspace 2 Navigation Tabs -->
+<div class="workspace-tabs">
+    <a href="{{ url_for('assets', tab='inventory') }}" class="workspace-tab {% if active_tab == 'inventory' %}active{% endif %}">
+        <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>
+        All Assets
+        <span class="tab-badge">{{ assets | length }}</span>
+    </a>
+    <a href="{{ url_for('assets', tab='units') }}" class="workspace-tab {% if active_tab in ('bu', 'units') %}active{% endif %}">
+        <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>
+        Business Units
+        <span class="tab-badge">{{ business_units | length }}</span>
+    </a>
+    <a href="{{ url_for('assets', tab='quality') }}" class="workspace-tab {% if active_tab == 'quality' %}active{% endif %}">
+        <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+        Data Quality &amp; Confidence
+        {% if open_dq_issues %}<span class="tab-badge" style="background:rgba(239,68,68,0.2); color:var(--danger);">{{ open_dq_issues | length }} issues</span>{% endif %}
+    </a>
+</div>
+
+{% if active_tab in ('bu', 'units') %}
+<!-- TAB 2: BUSINESS UNITS -->
+<div style="background:var(--bg-card); border:1px solid var(--border); border-radius:var(--radius); padding:20px; margin-bottom:24px;">
+    <h3 style="font-size:16px; font-weight:600; margin-bottom:16px;">Organizational Business Units</h3>
+    {% if business_units %}
+    <div class="table-wrap">
+        <table>
+            <thead>
+                <tr>
+                    <th>Business Unit</th>
+                    <th>Code</th>
+                    <th>Criticality</th>
+                    <th>Lead Contact</th>
+                    <th>Created</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for bu in business_units %}
+                <tr>
+                    <td><strong>{{ bu.name }}</strong></td>
+                    <td style="font-family:monospace;">{{ bu.code }}</td>
+                    <td>
+                        <span class="badge {% if bu.criticality == 'critical' %}badge-critical{% elif bu.criticality == 'high' %}badge-high{% else %}badge-info{% endif %}">
+                            {{ bu.criticality }}
+                        </span>
+                    </td>
+                    <td style="color:var(--text-secondary);">{{ bu.lead_contact or 'Unassigned' }}</td>
+                    <td style="color:var(--text-muted); font-size:12px;">{{ bu.created_at[:10] if bu.created_at else '-' }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <p style="font-size:13px; color:var(--text-muted);">No Business Units configured.</p>
+    {% endif %}
+</div>
+
+{% elif active_tab == 'quality' %}
+<!-- TAB 3: DATA QUALITY & CONFIDENCE (CONSOLIDATING DATA_QUALITY_DASHBOARD) -->
+<div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap:16px; margin-bottom:24px;">
+    <div class="stat-card">
+        <div class="label">Open Issues</div>
+        <div class="value" style="color:var(--danger)">{{ open_dq_issues | length }}</div>
+    </div>
+    <div class="stat-card">
+        <div class="label">Resolved Issues</div>
+        <div class="value" style="color:var(--success)">{{ resolved_dq_issues | length }}</div>
+    </div>
+    <div class="stat-card">
+        <div class="label">Total Flagged Issues</div>
+        <div class="value">{{ (open_dq_issues | length) + (resolved_dq_issues | length) }}</div>
+    </div>
+</div>
+
+<div style="background:var(--bg-card); border:1px solid var(--border); border-radius:var(--radius); padding:20px;">
+    <h3 style="font-size:16px; font-weight:600; margin-bottom:16px;">Asset Data Quality Log</h3>
+    {% if open_dq_issues %}
+    <div class="table-wrap">
+        <table>
+            <thead>
+                <tr>
+                    <th>Asset ID</th>
+                    <th>Field</th>
+                    <th>Severity</th>
+                    <th>Issue Description</th>
+                    <th>Flagged At</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for issue in open_dq_issues %}
+                <tr>
+                    <td style="font-family:monospace;"><a href="{{ url_for('asset_detail', asset_id=issue.asset_id) }}">{{ issue.asset_id[:8] }}</a></td>
+                    <td><code>{{ issue.field_name }}</code></td>
+                    <td><span class="badge badge-warning">{{ issue.severity }}</span></td>
+                    <td>{{ issue.description }}</td>
+                    <td style="color:var(--text-muted); font-size:12px;">{{ issue.created_at[:16] if issue.created_at else '-' }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <p style="font-size:13px; color:var(--success); background:rgba(16,185,129,0.1); padding:16px; border-radius:var(--radius);">
+        ✓ No unresolved data quality issues detected across monitored assets.
+    </p>
+    {% endif %}
+</div>
+
+{% else %}
+<!-- TAB 1: ALL ASSETS (DEFAULT) -->
+<!-- Filters Card -->
+<div class="card" style="margin-bottom:24px; padding:16px; background:var(--bg-secondary); border:1px solid var(--border); border-radius:var(--radius);">
+    <form method="GET" action="{{ url_for('assets') }}" style="display:flex; flex-wrap:wrap; gap:12px; align-items:flex-end;">
+        <input type="hidden" name="tab" value="inventory"/>
+        <div style="flex:2; min-width:200px;">
+            <label style="display:block; font-size:12px; color:var(--text-muted); margin-bottom:4px;">Search Host / URL / Tag</label>
+            <input type="text" name="q" value="{{ filters.query or '' }}" placeholder="Filter by host, canonical URL, tag..." style="width:100%; padding:8px 12px; background:var(--bg-primary); border:1px solid var(--border); border-radius:var(--radius); color:var(--text-primary); font-size:13px;">
+        </div>
+        <div style="flex:1; min-width:140px;">
+            <label style="display:block; font-size:12px; color:var(--text-muted); margin-bottom:4px;">Environment</label>
+            <select name="environment" style="width:100%; padding:8px 12px; background:var(--bg-primary); border:1px solid var(--border); border-radius:var(--radius); color:var(--text-primary); font-size:13px;">
+                <option value="">All Environments</option>
+                <option value="production" {% if filters.environment == 'production' %}selected{% endif %}>Production</option>
+                <option value="staging" {% if filters.environment == 'staging' %}selected{% endif %}>Staging</option>
+                <option value="development" {% if filters.environment == 'development' %}selected{% endif %}>Development</option>
+                <option value="internal" {% if filters.environment == 'internal' %}selected{% endif %}>Internal</option>
+            </select>
+        </div>
+        <div style="flex:1; min-width:140px;">
+            <label style="display:block; font-size:12px; color:var(--text-muted); margin-bottom:4px;">Criticality</label>
+            <select name="criticality" style="width:100%; padding:8px 12px; background:var(--bg-primary); border:1px solid var(--border); border-radius:var(--radius); color:var(--text-primary); font-size:13px;">
+                <option value="">All Criticalities</option>
+                <option value="critical" {% if filters.criticality == 'critical' %}selected{% endif %}>Critical</option>
+                <option value="high" {% if filters.criticality == 'high' %}selected{% endif %}>High</option>
+                <option value="medium" {% if filters.criticality == 'medium' %}selected{% endif %}>Medium</option>
+                <option value="low" {% if filters.criticality == 'low' %}selected{% endif %}>Low</option>
+            </select>
+        </div>
+        <div style="flex:1; min-width:140px;">
+            <label style="display:block; font-size:12px; color:var(--text-muted); margin-bottom:4px;">Authorization</label>
+            <select name="authorization_status" style="width:100%; padding:8px 12px; background:var(--bg-primary); border:1px solid var(--border); border-radius:var(--radius); color:var(--text-primary); font-size:13px;">
+                <option value="">All Statuses</option>
+                <option value="authorized" {% if filters.authorization_status == 'authorized' %}selected{% endif %}>Authorized</option>
+                <option value="unauthorized" {% if filters.authorization_status == 'unauthorized' %}selected{% endif %}>Unauthorized</option>
+                <option value="pending" {% if filters.authorization_status == 'pending' %}selected{% endif %}>Pending</option>
+                <option value="expired" {% if filters.authorization_status == 'expired' %}selected{% endif %}>Expired</option>
+            </select>
+        </div>
+        <div style="display:flex; gap:8px;">
+            <button type="submit" class="btn btn-secondary btn-sm" style="height:35px; align-self:flex-end;">Filter</button>
+            <a href="{{ url_for('assets') }}" class="btn btn-secondary btn-sm" style="height:35px; align-self:flex-end;">Reset</a>
+        </div>
+    </form>
+</div>
+
+<!-- Assets Table -->
+{% if assets %}
+<div class="table-wrap">
+<table style="width:100%; border-collapse:collapse; font-size:13px;">
+    <thead>
+        <tr style="background:var(--bg-card); border-bottom:1px solid var(--border); text-align:left; color:var(--text-secondary);">
+            <th style="padding:12px 16px;">Target &amp; Canonical URL</th>
+            <th style="padding:12px 16px;">Environment</th>
+            <th style="padding:12px 16px;">Criticality</th>
+            <th style="padding:12px 16px;">Authorization</th>
+            <th style="padding:12px 16px;">Owners</th>
+            <th style="padding:12px 16px; text-align:right;">Actions</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for a in assets %}
+        <tr style="border-bottom:1px solid var(--border); transition:background 0.15s;">
+            <td style="padding:12px 16px;">
+                <div style="font-weight:600; color:var(--text-primary);">
+                    <a href="{{ url_for('asset_detail', asset_id=a.id) }}" style="color:inherit;">{{ a.display_name or a.hostname }}</a>
+                </div>
+                <div style="font-size:11px; color:var(--text-muted); font-family:monospace; margin-top:2px;">
+                    {{ a.canonical_url }}
+                </div>
+                {% if a.tags %}
+                <div style="margin-top:4px; display:flex; gap:4px; flex-wrap:wrap;">
+                    {% for tag in a.tags.split(',') %}
+                    <span style="font-size:10px; padding:1px 6px; border-radius:3px; background:rgba(255,255,255,0.06); color:var(--text-secondary);">{{ tag.strip() }}</span>
+                    {% endfor %}
+                </div>
+                {% endif %}
+            </td>
+            <td style="padding:12px 16px;">
+                <span style="font-size:11px; padding:3px 8px; border-radius:4px; text-transform:uppercase; font-weight:600;
+                    {% if a.environment == 'production' %}background:rgba(239,68,68,0.15); color:var(--danger); border:1px solid rgba(239,68,68,0.3);
+                    {% elif a.environment == 'staging' %}background:rgba(245,158,11,0.15); color:var(--warning); border:1px solid rgba(245,158,11,0.3);
+                    {% else %}background:rgba(59,130,246,0.15); color:var(--info); border:1px solid rgba(59,130,246,0.3);{% endif %}">
+                    {{ a.environment }}
+                </span>
+            </td>
+            <td style="padding:12px 16px;">
+                <span class="badge {% if a.criticality == 'critical' %}badge-critical{% elif a.criticality == 'high' %}badge-high{% elif a.criticality == 'medium' %}badge-medium{% else %}badge-low{% endif %}">
+                    {{ a.criticality }}
+                </span>
+            </td>
+            <td style="padding:12px 16px;">
+                {% if a.authorization_status == 'authorized' %}
+                <span style="font-size:11px; color:var(--success); font-weight:600; display:inline-flex; align-items:center; gap:4px;">
+                    <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                    Authorized
+                </span>
+                {% elif a.authorization_status == 'pending' %}
+                <span style="font-size:11px; color:var(--warning); font-weight:600;">Pending</span>
+                {% else %}
+                <span style="font-size:11px; color:var(--text-muted);">Unauthorized</span>
+                {% endif %}
+            </td>
+            <td style="padding:12px 16px; font-size:12px; color:var(--text-secondary);">
+                <div>Biz: {{ a.business_owner or '-' }}</div>
+                <div style="color:var(--text-muted);">Tech: {{ a.technical_owner or '-' }}</div>
+            </td>
+            <td style="padding:12px 16px; text-align:right;">
+                <div style="display:inline-flex; gap:6px;">
+                    <a href="{{ url_for('asset_detail', asset_id=a.id) }}" class="btn btn-secondary btn-sm">Details</a>
+                    {% if session.get('role') in ('admin', 'analyst') %}
+                    <form method="POST" action="{{ url_for('new_scan') }}" style="display:inline;">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                        <input type="hidden" name="target_url" value="{{ a.canonical_url }}"/>
+                        <input type="hidden" name="scan_mode" value="{% if a.authorization_status == 'authorized' %}safe-active{% else %}passive{% endif %}"/>
+                        <button type="submit" class="btn btn-secondary btn-sm" title="Quick scan this asset">Scan</button>
+                    </form>
+                    {% endif %}
+                </div>
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+</div>
+{% else %}
+<div style="background:var(--bg-card); border:1px solid var(--border); border-radius:var(--radius); padding:40px; text-align:center;">
+    <p style="color:var(--text-muted); margin-bottom:12px;">No assets match your search criteria.</p>
+    {% if session.get('role') in ('admin', 'analyst') %}
+    <button type="button" onclick="document.getElementById('add-asset-modal').classList.add('show')" class="btn btn-primary btn-sm">+ Add Asset</button>
+    {% endif %}
+</div>
+{% endif %}
+{% endif %}
+
+<!-- Add Asset Modal Dialog -->
+<div id="add-asset-modal" class="modal-backdrop">
+    <div class="modal-container">
+        <div class="modal-header">
+            <h3>Register New WordPress Asset</h3>
+            <button type="button" class="modal-close-btn" onclick="document.getElementById('add-asset-modal').classList.remove('show')">&times;</button>
+        </div>
+        <form method="POST" action="{{ url_for('create_asset') }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+            <div class="form-group">
+                <label>Target URL <span style="color:var(--danger)">*</span></label>
+                <input type="url" name="target_url" required placeholder="https://example.com" style="width:100%; padding:10px 14px; background:var(--bg-primary); border:1px solid var(--border); border-radius:var(--radius); color:var(--text-primary); font-size:14px;"/>
+            </div>
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:14px;">
+                <div class="form-group">
+                    <label>Environment</label>
+                    <select name="environment" style="width:100%; padding:10px 14px; background:var(--bg-primary); border:1px solid var(--border); border-radius:var(--radius); color:var(--text-primary); font-size:13px;">
+                        <option value="production">Production</option>
+                        <option value="staging">Staging</option>
+                        <option value="development">Development</option>
+                        <option value="internal">Internal</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Criticality</label>
+                    <select name="criticality" style="width:100%; padding:10px 14px; background:var(--bg-primary); border:1px solid var(--border); border-radius:var(--radius); color:var(--text-primary); font-size:13px;">
+                        <option value="critical">Critical</option>
+                        <option value="high">High</option>
+                        <option value="medium" selected>Medium</option>
+                        <option value="low">Low</option>
+                    </select>
+                </div>
+            </div>
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:14px;">
+                <div class="form-group">
+                    <label>Business Owner</label>
+                    <input type="text" name="business_owner" placeholder="e.g. Marketing Lead" style="width:100%; padding:8px 12px; background:var(--bg-primary); border:1px solid var(--border); border-radius:var(--radius); color:var(--text-primary); font-size:13px;"/>
+                </div>
+                <div class="form-group">
+                    <label>Technical Owner</label>
+                    <input type="text" name="technical_owner" placeholder="e.g. DevOps Engineer" style="width:100%; padding:8px 12px; background:var(--bg-primary); border:1px solid var(--border); border-radius:var(--radius); color:var(--text-primary); font-size:13px;"/>
+                </div>
+            </div>
+            <div class="form-group" style="margin-bottom:20px;">
+                <label>Tags (comma-separated)</label>
+                <input type="text" name="tags" placeholder="ecommerce, corporate-blog, customer-facing" style="width:100%; padding:8px 12px; background:var(--bg-primary); border:1px solid var(--border); border-radius:var(--radius); color:var(--text-primary); font-size:13px;"/>
+            </div>
+            <div style="display:flex; justify-content:flex-end; gap:10px;">
+                <button type="button" class="btn btn-secondary btn-sm" onclick="document.getElementById('add-asset-modal').classList.remove('show')">Cancel</button>
+                <button type="submit" class="btn btn-primary btn-sm">Register Asset</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

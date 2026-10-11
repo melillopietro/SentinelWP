@@ -8,9 +8,14 @@
     </div>
     <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:32px;">
         <form method="POST">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <div class="form-group">
                 <label>Username</label>
                 <input type="text" name="username" required autofocus placeholder="Enter username">
+            </div>
+            <div class="form-group">
+                <label>Organization slug <span style="color:var(--text-muted);font-weight:400;">(optional)</span></label>
+                <input type="text" name="tenant_slug" placeholder="Required only if your username exists in multiple organizations">
             </div>
             <div class="form-group">
                 <label>Password</label>
@@ -18,6 +23,12 @@
             </div>
             <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center;margin-top:8px;">Sign In</button>
         </form>
+        <div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--border);text-align:center;">
+            <a href="{{ url_for('oidc_login') }}" class="btn" style="width:100%;justify-content:center;background:var(--bg-secondary);border:1px solid var(--border);color:var(--text);">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:8px;"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+                Enterprise Single Sign-On (SSO)
+            </a>
+        </div>
     </div>
 </div>
 {% endblock %}

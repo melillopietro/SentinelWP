@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% block title %}Executive Exposure Portfolio Report — SentinelWP{% endblock %}
+
+{% block content %}
+<div class="page-header" style="margin-bottom:24px;">
+    <h2>Executive Exposure Portfolio Report</h2>
+    <p>High-level board-safe overview of corporate exposure, verified coverage, critical vulnerabilities, and remediation velocity.</p>
+</div>
+
+<div style="background:var(--bg-card); border:1px solid var(--border); border-radius:var(--radius); padding:24px; margin-bottom:24px;">
+    <h3 style="font-size:18px; font-weight:700; color:var(--text-primary); margin-bottom:8px;">Executive Summary</h3>
+    <p style="font-size:14px; line-height:1.6; color:var(--text-secondary); margin-bottom:16px;">
+        SentinelWP continuously governs the corporate attack surface across <strong>{{ metrics.assets }}</strong> known assets.
+        Currently, <strong>{{ metrics.verified_assets }}</strong> assets (<strong>{{ metrics.verification_coverage_pct }}%</strong>) have cryptographically verified domain ownership, while <strong>{{ metrics.internet_facing_assets }}</strong> assets are identified as internet-facing.
+    </p>
+    <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:16px; margin-top:16px;">
+        <div style="padding:16px; background:var(--bg-secondary); border-radius:var(--radius);">
+            <div style="font-size:12px; color:var(--text-muted); text-transform:uppercase;">Confirmed High/P1 Exposure</div>
+            <div style="font-size:24px; font-weight:700; color:var(--danger); margin-top:4px;">{{ metrics.open_p1 }}</div>
+        </div>
+        <div style="padding:16px; background:var(--bg-secondary); border-radius:var(--radius);">
+            <div style="font-size:12px; color:var(--text-muted); text-transform:uppercase;">Active CISA KEV Exposures</div>
+            <div style="font-size:24px; font-weight:700; color:var(--critical); margin-top:4px;">{{ metrics.open_kev }}</div>
+        </div>
+        <div style="padding:16px; background:var(--bg-secondary); border-radius:var(--radius);">
+            <div style="font-size:12px; color:var(--text-muted); text-transform:uppercase;">SLA Compliance Breaches</div>
+            <div style="font-size:24px; font-weight:700; color:var(--warning); margin-top:4px;">{{ metrics.sla_breaches }}</div>
+        </div>
+        <div style="padding:16px; background:var(--bg-secondary); border-radius:var(--radius);">
+            <div style="font-size:12px; color:var(--text-muted); text-transform:uppercase;">Accepted Risk Exceptions</div>
+            <div style="font-size:24px; font-weight:700; color:var(--info); margin-top:4px;">{{ metrics.risk_accepted }}</div>
+        </div>
+    </div>
+</div>
+
+<div style="display:grid; grid-template-columns:1fr 1fr; gap:20px; margin-bottom:24px;">
+    <div style="background:var(--bg-card); border:1px solid var(--border); border-radius:var(--radius); padding:20px;">
+        <h4 style="font-size:15px; font-weight:600; margin-bottom:12px;">Business Unit Distribution</h4>
+        {% if business_units %}
+        <ul style="list-style:none; display:flex; flex-direction:column; gap:10px; font-size:13px;">
+            {% for bu in business_units %}
+            <li style="display:flex; justify-content:space-between; padding-bottom:8px; border-bottom:1px solid var(--border);">
+                <span>{{ bu.name }} ({{ bu.code }})</span>
+                <span style="font-weight:600; text-transform:uppercase; color:var(--text-muted);">{{ bu.criticality }} criticality</span>
+            </li>
+            {% endfor %}
+        </ul>
+        {% else %}
+        <p style="font-size:13px; color:var(--text-muted);">No Business Units defined yet.</p>
+        {% endif %}
+    </div>
+
+    <div style="background:var(--bg-card); border:1px solid var(--border); border-radius:var(--radius); padding:20px;">
+        <h4 style="font-size:15px; font-weight:600; margin-bottom:12px;">Exposure Governance &amp; Data Quality</h4>
+        <p style="font-size:13px; color:var(--text-secondary); line-height:1.5;">
+            Enterprise governance requires that all assets have designated business and technical custodians, belong to a recognized organizational unit, and maintain verifiable evidence chains.
+        </p>
+        <div style="margin-top:12px; font-size:13px;">
+            <strong>Active Data Quality Flags:</strong> <span style="color:var(--warning); font-weight:700;">{{ dq_issues | length }}</span>
+        </div>
+    </div>
+</div>
+{% endblock %}

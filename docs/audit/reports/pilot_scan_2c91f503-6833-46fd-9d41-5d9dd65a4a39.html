@@ -1,0 +1,1205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>SentinelWP Enterprise Security Report - http://127.0.0.1:8099</title>
+<style>
+:root {
+    --bg: #0f172a;
+    --card-bg: #1e293b;
+    --text-main: #f8fafc;
+    --text-muted: #94a3b8;
+    --border: #334155;
+    --accent: #38bdf8;
+    --critical: #dc2626;
+    --high: #ea580c;
+    --medium: #d97706;
+    --low: #2563eb;
+    --info: #64748b;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; }
+body { background: var(--bg); color: var(--text-main); padding: 40px 20px; line-height: 1.6; }
+.container { max-width: 1200px; margin: 0 auto; }
+.header { border-bottom: 2px solid var(--border); padding-bottom: 20px; margin-bottom: 30px; display: flex; justify-content: space-between; align-items: flex-end; flex-wrap: wrap; gap: 16px; }
+.header h1 { font-size: 28px; font-weight: 700; color: #fff; letter-spacing: -0.5px; }
+.header .subtitle { color: var(--text-muted); font-size: 14px; margin-top: 4px; }
+.header .report-badge { background: rgba(56, 189, 248, 0.1); color: var(--accent); border: 1px solid var(--accent); padding: 6px 12px; border-radius: 6px; font-weight: 600; font-size: 13px; }
+
+.exec-summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-bottom: 32px; }
+.card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 10px; padding: 20px; text-align: center; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); }
+.card-val { font-size: 32px; font-weight: 800; color: #fff; margin-bottom: 4px; }
+.card-lbl { font-size: 12px; font-weight: 600; text-transform: uppercase; color: var(--text-muted); letter-spacing: 0.5px; }
+
+.matrix-card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 10px; padding: 20px; margin-bottom: 32px; }
+.matrix-title { font-size: 16px; font-weight: 600; margin-bottom: 16px; color: #fff; display: flex; align-items: center; justify-content: space-between; }
+.matrix-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; text-align: center; }
+.matrix-item { padding: 12px; border-radius: 8px; border: 1px solid var(--border); background: rgba(15, 23, 42, 0.5); }
+.matrix-item .count { font-size: 22px; font-weight: 700; }
+.matrix-item .label { font-size: 11px; text-transform: uppercase; margin-top: 4px; font-weight: 600; }
+
+.controls { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; flex-wrap: wrap; gap: 16px; }
+.filter-tabs { display: flex; gap: 8px; flex-wrap: wrap; }
+.tab-btn { background: var(--card-bg); border: 1px solid var(--border); color: var(--text-muted); padding: 8px 16px; border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.2s; }
+.tab-btn:hover, .tab-btn.active { background: var(--accent); color: #0f172a; border-color: var(--accent); }
+.search-input { background: var(--card-bg); border: 1px solid var(--border); color: #fff; padding: 8px 16px; border-radius: 6px; font-size: 13px; width: 280px; }
+
+.finding-card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 10px; padding: 20px; margin-bottom: 16px; transition: border-color 0.2s; }
+.finding-card:hover { border-color: #475569; }
+.finding-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; margin-bottom: 12px; flex-wrap: wrap; }
+.finding-title-group { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.badge-sev { color: #fff; font-size: 11px; font-weight: 700; padding: 4px 8px; border-radius: 4px; letter-spacing: 0.5px; }
+.finding-cat { background: #334155; color: #cbd5e1; font-size: 11px; padding: 4px 8px; border-radius: 4px; text-transform: uppercase; font-weight: 600; }
+.finding-title { font-size: 16px; font-weight: 600; color: #fff; }
+.badge-group { display: flex; gap: 6px; flex-wrap: wrap; }
+.badge { font-size: 11px; font-weight: 600; padding: 3px 8px; border-radius: 4px; }
+.badge-kev { background: rgba(220, 38, 38, 0.2); color: #f87171; border: 1px solid #dc2626; }
+.badge-cve { background: rgba(56, 189, 248, 0.15); color: #38bdf8; border: 1px solid #0284c7; }
+.badge-cvss { background: rgba(217, 119, 6, 0.2); color: #fbbf24; border: 1px solid #d97706; }
+.finding-meta { font-size: 12px; color: var(--text-muted); background: rgba(15, 23, 42, 0.6); padding: 8px 12px; border-radius: 6px; margin-bottom: 12px; border: 1px solid rgba(255,255,255,0.05); }
+.finding-body { font-size: 13px; color: #cbd5e1; }
+.finding-remediation { margin-top: 12px; background: rgba(15, 23, 42, 0.8); border-left: 3px solid var(--accent); padding: 10px 14px; border-radius: 0 6px 6px 0; font-size: 13px; }
+.finding-remediation strong { color: var(--accent); display: block; margin-bottom: 2px; font-size: 12px; }
+
+.footer { text-align: center; color: var(--text-muted); font-size: 12px; margin-top: 40px; padding-top: 20px; border-top: 1px solid var(--border); }
+
+@media print {
+    body { background: #fff; color: #000; padding: 0; }
+    .finding-card, .card, .matrix-card { background: #fff; color: #000; border: 1px solid #ccc; page-break-inside: avoid; }
+    .controls { display: none; }
+    .finding-title { color: #000; }
+}
+</style>
+</head>
+<body>
+<div class="container">
+    <div class="header">
+        <div>
+            <h1>SentinelWP Security Report</h1>
+            <div class="subtitle">Target: <strong>http://127.0.0.1:8099</strong> | Scan ID: <code>2c91f503</code> | Generated: 2026-10-11 06:40 UTC</div>
+        </div>
+        <div class="report-badge">Enterprise Edition v3.4</div>
+    </div>
+
+    <div class="exec-summary">
+        <div class="card">
+            <div class="card-val" style="color: #ef4444">85.3</div>
+            <div class="card-lbl">Risk Score (0-100)</div>
+        </div>
+        <div class="card">
+            <div class="card-val">F</div>
+            <div class="card-lbl">Security Grade</div>
+        </div>
+        <div class="card">
+            <div class="card-val">48</div>
+            <div class="card-lbl">Total Findings</div>
+        </div>
+        <div class="card">
+            <div class="card-val">Yes</div>
+            <div class="card-lbl">WordPress CMS</div>
+        </div>
+        <div class="card">
+            <div class="card-val" style="font-size: 20px; padding-top: 8px;">6.4.3</div>
+            <div class="card-lbl">Core Version</div>
+        </div>
+    </div>
+
+    <div class="matrix-card">
+        <div class="matrix-title">
+            <span>Severity Distribution Matrix</span>
+            <span style="font-size: 13px; font-weight: normal; color: var(--text-muted);">Active Scan Findings Breakdown</span>
+        </div>
+        <div class="matrix-grid">
+            <div class="matrix-item">
+                <div class="count" style="color: var(--critical)">1</div>
+                <div class="label" style="color: var(--critical)">Critical</div>
+            </div>
+            <div class="matrix-item">
+                <div class="count" style="color: var(--high)">6</div>
+                <div class="label" style="color: var(--high)">High</div>
+            </div>
+            <div class="matrix-item">
+                <div class="count" style="color: var(--medium)">10</div>
+                <div class="label" style="color: var(--medium)">Medium</div>
+            </div>
+            <div class="matrix-item">
+                <div class="count" style="color: var(--low)">28</div>
+                <div class="label" style="color: var(--low)">Low</div>
+            </div>
+            <div class="matrix-item">
+                <div class="count" style="color: var(--info)">3</div>
+                <div class="label" style="color: var(--info)">Info</div>
+            </div>
+        </div>
+    </div>
+
+    
+    <div style="background: rgba(239, 68, 68, 0.1); border: 1px solid #dc2626; border-radius: 10px; padding: 24px; margin-bottom: 32px;">
+        <h3 style="font-size: 16px; font-weight: 700; color: #ef4444; margin-bottom: 12px; text-transform: uppercase;">EXECUTIVE NARRATIVE: CRITICAL EXECUTIVE ATTENTION REQUIRED</h3>
+        <p style="font-size: 14px; color: var(--text-main); line-height: 1.7; margin-bottom: 16px;">The security assessment performed on target <b>http://127.0.0.1:8099</b> identified a <b>high risk exposure profile</b>. A total of <b>48 findings</b> were detected, including <b>1 Critical</b> and <b>6 High severity vulnerabilities</b>. Immediate emergency patch deployment and incident mitigation procedures are strongly recommended within a 48-hour SLA window to prevent unauthorized access, system compromise, or data exposure.</p>
+        <div style="font-size: 13px; color: var(--text-muted); border-top: 1px solid var(--border); padding-top: 14px;">
+            <strong style="color: #fff; text-transform: uppercase; font-size: 12px; letter-spacing: 0.5px;">PRIORITIZED REMEDIATION ACTION PLAN FOR DECISION-MAKERS &amp; TECHNICAL TEAMS:</strong>
+            <ul style="margin-left: 20px; margin-top: 8px; line-height: 1.8; color: var(--text-main);">
+                <li><b>PHASE 1 — Emergency Patching (0 - 48h SLA):</b> Remediate all vulnerabilities listed in CISA KEV or with Critical CVSS &ge; 9.0.</li><li><b>PHASE 2 — Hardening &amp; Upgrades (7 - 14 Days SLA):</b> Apply updates for High/Medium components and enforce HTTP security headers (CSP, HSTS, X-Frame-Options).</li><li><b>PHASE 3 — Continuous Intelligence &amp; Compliance (Ongoing SLA):</b> Maintain scheduled automated audits integrated with Wordfence and CISA KEV threat feeds.</li>
+            </ul>
+        </div>
+    </div>
+    
+
+    <div class="controls">
+        <div class="filter-tabs">
+            <button class="tab-btn active" onclick="filterSev('all', this)">All (48)</button>
+            <button class="tab-btn" onclick="filterSev('critical', this)">Critical (1)</button>
+            <button class="tab-btn" onclick="filterSev('high', this)">High (6)</button>
+            <button class="tab-btn" onclick="filterSev('medium', this)">Medium (10)</button>
+            <button class="tab-btn" onclick="filterSev('low', this)">Low (28)</button>
+            <button class="tab-btn" onclick="filterSev('info', this)">Info (3)</button>
+        </div>
+        <input type="text" class="search-input" id="searchInput" placeholder="Search findings..." onkeyup="searchFindings()"/>
+    </div>
+
+    <div id="findingsContainer">
+        
+        <div class="finding-card" data-severity="info">
+            <div class="finding-header">
+                <div class="finding-title-group">
+                    <span class="badge-sev" style="background:#64748b;">INFO</span>
+                    <span class="finding-cat">information_disclosure</span>
+                    <h3 class="finding-title">WordPress CMS Detected</h3>
+                </div>
+                <div class="badge-group">
+                      
+                </div>
+            </div>
+            
+            <div class="finding-body">
+                <p><strong>Description:</strong> WordPress detected at http://127.0.0.1:8099 (confidence: 100%) — Version: 6.4.3 (source: meta_generator, reliability: high)</p>
+                <div class="finding-remediation">
+                    <strong>Recommended Action / Remediation:</strong>
+                    <p>Remove version meta tags and generator references from page source.</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="finding-card" data-severity="medium">
+            <div class="finding-header">
+                <div class="finding-title-group">
+                    <span class="badge-sev" style="background:#d97706;">MEDIUM</span>
+                    <span class="finding-cat">information_disclosure</span>
+                    <h3 class="finding-title">WordPress Version Exposed: 6.4.3</h3>
+                </div>
+                <div class="badge-group">
+                      
+                </div>
+            </div>
+            
+            <div class="finding-body">
+                <p><strong>Description:</strong> WordPress version (6.4.3) is publicly visible. Source: meta_generator (reliability: high). This enables targeted exploit research.</p>
+                <div class="finding-remediation">
+                    <strong>Recommended Action / Remediation:</strong>
+                    <p>Remove the generator meta tag. Use security plugins to hide version info.</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="finding-card" data-severity="high">
+            <div class="finding-header">
+                <div class="finding-title-group">
+                    <span class="badge-sev" style="background:#ea580c;">HIGH</span>
+                    <span class="finding-cat">enumeration</span>
+                    <h3 class="finding-title">REST API WAF/Rewrite Bypass for User Enumeration (?rest_route=/wp/v2/users)</h3>
+                </div>
+                <div class="badge-group">
+                      
+                </div>
+            </div>
+            
+            <div class="finding-body">
+                <p><strong>Description:</strong> Path-based blocking on /wp-json/wp/v2/users was bypassed using the query parameter ?rest_route=/wp/v2/users. Disclosed 1 user account(s).</p>
+                <div class="finding-remediation">
+                    <strong>Recommended Action / Remediation:</strong>
+                    <p>Ensure WAF and rewrite rules inspect both URL paths and query parameters (?rest_route=). Disable the endpoint at application level using the rest_endpoints filter.</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="finding-card" data-severity="high">
+            <div class="finding-header">
+                <div class="finding-title-group">
+                    <span class="badge-sev" style="background:#ea580c;">HIGH</span>
+                    <span class="finding-cat">enumeration</span>
+                    <h3 class="finding-title">Author Archive User Enumeration</h3>
+                </div>
+                <div class="badge-group">
+                      
+                </div>
+            </div>
+            
+            <div class="finding-body">
+                <p><strong>Description:</strong> User enumeration via author archives or RSS feeds is possible. Identified 1 public author account(s).</p>
+                <div class="finding-remediation">
+                    <strong>Recommended Action / Remediation:</strong>
+                    <p>Disable author archives or redirect them. Add to .htaccess: RewriteCond %{QUERY_STRING} ^author= [NC] RewriteRule .* - [F,L]. Alternatively use a plugin to disable author enumeration.</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="finding-card" data-severity="low">
+            <div class="finding-header">
+                <div class="finding-title-group">
+                    <span class="badge-sev" style="background:#2563eb;">LOW</span>
+                    <span class="finding-cat">exposure</span>
+                    <h3 class="finding-title">wp-admin Publicly Accessible (Login Required)</h3>
+                </div>
+                <div class="badge-group">
+                      
+                </div>
+            </div>
+            
+            <div class="finding-body">
+                <p><strong>Description:</strong> The /wp-admin/ path is publicly reachable and redirects to login. Consider restricting access by IP or VPN.</p>
+                <div class="finding-remediation">
+                    <strong>Recommended Action / Remediation:</strong>
+                    <p>Restrict /wp-admin/ access via .htaccess IP whitelist, VPN requirement, or a WAF rule. Example: &lt;Files wp-login.php&gt; Order Deny,Allow Deny from all Allow from YOUR_IP &lt;/Files&gt;</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="finding-card" data-severity="low">
+            <div class="finding-header">
+                <div class="finding-title-group">
+                    <span class="badge-sev" style="background:#2563eb;">LOW</span>
+                    <span class="finding-cat">exposure</span>
+                    <h3 class="finding-title">install.php Accessible (Already Installed)</h3>
+                </div>
+                <div class="badge-group">
+                      
+                </div>
+            </div>
+            
+            <div class="finding-body">
+                <p><strong>Description:</strong> wp-admin/install.php is publicly accessible. While WordPress reports already installed, this endpoint should be blocked.</p>
+                <div class="finding-remediation">
+                    <strong>Recommended Action / Remediation:</strong>
+                    <p>Block access to install.php via .htaccess or server rules.</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="finding-card" data-severity="low">
+            <div class="finding-header">
+                <div class="finding-title-group">
+                    <span class="badge-sev" style="background:#2563eb;">LOW</span>
+                    <span class="finding-cat">information_disclosure</span>
+                    <h3 class="finding-title">WordPress readme.html Accessible</h3>
+                </div>
+                <div class="badge-group">
+                      
+                </div>
+            </div>
+            
+            <div class="finding-body">
+                <p><strong>Description:</strong> readme.html is publicly readable and confirms WordPress installation.</p>
+                <div class="finding-remediation">
+                    <strong>Recommended Action / Remediation:</strong>
+                    <p>Delete or block access to readme.html via server configuration.</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="finding-card" data-severity="low">
+            <div class="finding-header">
+                <div class="finding-title-group">
+                    <span class="badge-sev" style="background:#2563eb;">LOW</span>
+                    <span class="finding-cat">information_disclosure</span>
+                    <h3 class="finding-title">WordPress license.txt Accessible</h3>
+                </div>
+                <div class="badge-group">
+                      
+                </div>
+            </div>
+            
+            <div class="finding-body">
+                <p><strong>Description:</strong> license.txt is publicly readable and confirms WordPress installation. Version reference found: 2</p>
+                <div class="finding-remediation">
+                    <strong>Recommended Action / Remediation:</strong>
+                    <p>Delete or block access to license.txt via server configuration.</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="finding-card" data-severity="low">
+            <div class="finding-header">
+                <div class="finding-title-group">
+                    <span class="badge-sev" style="background:#2563eb;">LOW</span>
+                    <span class="finding-cat">exposure</span>
+                    <h3 class="finding-title">wp-cron.php Publicly Accessible</h3>
+                </div>
+                <div class="badge-group">
+                      
+                </div>
+            </div>
+            
+            <div class="finding-body">
+                <p><strong>Description:</strong> wp-cron.php is accessible. On high-traffic sites this can be used for DoS. It also reveals that WordPress is installed.</p>
+                <div class="finding-remediation">
+                    <strong>Recommended Action / Remediation:</strong>
+                    <p>Disable wp-cron via wp-config.php (define(&#x27;DISABLE_WP_CRON&#x27;, true)) and use a system cron job instead. Block public access via .htaccess.</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="finding-card" data-severity="high">
+            <div class="finding-header">
+                <div class="finding-title-group">
+                    <span class="badge-sev" style="background:#ea580c;">HIGH</span>
+                    <span class="finding-cat">headers</span>
+                    <h3 class="finding-title">Missing Security Header: Strict-Transport-Security</h3>
+                </div>
+                <div class="badge-group">
+                      
+                </div>
+            </div>
+            
+            <div class="finding-body">
+                <p><strong>Description:</strong> HSTS header missing. Browser may allow HTTP connections, enabling MITM attacks. (Note: this is a general hardening recommendation, not a WordPress-specific vulnerability.)</p>
+                <div class="finding-remediation">
+                    <strong>Recommended Action / Remediation:</strong>
+                    <p>Add header: Strict-Transport-Security: max-age=31536000; includeSubDomains; preload</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="finding-card" data-severity="medium">
+            <div class="finding-header">
+                <div class="finding-title-group">
+                    <span class="badge-sev" style="background:#d97706;">MEDIUM</span>
+                    <span class="finding-cat">headers</span>
+                    <h3 class="finding-title">Missing Security Header: Content-Security-Policy</h3>
+                </div>
+                <div class="badge-group">
+                      
+                </div>
+            </div>
+            
+            <div class="finding-body">
+                <p><strong>Description:</strong> CSP header missing. The site is more vulnerable to XSS and injection attacks. (Note: this is a general hardening recommendation, not a WordPress-specific vulnerability.)</p>
+                <div class="finding-remediation">
+                    <strong>Recommended Action / Remediation:</strong>
+                    <p>Implement a Content-Security-Policy header appropriate for your site.</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="finding-card" data-severity="medium">
+            <div class="finding-header">
+                <div class="finding-title-group">
+                    <span class="badge-sev" style="background:#d97706;">MEDIUM</span>
+                    <span class="finding-cat">headers</span>
+                    <h3 class="finding-title">Missing Security Header: X-Content-Type-Options</h3>
+                </div>
+                <div class="badge-group">
+                      
+                </div>
+            </div>
+            
+            <div class="finding-body">
+                <p><strong>Description:</strong> X-Content-Type-Options header missing. Browser may MIME-sniff responses. (Note: this is a general hardening recommendation, not a WordPress-specific vulnerability.)</p>
+                <div class="finding-remediation">
+                    <strong>Recommended Action / Remediation:</strong>
+                    <p>Add header: X-Content-Type-Options: nosniff</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="finding-card" data-severity="medium">
+            <div class="finding-header">
+                <div class="finding-title-group">
+                    <span class="badge-sev" style="background:#d97706;">MEDIUM</span>
+                    <span class="finding-cat">headers</span>
+                    <h3 class="finding-title">Missing Security Header: X-Frame-Options</h3>
+                </div>
+                <div class="badge-group">
+                      
+                </div>
+            </div>
+            
+            <div class="finding-body">
+                <p><strong>Description:</strong> X-Frame-Options header missing. The site may be vulnerable to clickjacking. (Note: this is a general hardening recommendation, not a WordPress-specific vulnerability.)</p>
+                <div class="finding-remediation">
+                    <strong>Recommended Action / Remediation:</strong>
+                    <p>Add header: X-Frame-Options: DENY (or SAMEORIGIN if framing is needed internally).</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="finding-card" data-severity="low">
+            <div class="finding-header">
+                <div class="finding-title-group">
+                    <span class="badge-sev" style="background:#2563eb;">LOW</span>
+                    <span class="finding-cat">headers</span>
+                    <h3 class="finding-title">Missing Security Header: Referrer-Policy</h3>
+                </div>
+                <div class="badge-group">
+                      
+                </div>
+            </div>
+            
+            <div class="finding-body">
+                <p><strong>Description:</strong> Referrer-Policy header missing. Full URL may be sent as referrer to third parties. (Note: this is a general hardening recommendation, not a WordPress-specific vulnerability.)</p>
+                <div class="finding-remediation">
+                    <strong>Recommended Action / Remediation:</strong>
+                    <p>Add header: Referrer-Policy: strict-origin-when-cross-origin</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="finding-card" data-severity="low">
+            <div class="finding-header">
+                <div class="finding-title-group">
+                    <span class="badge-sev" style="background:#2563eb;">LOW</span>
+                    <span class="finding-cat">headers</span>
+                    <h3 class="finding-title">Missing Security Header: Permissions-Policy</h3>
+                </div>
+                <div class="badge-group">
+                      
+                </div>
+            </div>
+            
+            <div class="finding-body">
+                <p><strong>Description:</strong> Permissions-Policy header missing. Browser features are not explicitly restricted. (Note: this is a general hardening recommendation, not a WordPress-specific vulnerability.)</p>
+                <div class="finding-remediation">
+                    <strong>Recommended Action / Remediation:</strong>
+                    <p>Add a Permissions-Policy header to restrict unnecessary browser features (camera, microphone, geolocation).</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="finding-card" data-severity="low">
+            <div class="finding-header">
+                <div class="finding-title-group">
+                    <span class="badge-sev" style="background:#2563eb;">LOW</span>
+                    <span class="finding-cat">headers</span>
+                    <h3 class="finding-title">Missing Security Header: X-XSS-Protection</h3>
+                </div>
+                <div class="badge-group">
+                      
+                </div>
+            </div>
+            
+            <div class="finding-body">
+                <p><strong>Description:</strong> X-XSS-Protection header missing (relevant for older browsers). (Note: this is a general hardening recommendation, not a WordPress-specific vulnerability.)</p>
+                <div class="finding-remediation">
+                    <strong>Recommended Action / Remediation:</strong>
+                    <p>Add header: X-XSS-Protection: 1; mode=block (or 0 if CSP is properly configured).</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="finding-card" data-severity="low">
+            <div class="finding-header">
+                <div class="finding-title-group">
+                    <span class="badge-sev" style="background:#2563eb;">LOW</span>
+                    <span class="finding-cat">headers</span>
+                    <h3 class="finding-title">Missing Security Header: Cross-Origin-Opener-Policy</h3>
+                </div>
+                <div class="badge-group">
+                      
+                </div>
+            </div>
+            
+            <div class="finding-body">
+                <p><strong>Description:</strong> Cross-Origin-Opener-Policy (COOP) header missing. Isolates top-level browsing context from cross-origin windows. (Note: this is a general hardening recommendation, not a WordPress-specific vulnerability.)</p>
+                <div class="finding-remediation">
+                    <strong>Recommended Action / Remediation:</strong>
+                    <p>Add header: Cross-Origin-Opener-Policy: same-origin</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="finding-card" data-severity="low">
+            <div class="finding-header">
+                <div class="finding-title-group">
+                    <span class="badge-sev" style="background:#2563eb;">LOW</span>
+                    <span class="finding-cat">headers</span>
+                    <h3 class="finding-title">Missing Security Header: Cross-Origin-Resource-Policy</h3>
+                </div>
+                <div class="badge-group">
+                      
+                </div>
+            </div>
+            
+            <div class="finding-body">
+                <p><strong>Description:</strong> Cross-Origin-Resource-Policy (CORP) header missing. Restricts cross-origin resource reading and embedding. (Note: this is a general hardening recommendation, not a WordPress-specific vulnerability.)</p>
+                <div class="finding-remediation">
+                    <strong>Recommended Action / Remediation:</strong>
+                    <p>Add header: Cross-Origin-Resource-Policy: same-origin (or same-site)</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="finding-card" data-severity="low">
+            <div class="finding-header">
+                <div class="finding-title-group">
+                    <span class="badge-sev" style="background:#2563eb;">LOW</span>
+                    <span class="finding-cat">headers</span>
+                    <h3 class="finding-title">Information Disclosure Header: Server</h3>
+                </div>
+                <div class="badge-group">
+                      
+                </div>
+            </div>
+            
+            <div class="finding-body">
+                <p><strong>Description:</strong> Server header exposes web server software and version. Value: Apache/2.4.57 (Debian)</p>
+                <div class="finding-remediation">
+                    <strong>Recommended Action / Remediation:</strong>
+                    <p>Remove or obfuscate the Server header in your web server configuration.</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="finding-card" data-severity="low">
+            <div class="finding-header">
+                <div class="finding-title-group">
+                    <span class="badge-sev" style="background:#2563eb;">LOW</span>
+                    <span class="finding-cat">headers</span>
+                    <h3 class="finding-title">Information Disclosure Header: X-Powered-By</h3>
+                </div>
+                <div class="badge-group">
+                      
+                </div>
+            </div>
+            
+            <div class="finding-body">
+                <p><strong>Description:</strong> X-Powered-By header exposes backend technology. Value: PHP/8.2.17</p>
+                <div class="finding-remediation">
+                    <strong>Recommended Action / Remediation:</strong>
+                    <p>Remove the X-Powered-By header. PHP: expose_php = Off in php.ini.</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="finding-card" data-severity="medium">
+            <div class="finding-header">
+                <div class="finding-title-group">
+                    <span class="badge-sev" style="background:#d97706;">MEDIUM</span>
+                    <span class="finding-cat">headers</span>
+                    <h3 class="finding-title">Server Banner Reveals Version Details</h3>
+                </div>
+                <div class="badge-group">
+                      
+                </div>
+            </div>
+            
+            <div class="finding-body">
+                <p><strong>Description:</strong> The Server header contains version information: &#x27;Apache/2.4.57 (Debian)&#x27;. This assists attackers in identifying exploitable software versions.</p>
+                <div class="finding-remediation">
+                    <strong>Recommended Action / Remediation:</strong>
+                    <p>Configure the web server to suppress version numbers. Apache: ServerTokens Prod. Nginx: server_tokens off;</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="finding-card" data-severity="critical">
+            <div class="finding-header">
+                <div class="finding-title-group">
+                    <span class="badge-sev" style="background:#dc2626;">CRITICAL</span>
+                    <span class="finding-cat">encryption</span>
+                    <h3 class="finding-title">Site Not Using HTTPS</h3>
+                </div>
+                <div class="badge-group">
+                      
+                </div>
+            </div>
+            
+            <div class="finding-body">
+                <p><strong>Description:</strong> The target URL uses HTTP instead of HTTPS. All traffic is unencrypted.</p>
+                <div class="finding-remediation">
+                    <strong>Recommended Action / Remediation:</strong>
+                    <p>Configure TLS/SSL certificate and redirect all HTTP traffic to HTTPS.</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="finding-card" data-severity="info">
+            <div class="finding-header">
+                <div class="finding-title-group">
+                    <span class="badge-sev" style="background:#64748b;">INFO</span>
+                    <span class="finding-cat">information_disclosure</span>
+                    <h3 class="finding-title">Theme Identified: twentytwentyfour</h3>
+                </div>
+                <div class="badge-group">
+                      
+                </div>
+            </div>
+            
+            <div class="finding-body">
+                <p><strong>Description:</strong> Active theme detected from page source: twentytwentyfour (version 1.0, confidence: high)</p>
+                <div class="finding-remediation">
+                    <strong>Recommended Action / Remediation:</strong>
+                    <p>Consider hiding theme paths with a security plugin.</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="finding-card" data-severity="low">
+            <div class="finding-header">
+                <div class="finding-title-group">
+                    <span class="badge-sev" style="background:#2563eb;">LOW</span>
+                    <span class="finding-cat">information_disclosure</span>
+                    <h3 class="finding-title">Default Theme Present: twentytwentyfour</h3>
+                </div>
+                <div class="badge-group">
+                      
+                </div>
+            </div>
+            <div class="finding-meta">Component: <strong> twentytwentyfour</strong></div>
+            <div class="finding-body">
+                <p><strong>Description:</strong> Default WordPress theme &#x27;twentytwentyfour&#x27; detected on server (version 1.0, confidence: high). Unused themes should be removed to reduce attack surface.</p>
+                <div class="finding-remediation">
+                    <strong>Recommended Action / Remediation:</strong>
+                    <p>Delete unused default theme &#x27;twentytwentyfour&#x27; from wp-content/themes/ if not in use.</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="finding-card" data-severity="low">
+            <div class="finding-header">
+                <div class="finding-title-group">
+                    <span class="badge-sev" style="background:#2563eb;">LOW</span>
+                    <span class="finding-cat">information_disclosure</span>
+                    <h3 class="finding-title">Default Theme Present: twentytwentythree</h3>
+                </div>
+                <div class="badge-group">
+                      
+                </div>
+            </div>
+            <div class="finding-meta">Component: <strong> twentytwentythree</strong></div>
+            <div class="finding-body">
+                <p><strong>Description:</strong> Default WordPress theme &#x27;twentytwentythree&#x27; detected on server (version 1.3, confidence: high). Unused themes should be removed to reduce attack surface.</p>
+                <div class="finding-remediation">
+                    <strong>Recommended Action / Remediation:</strong>
+                    <p>Delete unused default theme &#x27;twentytwentythree&#x27; from wp-content/themes/ if not in use.</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="finding-card" data-severity="low">
+            <div class="finding-header">
+                <div class="finding-title-group">
+                    <span class="badge-sev" style="background:#2563eb;">LOW</span>
+                    <span class="finding-cat">information_disclosure</span>
+                    <h3 class="finding-title">Default Theme Present: twentytwentytwo</h3>
+                </div>
+                <div class="badge-group">
+                      
+                </div>
+            </div>
+            <div class="finding-meta">Component: <strong> twentytwentytwo</strong></div>
+            <div class="finding-body">
+                <p><strong>Description:</strong> Default WordPress theme &#x27;twentytwentytwo&#x27; detected on server (version 1.6, confidence: high). Unused themes should be removed to reduce attack surface.</p>
+                <div class="finding-remediation">
+                    <strong>Recommended Action / Remediation:</strong>
+                    <p>Delete unused default theme &#x27;twentytwentytwo&#x27; from wp-content/themes/ if not in use.</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="finding-card" data-severity="low">
+            <div class="finding-header">
+                <div class="finding-title-group">
+                    <span class="badge-sev" style="background:#2563eb;">LOW</span>
+                    <span class="finding-cat">information_disclosure</span>
+                    <h3 class="finding-title">Default Theme Present: twentytwentyone</h3>
+                </div>
+                <div class="badge-group">
+                      
+                </div>
+            </div>
+            <div class="finding-meta">Component: <strong> twentytwentyone</strong></div>
+            <div class="finding-body">
+                <p><strong>Description:</strong> Default WordPress theme &#x27;twentytwentyone&#x27; detected on server. Unused themes should be removed to reduce attack surface.</p>
+                <div class="finding-remediation">
+                    <strong>Recommended Action / Remediation:</strong>
+                    <p>Delete unused default theme &#x27;twentytwentyone&#x27; from wp-content/themes/ if not in use.</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="finding-card" data-severity="low">
+            <div class="finding-header">
+                <div class="finding-title-group">
+                    <span class="badge-sev" style="background:#2563eb;">LOW</span>
+                    <span class="finding-cat">information_disclosure</span>
+                    <h3 class="finding-title">Default Theme Present: twentytwenty</h3>
+                </div>
+                <div class="badge-group">
+                      
+                </div>
+            </div>
+            <div class="finding-meta">Component: <strong> twentytwenty</strong></div>
+            <div class="finding-body">
+                <p><strong>Description:</strong> Default WordPress theme &#x27;twentytwenty&#x27; detected on server. Unused themes should be removed to reduce attack surface.</p>
+                <div class="finding-remediation">
+                    <strong>Recommended Action / Remediation:</strong>
+                    <p>Delete unused default theme &#x27;twentytwenty&#x27; from wp-content/themes/ if not in use.</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="finding-card" data-severity="low">
+            <div class="finding-header">
+                <div class="finding-title-group">
+                    <span class="badge-sev" style="background:#2563eb;">LOW</span>
+                    <span class="finding-cat">information_disclosure</span>
+                    <h3 class="finding-title">Default Theme Present: twentynineteen</h3>
+                </div>
+                <div class="badge-group">
+                      
+                </div>
+            </div>
+            <div class="finding-meta">Component: <strong> twentynineteen</strong></div>
+            <div class="finding-body">
+                <p><strong>Description:</strong> Default WordPress theme &#x27;twentynineteen&#x27; detected on server. Unused themes should be removed to reduce attack surface.</p>
+                <div class="finding-remediation">
+                    <strong>Recommended Action / Remediation:</strong>
+                    <p>Delete unused default theme &#x27;twentynineteen&#x27; from wp-content/themes/ if not in use.</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="finding-card" data-severity="low">
+            <div class="finding-header">
+                <div class="finding-title-group">
+                    <span class="badge-sev" style="background:#2563eb;">LOW</span>
+                    <span class="finding-cat">information_disclosure</span>
+                    <h3 class="finding-title">Default Theme Present: twentyeighteen</h3>
+                </div>
+                <div class="badge-group">
+                      
+                </div>
+            </div>
+            <div class="finding-meta">Component: <strong> twentyeighteen</strong></div>
+            <div class="finding-body">
+                <p><strong>Description:</strong> Default WordPress theme &#x27;twentyeighteen&#x27; detected on server. Unused themes should be removed to reduce attack surface.</p>
+                <div class="finding-remediation">
+                    <strong>Recommended Action / Remediation:</strong>
+                    <p>Delete unused default theme &#x27;twentyeighteen&#x27; from wp-content/themes/ if not in use.</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="finding-card" data-severity="low">
+            <div class="finding-header">
+                <div class="finding-title-group">
+                    <span class="badge-sev" style="background:#2563eb;">LOW</span>
+                    <span class="finding-cat">information_disclosure</span>
+                    <h3 class="finding-title">Default Theme Present: twentyseventeen</h3>
+                </div>
+                <div class="badge-group">
+                      
+                </div>
+            </div>
+            <div class="finding-meta">Component: <strong> twentyseventeen</strong></div>
+            <div class="finding-body">
+                <p><strong>Description:</strong> Default WordPress theme &#x27;twentyseventeen&#x27; detected on server. Unused themes should be removed to reduce attack surface.</p>
+                <div class="finding-remediation">
+                    <strong>Recommended Action / Remediation:</strong>
+                    <p>Delete unused default theme &#x27;twentyseventeen&#x27; from wp-content/themes/ if not in use.</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="finding-card" data-severity="low">
+            <div class="finding-header">
+                <div class="finding-title-group">
+                    <span class="badge-sev" style="background:#2563eb;">LOW</span>
+                    <span class="finding-cat">information_disclosure</span>
+                    <h3 class="finding-title">Default Theme Present: twentysixteen</h3>
+                </div>
+                <div class="badge-group">
+                      
+                </div>
+            </div>
+            <div class="finding-meta">Component: <strong> twentysixteen</strong></div>
+            <div class="finding-body">
+                <p><strong>Description:</strong> Default WordPress theme &#x27;twentysixteen&#x27; detected on server. Unused themes should be removed to reduce attack surface.</p>
+                <div class="finding-remediation">
+                    <strong>Recommended Action / Remediation:</strong>
+                    <p>Delete unused default theme &#x27;twentysixteen&#x27; from wp-content/themes/ if not in use.</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="finding-card" data-severity="low">
+            <div class="finding-header">
+                <div class="finding-title-group">
+                    <span class="badge-sev" style="background:#2563eb;">LOW</span>
+                    <span class="finding-cat">information_disclosure</span>
+                    <h3 class="finding-title">Default Theme Present: twentyfifteen</h3>
+                </div>
+                <div class="badge-group">
+                      
+                </div>
+            </div>
+            <div class="finding-meta">Component: <strong> twentyfifteen</strong></div>
+            <div class="finding-body">
+                <p><strong>Description:</strong> Default WordPress theme &#x27;twentyfifteen&#x27; detected on server. Unused themes should be removed to reduce attack surface.</p>
+                <div class="finding-remediation">
+                    <strong>Recommended Action / Remediation:</strong>
+                    <p>Delete unused default theme &#x27;twentyfifteen&#x27; from wp-content/themes/ if not in use.</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="finding-card" data-severity="low">
+            <div class="finding-header">
+                <div class="finding-title-group">
+                    <span class="badge-sev" style="background:#2563eb;">LOW</span>
+                    <span class="finding-cat">information_disclosure</span>
+                    <h3 class="finding-title">Default Theme Present: twentyfourteen</h3>
+                </div>
+                <div class="badge-group">
+                      
+                </div>
+            </div>
+            <div class="finding-meta">Component: <strong> twentyfourteen</strong></div>
+            <div class="finding-body">
+                <p><strong>Description:</strong> Default WordPress theme &#x27;twentyfourteen&#x27; detected on server. Unused themes should be removed to reduce attack surface.</p>
+                <div class="finding-remediation">
+                    <strong>Recommended Action / Remediation:</strong>
+                    <p>Delete unused default theme &#x27;twentyfourteen&#x27; from wp-content/themes/ if not in use.</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="finding-card" data-severity="low">
+            <div class="finding-header">
+                <div class="finding-title-group">
+                    <span class="badge-sev" style="background:#2563eb;">LOW</span>
+                    <span class="finding-cat">information_disclosure</span>
+                    <h3 class="finding-title">Default Theme Present: twentythirteen</h3>
+                </div>
+                <div class="badge-group">
+                      
+                </div>
+            </div>
+            <div class="finding-meta">Component: <strong> twentythirteen</strong></div>
+            <div class="finding-body">
+                <p><strong>Description:</strong> Default WordPress theme &#x27;twentythirteen&#x27; detected on server. Unused themes should be removed to reduce attack surface.</p>
+                <div class="finding-remediation">
+                    <strong>Recommended Action / Remediation:</strong>
+                    <p>Delete unused default theme &#x27;twentythirteen&#x27; from wp-content/themes/ if not in use.</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="finding-card" data-severity="low">
+            <div class="finding-header">
+                <div class="finding-title-group">
+                    <span class="badge-sev" style="background:#2563eb;">LOW</span>
+                    <span class="finding-cat">information_disclosure</span>
+                    <h3 class="finding-title">Default Theme Present: twentytwelve</h3>
+                </div>
+                <div class="badge-group">
+                      
+                </div>
+            </div>
+            <div class="finding-meta">Component: <strong> twentytwelve</strong></div>
+            <div class="finding-body">
+                <p><strong>Description:</strong> Default WordPress theme &#x27;twentytwelve&#x27; detected on server. Unused themes should be removed to reduce attack surface.</p>
+                <div class="finding-remediation">
+                    <strong>Recommended Action / Remediation:</strong>
+                    <p>Delete unused default theme &#x27;twentytwelve&#x27; from wp-content/themes/ if not in use.</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="finding-card" data-severity="medium">
+            <div class="finding-header">
+                <div class="finding-title-group">
+                    <span class="badge-sev" style="background:#d97706;">MEDIUM</span>
+                    <span class="finding-cat">configuration</span>
+                    <h3 class="finding-title">No WAF Detected</h3>
+                </div>
+                <div class="badge-group">
+                      
+                </div>
+            </div>
+            
+            <div class="finding-body">
+                <p><strong>Description:</strong> No Web Application Firewall was detected. The application may be directly exposed to attacks.</p>
+                <div class="finding-remediation">
+                    <strong>Recommended Action / Remediation:</strong>
+                    <p>Consider deploying a WAF (Cloudflare, Sucuri, AWS WAF, or ModSecurity).</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="finding-card" data-severity="high">
+            <div class="finding-header">
+                <div class="finding-title-group">
+                    <span class="badge-sev" style="background:#ea580c;">HIGH</span>
+                    <span class="finding-cat">authentication</span>
+                    <h3 class="finding-title">XML-RPC system.multicall Available</h3>
+                </div>
+                <div class="badge-group">
+                      
+                </div>
+            </div>
+            
+            <div class="finding-body">
+                <p><strong>Description:</strong> system.multicall is enabled, allowing attackers to attempt thousands of password guesses in a single HTTP request. Total methods available: 80.</p>
+                <div class="finding-remediation">
+                    <strong>Recommended Action / Remediation:</strong>
+                    <p>Disable XML-RPC or specifically block system.multicall. Use a security plugin to disable multicall or rate-limit attempts.</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="finding-card" data-severity="medium">
+            <div class="finding-header">
+                <div class="finding-title-group">
+                    <span class="badge-sev" style="background:#d97706;">MEDIUM</span>
+                    <span class="finding-cat">exposure</span>
+                    <h3 class="finding-title">XML-RPC Pingback Available (DDoS Vector)</h3>
+                </div>
+                <div class="badge-group">
+                      
+                </div>
+            </div>
+            
+            <div class="finding-body">
+                <p><strong>Description:</strong> pingback.ping method is available. This can be abused for DDoS amplification and internal port scanning (SSRF).</p>
+                <div class="finding-remediation">
+                    <strong>Recommended Action / Remediation:</strong>
+                    <p>Disable pingbacks: add_filter(&#x27;xmlrpc_methods&#x27;, function($methods) { unset($methods[&#x27;pingback.ping&#x27;]); return $methods; });</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="finding-card" data-severity="medium">
+            <div class="finding-header">
+                <div class="finding-title-group">
+                    <span class="badge-sev" style="background:#d97706;">MEDIUM</span>
+                    <span class="finding-cat">enumeration</span>
+                    <h3 class="finding-title">XML-RPC User Methods Available</h3>
+                </div>
+                <div class="badge-group">
+                      
+                </div>
+            </div>
+            
+            <div class="finding-body">
+                <p><strong>Description:</strong> User-related XML-RPC methods are available (wp.getUsersBlogs, wp.getUsers). These can be used for credential testing.</p>
+                <div class="finding-remediation">
+                    <strong>Recommended Action / Remediation:</strong>
+                    <p>Disable XML-RPC or restrict these methods via security plugin.</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="finding-card" data-severity="low">
+            <div class="finding-header">
+                <div class="finding-title-group">
+                    <span class="badge-sev" style="background:#2563eb;">LOW</span>
+                    <span class="finding-cat">information_disclosure</span>
+                    <h3 class="finding-title">XML-RPC Methods Enumerated: 80 methods</h3>
+                </div>
+                <div class="badge-group">
+                      
+                </div>
+            </div>
+            
+            <div class="finding-body">
+                <p><strong>Description:</strong> system.listMethods returned 80 available methods.</p>
+                <div class="finding-remediation">
+                    <strong>Recommended Action / Remediation:</strong>
+                    <p>Disable system.listMethods or restrict XML-RPC access entirely.</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="finding-card" data-severity="medium">
+            <div class="finding-header">
+                <div class="finding-title-group">
+                    <span class="badge-sev" style="background:#d97706;">MEDIUM</span>
+                    <span class="finding-cat">configuration</span>
+                    <h3 class="finding-title">Cookies Missing Secure Flag</h3>
+                </div>
+                <div class="badge-group">
+                      
+                </div>
+            </div>
+            
+            <div class="finding-body">
+                <p><strong>Description:</strong> The following cookie(s) are missing the &#x27;Secure&#x27; flag: wordpress_test_cookie. Cookies without the Secure flag can be transmitted over unencrypted HTTP connections, exposing sensitive data to interception via man-in-the-middle (MITM) attacks.</p>
+                <div class="finding-remediation">
+                    <strong>Recommended Action / Remediation:</strong>
+                    <p>Configure the server to include the &#x27;Secure&#x27; attribute for all Set-Cookie headers.</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="finding-card" data-severity="medium">
+            <div class="finding-header">
+                <div class="finding-title-group">
+                    <span class="badge-sev" style="background:#d97706;">MEDIUM</span>
+                    <span class="finding-cat">configuration</span>
+                    <h3 class="finding-title">Cookies Missing HttpOnly Flag</h3>
+                </div>
+                <div class="badge-group">
+                      
+                </div>
+            </div>
+            
+            <div class="finding-body">
+                <p><strong>Description:</strong> The following cookie(s) are missing the &#x27;HttpOnly&#x27; flag: wordpress_test_cookie. Cookies without HttpOnly can be accessed by client-side JavaScript, making them vulnerable to theft via Cross-Site Scripting (XSS) attacks.</p>
+                <div class="finding-remediation">
+                    <strong>Recommended Action / Remediation:</strong>
+                    <p>Set the &#x27;HttpOnly&#x27; attribute on all cookies, especially session cookies.</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="finding-card" data-severity="low">
+            <div class="finding-header">
+                <div class="finding-title-group">
+                    <span class="badge-sev" style="background:#2563eb;">LOW</span>
+                    <span class="finding-cat">configuration</span>
+                    <h3 class="finding-title">Cookies Missing SameSite Attribute</h3>
+                </div>
+                <div class="badge-group">
+                      
+                </div>
+            </div>
+            
+            <div class="finding-body">
+                <p><strong>Description:</strong> The following cookie(s) are missing the &#x27;SameSite&#x27; attribute: wordpress_test_cookie. Without SameSite, cookies may be included in cross-site requests, increasing vulnerability to Cross-Site Request Forgery (CSRF) attacks.</p>
+                <div class="finding-remediation">
+                    <strong>Recommended Action / Remediation:</strong>
+                    <p>Set the &#x27;SameSite&#x27; attribute (&#x27;Strict&#x27; or &#x27;Lax&#x27;) on all cookies.</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="finding-card" data-severity="info">
+            <div class="finding-header">
+                <div class="finding-title-group">
+                    <span class="badge-sev" style="background:#64748b;">INFO</span>
+                    <span class="finding-cat">information_disclosure</span>
+                    <h3 class="finding-title">WHOIS Information Retrieved</h3>
+                </div>
+                <div class="badge-group">
+                      
+                </div>
+            </div>
+            
+            <div class="finding-body">
+                <p><strong>Description:</strong> WHOIS lookup succeeded for 0.1. Registrar: Unknown | Expiration Date: Unknown.</p>
+                <div class="finding-remediation">
+                    <strong>Recommended Action / Remediation:</strong>
+                    <p>No remediation needed. Keep domain registration details updated.</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="finding-card" data-severity="low">
+            <div class="finding-header">
+                <div class="finding-title-group">
+                    <span class="badge-sev" style="background:#2563eb;">LOW</span>
+                    <span class="finding-cat">configuration</span>
+                    <h3 class="finding-title">Missing Security Policy File (security.txt)</h3>
+                </div>
+                <div class="badge-group">
+                      
+                </div>
+            </div>
+            
+            <div class="finding-body">
+                <p><strong>Description:</strong> No security policy file (security.txt) was found in /.well-known/security.txt or /security.txt. It is a best practice to publish contact info for vulnerability disclosure.</p>
+                <div class="finding-remediation">
+                    <strong>Recommended Action / Remediation:</strong>
+                    <p>Create a security.txt file adhering to RFC 9116 and place it in the /.well-known/ directory.</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="finding-card" data-severity="high">
+            <div class="finding-header">
+                <div class="finding-title-group">
+                    <span class="badge-sev" style="background:#ea580c;">HIGH</span>
+                    <span class="finding-cat">encryption</span>
+                    <h3 class="finding-title">Missing SPF Record</h3>
+                </div>
+                <div class="badge-group">
+                      
+                </div>
+            </div>
+            
+            <div class="finding-body">
+                <p><strong>Description:</strong> Domain 127.0.0.1 is missing an SPF (Sender Policy Framework) TXT record. Spammers can spoof email originating from this domain, damaging brand reputation.</p>
+                <div class="finding-remediation">
+                    <strong>Recommended Action / Remediation:</strong>
+                    <p>Create a TXT record for the domain with a valid SPF configuration (e.g., &#x27;v=spf1 include:_spf.example.com ~all&#x27;).</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="finding-card" data-severity="high">
+            <div class="finding-header">
+                <div class="finding-title-group">
+                    <span class="badge-sev" style="background:#ea580c;">HIGH</span>
+                    <span class="finding-cat">encryption</span>
+                    <h3 class="finding-title">Missing DMARC Record</h3>
+                </div>
+                <div class="badge-group">
+                      
+                </div>
+            </div>
+            
+            <div class="finding-body">
+                <p><strong>Description:</strong> Domain 127.0.0.1 is missing a DMARC record. This increases vulnerability to email phishing, spoofing, and brand abuse.</p>
+                <div class="finding-remediation">
+                    <strong>Recommended Action / Remediation:</strong>
+                    <p>Add a TXT record at _dmarc.yourdomain.com with policy settings, e.g., &#x27;v=DMARC1; p=quarantine; pct=100; rua=mailto:security@yourdomain.com&#x27;.</p>
+                </div>
+            </div>
+        </div>
+        
+    </div>
+
+    <div class="footer">
+        Generated by <strong>SentinelWP v3.6.0</strong> — Enterprise WordPress Vulnerability Intelligence &amp; Hardening Platform
+    </div>
+</div>
+
+<script>
+function filterSev(sev, btn) {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    
+    document.querySelectorAll('.finding-card').forEach(card => {
+        if (sev === 'all' || card.dataset.severity === sev) {
+            card.style.display = 'block';
+        } else {
+            card.style.display = 'none';
+        }
+    });
+}
+
+function searchFindings() {
+    const query = document.getElementById('searchInput').value.toLowerCase();
+    document.querySelectorAll('.finding-card').forEach(card => {
+        const text = card.dataset.search || '';
+        if (text.includes(query)) {
+            card.style.display = 'block';
+        } else {
+            card.style.display = 'none';
+        }
+    });
+}
+</script>
+</body>
+</html>

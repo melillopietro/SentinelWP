@@ -1,0 +1,329 @@
+{% extends "base.html" %}
+{% block title %}{{ finding.title }} - Finding 360 - SentinelWP{% endblock %}
+
+{% block content %}
+<div class="page-header" style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:20px;">
+    <div>
+        <div style="display:flex; align-items:center; gap:8px; margin-bottom:6px;">
+            <a href="{{ url_for('findings_list') }}" style="font-size:12px; color:var(--text-muted);">&larr; Back to Findings</a>
+            <span style="color:var(--text-muted);">/</span>
+            <span style="font-family:monospace; font-size:12px; color:var(--text-muted);">{{ finding.fingerprint[:12] }}</span>
+        </div>
+        <h1 style="font-size:22px; font-weight:700; color:var(--text-primary); margin:0;">{{ finding.title }}</h1>
+        <div style="display:flex; align-items:center; gap:10px; margin-top:8px;">
+            <span style="display:inline-flex; align-items:center; gap:6px; font-weight:700; font-size:12px; padding:3px 8px; border-radius:4px; 
+                {% if finding.priority_band == 'P1' %}background:rgba(239,68,68,0.2); color:#ef4444; border:1px solid rgba(239,68,68,0.4);
+                {% elif finding.priority_band == 'P2' %}background:rgba(249,115,22,0.2); color:#f97316; border:1px solid rgba(249,115,22,0.4);
+                {% elif finding.priority_band == 'P3' %}background:rgba(234,179,8,0.2); color:#eab308; border:1px solid rgba(234,179,8,0.4);
+                {% else %}background:rgba(100,116,139,0.2); color:#94a3b8; border:1px solid rgba(100,116,139,0.4);{% endif %}">
+                {{ finding.priority_band }} &bull; Score {{ finding.priority_score }}/100
+            </span>
+            <span style="display:inline-block; padding:3px 10px; border-radius:12px; font-size:11px; font-weight:700; text-transform:uppercase;
+                {% if finding.status in ('OPEN', 'REOPENED') %}background:rgba(239,68,68,0.15); color:#ef4444;
+                {% elif finding.status == 'IN_PROGRESS' %}background:rgba(59,130,246,0.15); color:#3b82f6;
+                {% elif finding.status in ('REMEDIATED', 'VERIFIED') %}background:rgba(16,185,129,0.15); color:#10b981;
+                {% elif finding.status == 'RISK_ACCEPTED' %}background:rgba(168,85,247,0.15); color:#a855f7;
+                {% else %}background:rgba(148,163,184,0.15); color:#94a3b8;{% endif %}">
+                Status: {{ finding.status }}
+            </span>
+            {% if finding.kev %}
+            <span style="background:#dc2626; color:#fff; font-size:11px; font-weight:700; padding:2px 6px; border-radius:4px;">CISA KEV EXPLOITED</span>
+            {% endif %}
+        </div>
+    </div>
+    <div style="display:flex; gap:8px;">
+        <form method="POST" action="{{ url_for('verify_finding', finding_id=finding.id) }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="btn btn-secondary btn-sm" onclick="return confirm('Dispatch verification scan job now?');">
+                &#x21bb; Trigger Verification Scan
+            </button>
+        </form>
+    </div>
+</div>
+
+<!-- Lifecycle Quick Actions Bar -->
+<div class="card" style="background:var(--bg-secondary); border:1px solid var(--border); border-radius:var(--radius); padding:14px 18px; margin-bottom:20px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
+    <div style="font-size:13px; font-weight:600; color:var(--text-secondary);">
+        Lifecycle State Transition:
+    </div>
+    <form method="POST" action="{{ url_for('transition_finding', finding_id=finding.id) }}" style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="expected_version" value="{{ finding.version }}">
+        <select name="new_status" style="padding:6px 10px; border-radius:var(--radius); background:var(--bg-card); border:1px solid var(--border); color:var(--text-primary); font-size:12px;">
+            <option value="">Select Target Status...</option>
+            <option value="ACKNOWLEDGED">Acknowledge</option>
+            <option value="IN_PROGRESS">In Progress</option>
+            <option value="REMEDIATED">Remediated</option>
+            <option value="VERIFICATION_PENDING">Request Verification</option>
+            <option value="VERIFIED">Verified</option>
+            <option value="FALSE_POSITIVE">False Positive</option>
+            <option value="CLOSED">Close</option>
+        </select>
+        <input type="text" name="comment" placeholder="Transition rationale / notes..." style="padding:6px 10px; border-radius:var(--radius); background:var(--bg-card); border:1px solid var(--border); color:var(--text-primary); font-size:12px; width:220px;">
+        <button type="submit" class="btn btn-primary btn-sm">Update Status</button>
+    </form>
+</div>
+
+<!-- Main 360 Grid -->
+<div style="display:grid; grid-template-columns:2fr 1fr; gap:20px; margin-bottom:24px;">
+    <!-- Left Column: Vulnerability & Governance -->
+    <div style="display:flex; flex-direction:column; gap:20px;">
+        <!-- Card 1: Details & Remediation Guidance -->
+        <div class="card" style="background:var(--bg-secondary); border:1px solid var(--border); border-radius:var(--radius); padding:20px;">
+            <h3 style="font-size:15px; font-weight:600; color:var(--text-primary); margin:0 0 12px;">Description &amp; Evidence</h3>
+            <p style="font-size:13px; line-height:1.6; color:var(--text-secondary); margin:0 0 16px;">
+                {{ finding.description }}
+            </p>
+            {% if finding.remediation %}
+            <div style="background:rgba(99,102,241,0.06); border-left:3px solid var(--accent); padding:12px 16px; border-radius:4px; margin-bottom:16px;">
+                <div style="font-weight:600; font-size:12px; color:var(--accent); margin-bottom:4px;">REMEDIATION GUIDANCE</div>
+                <div style="font-size:13px; color:var(--text-primary); line-height:1.5;">{{ finding.remediation }}</div>
+            </div>
+            {% endif %}
+            {% if finding.reference %}
+            <div style="font-size:12px; color:var(--text-muted);">
+                <strong>Reference:</strong> <a href="{{ finding.reference }}" target="_blank" rel="noopener noreferrer" style="color:var(--accent);">{{ finding.reference }}</a>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Card 2: Remediation Plan & Actions -->
+        <div class="card" style="background:var(--bg-secondary); border:1px solid var(--border); border-radius:var(--radius); padding:20px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+                <h3 style="font-size:15px; font-weight:600; color:var(--text-primary); margin:0;">Remediation Governance</h3>
+                {% if remediation %}
+                <span style="font-size:11px; padding:2px 8px; border-radius:10px; background:rgba(59,130,246,0.15); color:#3b82f6; font-weight:600;">
+                    Plan: {{ remediation.status }}
+                </span>
+                {% endif %}
+            </div>
+            {% if remediation %}
+            <div style="font-size:13px; color:var(--text-secondary); margin-bottom:12px;">
+                <strong>Owner:</strong> {{ remediation.owner_user_id or remediation.owner_external or 'Unassigned' }} | 
+                <strong>Target Due:</strong> {{ remediation.due_date or 'None' }}
+            </div>
+            <!-- Actions list -->
+            <div style="margin-top:10px;">
+                <div style="font-size:12px; font-weight:600; color:var(--text-muted); text-transform:uppercase; margin-bottom:8px;">Action Items Checklist</div>
+                {% for act in remediation_actions %}
+                <div style="display:flex; justify-content:space-between; align-items:center; padding:8px 12px; background:var(--bg-card); border:1px solid var(--border); border-radius:var(--radius); margin-bottom:6px; font-size:12px;">
+                    <div>
+                        <span style="font-weight:600; color:var(--text-primary);">[{{ act.action_type }}]</span> {{ act.description }}
+                        <span style="color:var(--text-muted); margin-left:6px;">(Owner: {{ act.owner or 'Team' }})</span>
+                    </div>
+                    <span style="font-size:11px; font-weight:600; color:{% if act.status == 'completed' %}#10b981{% else %}#f59e0b{% endif %};">
+                        {{ act.status }}
+                    </span>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <p style="font-size:12px; color:var(--text-muted); margin:0 0 12px;">No formal remediation plan recorded for this finding.</p>
+            <form method="POST" action="{{ url_for('create_remediation_plan', finding_id=finding.id) }}" style="display:flex; gap:8px;">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="text" name="owner" placeholder="Remediation owner (e.g. dev-team)" style="padding:6px 10px; border-radius:var(--radius); background:var(--bg-card); border:1px solid var(--border); color:var(--text-primary); font-size:12px; flex:1;">
+                <input type="date" name="due_date" style="padding:6px 10px; border-radius:var(--radius); background:var(--bg-card); border:1px solid var(--border); color:var(--text-primary); font-size:12px;">
+                <button type="submit" class="btn btn-secondary btn-sm">Create Plan</button>
+            </form>
+            {% endif %}
+        </div>
+
+        <!-- Card 3: Risk Acceptance Governance -->
+        <div class="card" style="background:var(--bg-secondary); border:1px solid var(--border); border-radius:var(--radius); padding:20px;">
+            <h3 style="font-size:15px; font-weight:600; color:var(--text-primary); margin:0 0 12px;">Risk Acceptance Governance</h3>
+            {% if risk_acceptance %}
+            <div style="padding:12px 16px; background:var(--bg-card); border:1px solid var(--border); border-radius:var(--radius); font-size:13px;">
+                <div style="display:flex; justify-content:space-between; margin-bottom:8px;">
+                    <div><strong>Status:</strong> <span style="font-weight:700; color:{% if risk_acceptance.status == 'APPROVED' %}#a855f7{% elif risk_acceptance.status == 'EXPIRED' %}#ef4444{% else %}#f59e0b{% endif %};">{{ risk_acceptance.status }}</span></div>
+                    <div><strong>Valid Until:</strong> {{ risk_acceptance.valid_until }}</div>
+                </div>
+                <div style="margin-bottom:6px;"><strong>Requested By:</strong> {{ risk_acceptance.requested_by }}</div>
+                {% if risk_acceptance.approved_by %}
+                <div style="margin-bottom:6px;"><strong>Approved By:</strong> {{ risk_acceptance.approved_by }}</div>
+                {% endif %}
+                <div style="margin-bottom:6px;"><strong>Reason:</strong> {{ risk_acceptance.reason }}</div>
+                <div><strong>Compensating Controls:</strong> {{ risk_acceptance.compensating_controls or 'None specified' }}</div>
+
+                {% if session.get('role') == 'admin' and risk_acceptance.status == 'PENDING' %}
+                <div style="margin-top:14px; padding-top:12px; border-top:1px solid var(--border); display:flex; gap:10px;">
+                    <form method="POST" action="{{ url_for('action_risk_acceptance', ra_id=risk_acceptance.id) }}">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <input type="hidden" name="action" value="approve">
+                        <button type="submit" class="btn btn-primary btn-sm" {% if session.get('user_id') == risk_acceptance.requested_by %}disabled title="Two-person rule: Cannot self-approve"{% endif %}>
+                            Approve Exception
+                        </button>
+                    </form>
+                    <form method="POST" action="{{ url_for('action_risk_acceptance', ra_id=risk_acceptance.id) }}">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <input type="hidden" name="action" value="reject">
+                        <button type="submit" class="btn btn-danger btn-sm">Reject</button>
+                    </form>
+                    {% if session.get('user_id') == risk_acceptance.requested_by %}
+                    <span style="font-size:11px; color:#ef4444; align-self:center;">Two-person rule: You cannot self-approve your own exception request.</span>
+                    {% endif %}
+                </div>
+                {% endif %}
+            </div>
+            {% else %}
+            <p style="font-size:12px; color:var(--text-muted); margin:0 0 12px;">No active risk exception on this vulnerability.</p>
+            <form method="POST" action="{{ url_for('request_risk_acceptance', finding_id=finding.id) }}" style="display:flex; flex-direction:column; gap:8px;">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="text" name="reason" placeholder="Business rationale / justification" required style="padding:6px 10px; border-radius:var(--radius); background:var(--bg-card); border:1px solid var(--border); color:var(--text-primary); font-size:12px;">
+                <input type="text" name="compensating_controls" placeholder="Compensating security controls (e.g. WAF virtual patch)" style="padding:6px 10px; border-radius:var(--radius); background:var(--bg-card); border:1px solid var(--border); color:var(--text-primary); font-size:12px;">
+                <div style="display:flex; gap:10px; align-items:center;">
+                    <label style="font-size:12px; color:var(--text-muted);">Exception Expiry Date:</label>
+                    <input type="date" name="valid_until" required style="padding:6px 10px; border-radius:var(--radius); background:var(--bg-card); border:1px solid var(--border); color:var(--text-primary); font-size:12px;">
+                    <button type="submit" class="btn btn-secondary btn-sm" style="margin-left:auto;">Submit Exception Request</button>
+                </div>
+            </form>
+            {% endif %}
+        </div>
+
+        <!-- Card 4: Comments & Collaboration -->
+        <div class="card" style="background:var(--bg-secondary); border:1px solid var(--border); border-radius:var(--radius); padding:20px;">
+            <h3 style="font-size:15px; font-weight:600; color:var(--text-primary); margin:0 0 14px;">Analyst Notes &amp; Comments</h3>
+            <div style="display:flex; flex-direction:column; gap:10px; margin-bottom:16px;">
+                {% if not comments %}
+                <div style="font-size:12px; color:var(--text-muted);">No comments yet.</div>
+                {% endif %}
+                {% for c in comments %}
+                <div style="padding:10px 14px; background:var(--bg-card); border:1px solid var(--border); border-radius:var(--radius);">
+                    <div style="display:flex; justify-content:space-between; margin-bottom:4px; font-size:11px;">
+                        <span style="font-weight:600; color:var(--accent);">{{ c.author_username or c.author_user_id }}</span>
+                        <span style="color:var(--text-muted);">{{ c.created_at[:16] }}</span>
+                    </div>
+                    <div style="font-size:13px; color:var(--text-primary); line-height:1.4;">{{ c.body }}</div>
+                </div>
+                {% endfor %}
+            </div>
+            <form method="POST" action="{{ url_for('add_finding_comment_route', finding_id=finding.id) }}" style="display:flex; gap:8px;">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="text" name="comment" placeholder="Add an engineering note or comment..." required style="flex:1; padding:8px 12px; border-radius:var(--radius); background:var(--bg-card); border:1px solid var(--border); color:var(--text-primary); font-size:13px;">
+                <button type="submit" class="btn btn-primary btn-sm">Post</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Right Column: Scores, SLA, Observations & Ticketing -->
+    <div style="display:flex; flex-direction:column; gap:20px;">
+        <!-- Prioritization Breakdown -->
+        <div class="card" style="background:var(--bg-secondary); border:1px solid var(--border); border-radius:var(--radius); padding:18px;">
+            <h4 style="font-size:13px; font-weight:700; text-transform:uppercase; color:var(--text-muted); margin:0 0 14px;">Prioritization Vectors</h4>
+            <div style="display:flex; flex-direction:column; gap:10px; font-size:13px;">
+                <div style="display:flex; justify-content:space-between;">
+                    <span style="color:var(--text-muted);">Priority Band</span>
+                    <span style="font-weight:700; color:var(--text-primary);">{{ finding.priority_band }}</span>
+                </div>
+                <div style="display:flex; justify-content:space-between;">
+                    <span style="color:var(--text-muted);">Risk Score</span>
+                    <span style="font-weight:700; color:var(--accent);">{{ finding.priority_score }} / 100</span>
+                </div>
+                <div style="display:flex; justify-content:space-between;">
+                    <span style="color:var(--text-muted);">CVSS Base</span>
+                    <span style="font-weight:600;">{{ finding.cvss_score if finding.cvss_score is not None else 'N/A' }}</span>
+                </div>
+                <div style="display:flex; justify-content:space-between;">
+                    <span style="color:var(--text-muted);">EPSS Exploit Prob.</span>
+                    <span style="font-weight:600;">{{ "%.1f%%"|format(finding.epss_score * 100) if finding.epss_score is not None else 'N/A' }}</span>
+                </div>
+                <div style="display:flex; justify-content:space-between;">
+                    <span style="color:var(--text-muted);">CISA KEV</span>
+                    <span style="font-weight:600; color:{% if finding.kev %}#ef4444{% else %}var(--text-muted){% endif %};">{{ 'YES' if finding.kev else 'No' }}</span>
+                </div>
+                <div style="display:flex; justify-content:space-between;">
+                    <span style="color:var(--text-muted);">Ransomware Tie</span>
+                    <span style="font-weight:600;">{{ finding.ransomware_relevance }}</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- SLA Status Card -->
+        <div class="card" style="background:var(--bg-secondary); border:1px solid var(--border); border-radius:var(--radius); padding:18px;">
+            <h4 style="font-size:13px; font-weight:700; text-transform:uppercase; color:var(--text-muted); margin:0 0 14px;">SLA Governance</h4>
+            <div style="display:flex; flex-direction:column; gap:8px; font-size:13px;">
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <span style="color:var(--text-muted);">Status</span>
+                    <span style="font-weight:700; 
+                        {% if finding.sla_status == 'BREACHED' %}color:#ef4444;
+                        {% elif finding.sla_status == 'WARNING' %}color:#f59e0b;
+                        {% elif finding.sla_status == 'ON_TRACK' %}color:#10b981;
+                        {% elif finding.sla_status == 'PAUSED' %}color:#a855f7;
+                        {% else %}color:var(--text-muted);{% endif %}">
+                        {{ finding.sla_status }}
+                    </span>
+                </div>
+                <div style="display:flex; justify-content:space-between;">
+                    <span style="color:var(--text-muted);">Due Deadline</span>
+                    <span style="font-weight:600;">{{ finding.sla_due_at[:16] if finding.sla_due_at else 'N/A' }}</span>
+                </div>
+                {% if finding.sla_paused_at %}
+                <div style="font-size:11px; color:#a855f7; margin-top:4px;">
+                    Paused on {{ finding.sla_paused_at[:10] }}: {{ finding.sla_pause_reason }}
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- External Tickets -->
+        <div class="card" style="background:var(--bg-secondary); border:1px solid var(--border); border-radius:var(--radius); padding:18px;">
+            <h4 style="font-size:13px; font-weight:700; text-transform:uppercase; color:var(--text-muted); margin:0 0 12px;">Ticketing Integration</h4>
+            {% if tickets %}
+            {% for t in tickets %}
+            <div style="padding:8px 12px; background:var(--bg-card); border:1px solid var(--border); border-radius:var(--radius); margin-bottom:6px; font-size:12px; display:flex; justify-content:space-between; align-items:center;">
+                <div>
+                    <a href="{{ t.external_url }}" target="_blank" rel="noopener noreferrer" style="font-weight:600; color:var(--accent);">{{ t.external_ticket_id }}</a>
+                    <div style="font-size:10px; color:var(--text-muted);">Synced: {{ t.last_sync_at[:16] if t.last_sync_at else 'Never' }}</div>
+                </div>
+                <span style="font-weight:600; font-size:11px;">{{ t.status }}</span>
+            </div>
+            {% endfor %}
+            {% else %}
+            <p style="font-size:12px; color:var(--text-muted); margin:0 0 10px;">No external tickets linked.</p>
+            <form method="POST" action="{{ url_for('create_ticket_route', finding_id=finding.id) }}" style="display:flex; gap:6px;">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <select name="integration_type" style="padding:4px 8px; border-radius:var(--radius); background:var(--bg-card); border:1px solid var(--border); color:var(--text-primary); font-size:12px; flex:1;">
+                    <option value="jira">Jira Cloud / Server</option>
+                    <option value="servicenow">ServiceNow Incident</option>
+                </select>
+                <button type="submit" class="btn btn-secondary btn-sm">Create Ticket</button>
+            </form>
+            {% endif %}
+        </div>
+
+        <!-- Observation History -->
+        <div class="card" style="background:var(--bg-secondary); border:1px solid var(--border); border-radius:var(--radius); padding:18px;">
+            <h4 style="font-size:13px; font-weight:700; text-transform:uppercase; color:var(--text-muted); margin:0 0 12px;">Scan Observations ({{ observations|length }})</h4>
+            <div style="max-height:180px; overflow-y:auto; display:flex; flex-direction:column; gap:6px;">
+                {% for o in observations %}
+                <div style="font-size:11px; padding:6px 10px; background:var(--bg-card); border:1px solid var(--border); border-radius:4px; display:flex; justify-content:space-between;">
+                    <span>{{ o.observed_at[:16] }}</span>
+                    <a href="{{ url_for('scan_detail', scan_id=o.scan_id) }}" style="color:var(--accent); font-family:monospace;">Scan #{{ o.scan_id[:8] }}</a>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- Immutable Audit & State Machine History -->
+        <div class="card" style="background:var(--bg-secondary); border:1px solid var(--border); border-radius:var(--radius); padding:18px;">
+            <h4 style="font-size:13px; font-weight:700; text-transform:uppercase; color:var(--text-muted); margin:0 0 12px;">Transition Audit History</h4>
+            <div style="max-height:220px; overflow-y:auto; display:flex; flex-direction:column; gap:8px;">
+                {% for h in history %}
+                <div style="font-size:11px; padding:8px 10px; background:var(--bg-card); border-left:2px solid var(--accent); border-radius:2px;">
+                    <div style="display:flex; justify-content:space-between; margin-bottom:2px;">
+                        <strong style="color:var(--text-primary);">{{ h.action }}</strong>
+                        <span style="color:var(--text-muted);">{{ h.created_at[:16] }}</span>
+                    </div>
+                    {% if h.old_status and h.new_status %}
+                    <div style="color:var(--text-secondary); margin-bottom:2px;">{{ h.old_status }} &rarr; {{ h.new_status }}</div>
+                    {% endif %}
+                    {% if h.comment %}
+                    <div style="color:var(--text-muted); font-style:italic;">"{{ h.comment }}"</div>
+                    {% endif %}
+                    <div style="color:var(--text-muted); font-size:10px; margin-top:2px;">Actor: {{ h.actor_user_id }}</div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
