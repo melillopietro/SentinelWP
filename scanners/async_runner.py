@@ -7,8 +7,7 @@ from datetime import datetime, timezone
 from typing import Dict, Any, Optional
 from core.models import ScanResult, ScanStatus
 from core import repository
-from core.scan_pipeline import finalize_and_score_scan, mark_scan_completed
-from core.models import Finding, Severity
+from core.risk_engine import compute_risk_score
 from scanners.base import BaseScanner
 from scanners.orchestrator import SCAN_PROFILES
 
@@ -43,7 +42,7 @@ def get_scan_progress(scan_id: str) -> Dict[str, Any]:
 
 
 def _update_progress(scan_id: str, current_step: str, step_num: int, total_steps: int, status: str = "running"):
-    """Update progress tracking dictionary."""
+    """Update progress tracking dictionary and persist to ScanJob entity."""
     progress_pct = int((step_num / max(1, total_steps)) * 100)
     with _lock:
         _scan_progress[scan_id] = {
@@ -54,6 +53,16 @@ def _update_progress(scan_id: str, current_step: str, step_num: int, total_steps
             "step_num": step_num,
             "total_steps": total_steps,
         }
+    try:
+        job = repository.get_scan_job_by_scan_id(scan_id)
+        if job:
+            repository.update_scan_job_progress(job.id, min(100, progress_pct), current_step)
+            if status == "completed":
+                repository.mark_scan_job_status(job.id, "completed")
+            elif status == "failed":
+                repository.mark_scan_job_status(job.id, "failed")
+    except Exception:
+        pass
 
 
 def _execute_async_scan(scan_id: str, target_url: str, initiated_by: str, scan_mode: str):
@@ -74,6 +83,7 @@ def _execute_async_scan(scan_id: str, target_url: str, initiated_by: str, scan_m
                 f.scan_id = scan_id
             all_findings.extend(findings)
         except Exception as e:
+            from core.models import Finding, Severity
             err_finding = Finding(
                 scan_id=scan_id,
                 category="error",
@@ -84,10 +94,150 @@ def _execute_async_scan(scan_id: str, target_url: str, initiated_by: str, scan_m
             )
             all_findings.append(err_finding)
 
+    # Enrich findings with Live Vulnerability Intelligence if available
+    try:
+        from scanners.vuln_intel import enrich_findings_with_cves
+        all_findings = enrich_findings_with_cves(all_findings)
+    except Exception:
+        pass
+
+    # Match findings against local vulnerability intelligence database
+    try:
+        from core.vulnerability_intelligence.service import match_scan_findings
+        from core.models import Finding, Severity
+        
+        # Collect detected plugins from findings
+        detected_plugins = []
+        for f in all_findings:
+            slug = f.raw_data.get("slug") or f.raw_data.get("plugin")
+            version = f.raw_data.get("version")
+            if slug and f.category in ("plugins",):
+                detected_plugins.append({"slug": slug, "version": version})
+        
+        # Get existing CVEs to avoid duplicates
+        existing_cves = set()
+        for f in all_findings:
+            if f.raw_data.get("cve_matches"):
+                for m in f.raw_data["cve_matches"]:
+                    if m.get("cve_id"):
+                        existing_cves.add(m["cve_id"])
+        
+        # Determine WP version
+        wp_ver_f = [f for f in all_findings if f.raw_data.get("version")]
+        wp_ver = wp_ver_f[0].raw_data["version"] if wp_ver_f else None
+        
+        vuln_matches = match_scan_findings(wp_ver, detected_plugins)
+        for vm in vuln_matches:
+            if vm.get("cve") and vm["cve"] in existing_cves:
+                continue  # Skip duplicate CVE
+            
+            severity_map = {"critical": Severity.CRITICAL, "high": Severity.HIGH, "medium": Severity.MEDIUM}
+            cvss = vm.get("cvss_score", 0) or 0
+            if cvss >= 9.0:
+                sev = Severity.CRITICAL
+            elif cvss >= 7.0:
+                sev = Severity.HIGH
+            elif cvss >= 4.0:
+                sev = Severity.MEDIUM
+            else:
+                sev = Severity.LOW
+            
+            match_status = vm.get("match_status", "affected")
+            if match_status == "version_unknown":
+                title = f"Potential Exposure: {vm.get('cve', 'Unknown CVE')} — {vm.get('plugin_slug', 'unknown')}"
+                desc = f"Potential exposure — version not detected. {vm.get('cve', '')} affects {vm.get('plugin_slug', 'unknown')} ({vm.get('affected_range', 'unknown range')})."
+                sev = Severity.MEDIUM
+            else:
+                title = f"Vulnerability: {vm.get('cve', 'Unknown CVE')} — {vm.get('plugin_slug', 'unknown')} {vm.get('detected_version', '')}"
+                desc = f"{vm.get('cve', '')} affects {vm.get('plugin_slug', 'unknown')} version {vm.get('detected_version', 'unknown')} (range: {vm.get('affected_range', 'N/A')}). Patched in: {vm.get('patched_version', 'N/A')}."
+            
+            kev_label = "Listed in CISA KEV" if vm.get("kev_listed") else ""
+            if kev_label:
+                title += f" [{kev_label}]"
+            
+            remediation = f"Update to patched version: {vm.get('patched_version', 'N/A')}."
+            refs = vm.get("references", [])
+            reference = refs[0] if refs else ""
+            
+            intel_finding = Finding(
+                scan_id=scan_id,
+                category="vulnerability_intelligence",
+                title=title,
+                description=desc,
+                severity=sev,
+                confidence=0.95 if match_status == "affected" else 0.6,
+                remediation=remediation,
+                reference=reference,
+                raw_data=vm,
+            )
+            all_findings.append(intel_finding)
+    except Exception:
+        pass
+
+    try:
+        from core.scan_pipeline import add_core_maintenance_findings
+        from core.wordpress_version import extract_wordpress_version
+
+        wp_for_maintenance = extract_wordpress_version(all_findings)
+        all_findings = add_core_maintenance_findings(all_findings, scan_id, wp_for_maintenance)
+    except Exception:
+        pass
+
+    # Complete scan
+    score, grade = compute_risk_score(all_findings)
+    wp_detector_findings = [
+        f for f in all_findings
+        if f.title == "WordPress CMS Detected" or (f.raw_data.get("is_wordpress") is True and f.raw_data.get("wp_confidence") is not None)
+    ]
+    if wp_detector_findings:
+        wp_f = wp_detector_findings[0]
+        is_wp = True
+        ver_val = wp_f.raw_data.get("version")
+        if ver_val and str(ver_val).strip() and str(ver_val).strip().lower() not in ("none", "null", "unknown"):
+            wp_ver = str(ver_val).strip()
+            wp_ver_src = wp_f.raw_data.get("version_source")
+            wp_ver_conf = wp_f.raw_data.get("version_confidence")
+        else:
+            wp_ver = "Unknown"
+            wp_ver_src = None
+            wp_ver_conf = None
+    else:
+        any_wp = [f for f in all_findings if f.raw_data.get("is_wordpress") is True]
+        if any_wp:
+            is_wp = True
+            wp_ver = "Unknown"
+            wp_ver_src = None
+            wp_ver_conf = None
+        else:
+            is_wp = False
+            wp_ver = "Not WordPress"
+            wp_ver_src = None
+            wp_ver_conf = None
+
+    whois_findings = [f for f in all_findings if f.raw_data.get("whois_info")]
+    whois_info = whois_findings[0].raw_data["whois_info"] if whois_findings else None
+
+    # Load scan record and update
     scan = repository.get_scan(scan_id)
     if scan:
-        all_findings = finalize_and_score_scan(all_findings, scan)
-        mark_scan_completed(scan)
+        for f in all_findings:
+            f.tenant_id = scan.tenant_id
+            f.asset_id = scan.asset_id
+
+        scan.status = ScanStatus.COMPLETED
+        scan.score = score
+        scan.grade = grade
+        scan.wordpress_detected = is_wp
+        scan.wordpress_version = wp_ver
+        scan.wordpress_version_source = wp_ver_src
+        scan.wordpress_version_confidence = wp_ver_conf
+        scan.is_wordpress = is_wp
+        scan.wp_version = wp_ver
+        scan.wp_version_source = wp_ver_src
+        scan.wp_version_confidence = wp_ver_conf
+        scan.whois_info = whois_info
+        scan.completed_at = datetime.now(timezone.utc).isoformat()
+        scan.findings = all_findings
         repository.save_scan(scan)
         repository.save_findings_bulk(all_findings)
 
@@ -101,7 +251,14 @@ def _execute_async_scan(scan_id: str, target_url: str, initiated_by: str, scan_m
     _update_progress(scan_id, "Completed", total_steps, total_steps, status="completed")
 
 
-def start_async_scan(target_url: str, initiated_by: str = "", scan_mode: str = "passive") -> ScanResult:
+def start_async_scan(
+    target_url: str,
+    initiated_by: str = "",
+    scan_mode: str = "passive",
+    tenant_id: str = "default-tenant",
+    asset_id: Optional[str] = None,
+    scan_id: Optional[str] = None,
+) -> ScanResult:
     """
     Create a new scan record in DB and queue it for async background execution.
     Returns ScanResult immediately (in PENDING/RUNNING state).
@@ -116,13 +273,56 @@ def start_async_scan(target_url: str, initiated_by: str = "", scan_mode: str = "
     if scan_mode not in SCAN_PROFILES:
         scan_mode = "passive"
 
-    scan = ScanResult(
-        target_url=target_url,
-        status=ScanStatus.RUNNING,
-        scan_mode=scan_mode,
-        initiated_by=initiated_by,
-    )
-    repository.save_scan(scan)
+    # Link to asset if not explicitly passed
+    if not asset_id:
+        try:
+            asset = repository.ensure_asset_for_target(tenant_id, target_url)
+            asset_id = asset.id
+        except Exception:
+            asset_id = None
+
+    if scan_id:
+        existing_scan = repository.get_scan(scan_id, tenant_id=tenant_id)
+        if existing_scan:
+            scan = existing_scan
+            scan.status = ScanStatus.RUNNING
+            repository.save_scan(scan)
+        else:
+            scan = ScanResult(
+                id=scan_id,
+                target_url=target_url,
+                status=ScanStatus.RUNNING,
+                scan_mode=scan_mode,
+                initiated_by=initiated_by,
+                tenant_id=tenant_id or "default-tenant",
+                asset_id=asset_id,
+            )
+            repository.save_scan(scan)
+    else:
+        scan = ScanResult(
+            target_url=target_url,
+            status=ScanStatus.RUNNING,
+            scan_mode=scan_mode,
+            initiated_by=initiated_by,
+            tenant_id=tenant_id or "default-tenant",
+            asset_id=asset_id,
+        )
+        repository.save_scan(scan)
+
+    # Ensure a ScanJob exists for persistent tracking
+    from core.models import ScanJob, ScanJobStatus
+    existing_job = repository.get_scan_job_by_scan_id(scan.id)
+    if not existing_job:
+        job = ScanJob(
+            tenant_id=tenant_id or "default-tenant",
+            asset_id=asset_id,
+            scan_id=scan.id,
+            status=ScanJobStatus.RUNNING.value,
+            requested_by=initiated_by or "analyst",
+            profile=scan_mode,
+            started_at=datetime.now(timezone.utc).isoformat(),
+        )
+        repository.create_scan_job(job)
 
     # Initialize progress state
     _update_progress(scan.id, "Queued", 0, len(SCAN_PROFILES[scan_mode]), status="running")

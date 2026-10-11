@@ -17,6 +17,77 @@
     </div>
 </div>
 
+{% if job %}
+<!-- Distributed ScanJob Lifecycle Card -->
+<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:24px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+        <div>
+            <h3 style="font-size:14px;color:var(--text-secondary);margin:0;">Distributed Scan Job (HA / Celery)</h3>
+            <span style="font-size:12px;color:var(--text-muted);">Job ID: <code>{{ job.id }}</code></span>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;">
+            {% set s = job.status|lower %}
+            {% if s == 'completed' %}
+                <span class="badge badge-success">Completed</span>
+            {% elif s == 'running' %}
+                <span class="badge badge-primary">Running</span>
+            {% elif s == 'queued' %}
+                <span class="badge badge-info">Queued</span>
+            {% elif s == 'retrying' %}
+                <span class="badge badge-warning">Retrying</span>
+            {% elif s == 'timed_out' %}
+                <span class="badge badge-critical">Timed Out</span>
+            {% elif s == 'cancelled' %}
+                <span class="badge badge-secondary">Cancelled</span>
+            {% elif s == 'partial' %}
+                <span class="badge badge-warning">Partial</span>
+            {% else %}
+                <span class="badge badge-critical">Failed</span>
+            {% endif %}
+
+            {% if current_user_role in ('admin', 'analyst') %}
+                {% if s in ('queued', 'running', 'retrying') %}
+                <form method="POST" action="{{ url_for('cancel_scan_job', job_id=job.id) }}" style="display:inline;" onsubmit="return confirm('Cancel this active scan job?');">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button type="submit" class="btn btn-secondary btn-sm" style="color:var(--danger);border-color:var(--danger);">Cancel Scan</button>
+                </form>
+                {% elif s in ('failed', 'timed_out', 'cancelled') %}
+                <form method="POST" action="{{ url_for('retry_scan_job', job_id=job.id) }}" style="display:inline;">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button type="submit" class="btn btn-primary btn-sm">Retry Scan</button>
+                </form>
+                {% endif %}
+            {% endif %}
+        </div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;font-size:12px;">
+        <div style="background:var(--bg-primary);padding:10px;border-radius:4px;">
+            <div style="color:var(--text-muted);">Current Step</div>
+            <div style="font-weight:600;margin-top:2px;">{{ job.current_step }}</div>
+        </div>
+        <div style="background:var(--bg-primary);padding:10px;border-radius:4px;">
+            <div style="color:var(--text-muted);">Attempt / Limit</div>
+            <div style="font-weight:600;margin-top:2px;">Attempt {{ job.attempt }} of {{ job.max_attempts }}</div>
+        </div>
+        <div style="background:var(--bg-primary);padding:10px;border-radius:4px;">
+            <div style="color:var(--text-muted);">Assigned Worker</div>
+            <div style="font-weight:600;margin-top:2px;">{{ job.worker_id or 'Auto-assigning' }}</div>
+        </div>
+        <div style="background:var(--bg-primary);padding:10px;border-radius:4px;">
+            <div style="color:var(--text-muted);">Timeline</div>
+            <div style="font-weight:600;margin-top:2px;">Queued: {{ job.queued_at[:19]|replace('T', ' ') }}</div>
+        </div>
+    </div>
+
+    {% if job.error_message %}
+    <div style="margin-top:12px;padding:8px 12px;background:rgba(239,68,68,0.1);border-left:3px solid var(--danger);border-radius:2px;font-size:12px;color:var(--danger);">
+        <strong>Error ({{ job.error_code or 'ERROR' }}):</strong> {{ job.error_message }}
+    </div>
+    {% endif %}
+</div>
+{% endif %}
+
 <div class="stats-grid">
     <div class="stat-card">
         <div class="label">Risk Score</div>
@@ -32,7 +103,18 @@
     </div>
     <div class="stat-card">
         <div class="label">WordPress</div>
-        <div class="value" style="font-size:18px;">{{ 'Detected' if scan.is_wordpress else 'Not detected' }}{% if scan.wp_version %} (v{{ scan.wp_version }}){% endif %}</div>
+        <div class="value" style="font-size:18px;">
+            {% if scan.is_wordpress %}
+                Detected{% if scan.wp_version and scan.wp_version not in ('Unknown', 'Not WordPress') %} (v{{ scan.wp_version }}){% elif scan.wp_version == 'Unknown' %} (Version Unknown){% endif %}
+            {% else %}
+                Not detected
+            {% endif %}
+        </div>
+        {% if scan.wp_version_source %}
+        <div style="font-size:11px;color:var(--text-muted);margin-top:4px;">
+            Source: {{ scan.wp_version_source }} ({{ scan.wp_version_confidence or 'medium' }})
+        </div>
+        {% endif %}
     </div>
     <div class="stat-card">
         <div class="label">WHOIS Info</div>
@@ -111,6 +193,7 @@
             <div style="display:flex;align-items:center;gap:8px;">
                 <button class="btn btn-secondary btn-sm" type="button" onclick="event.stopPropagation(); toggleFindingDetails('details-{{ f.id }}')">Details</button>
                 <form method="POST" action="{{ url_for('delete_finding', finding_id=f.id) }}" style="display:inline;" onsubmit="event.stopPropagation(); return confirm('Delete this finding?')">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <button type="submit" class="btn btn-danger btn-sm">Del</button>
                 </form>
             </div>
@@ -171,6 +254,7 @@
 <!-- Delete scan -->
 <div style="margin-top:24px;padding-top:16px;border-top:1px solid var(--border);">
     <form method="POST" action="{{ url_for('delete_scan', scan_id=scan.id) }}" onsubmit="return confirm('Permanently delete this scan and all findings?')">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <button type="submit" class="btn btn-danger">Delete Scan</button>
     </form>
 </div>

@@ -1,11 +1,178 @@
 {% extends "base.html" %}
-{% block title %}Dashboard - WSA Pro{% endblock %}
+{% block title %}Overview - SentinelWP Enterprise{% endblock %}
 {% block content %}
-<div class="page-header">
-    <h2>Dashboard</h2>
-    <p>Security posture overview</p>
+<div class="workspace-header">
+    <div>
+        <h2>Security Operations Overview</h2>
+        <p>Unified security posture, portfolio governance, and executive reporting.</p>
+    </div>
+    <div style="display:flex; gap:10px;">
+        <a href="{{ url_for('executive_report_view') }}" target="_blank" class="btn btn-secondary btn-sm" style="display:inline-flex; align-items:center; gap:6px;">
+            <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+            Export Executive Report
+        </a>
+        <a href="{{ url_for('scan_history') }}" class="btn btn-primary btn-sm" style="display:inline-flex; align-items:center; gap:6px;">
+            <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+            Launch Scan
+        </a>
+    </div>
 </div>
 
+<!-- Workspace 1 Navigation Tabs -->
+<div class="workspace-tabs">
+    <a href="{{ url_for('dashboard', tab='posture') }}" class="workspace-tab {% if active_tab == 'posture' %}active{% endif %}">
+        <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+        Posture Overview
+    </a>
+    <a href="{{ url_for('dashboard', tab='portfolio') }}" class="workspace-tab {% if active_tab == 'portfolio' %}active{% endif %}">
+        <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>
+        Business Units &amp; Governance
+        {% if metrics and metrics.assets %}<span class="tab-badge">{{ metrics.assets }} assets</span>{% endif %}
+    </a>
+    <a href="{{ url_for('dashboard', tab='reports') }}" class="workspace-tab {% if active_tab == 'reports' %}active{% endif %}">
+        <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+        Executive Summary
+    </a>
+</div>
+
+{% if active_tab == 'portfolio' %}
+<!-- TAB 2: BUSINESS UNITS & GOVERNANCE -->
+{% if business_units %}
+<div style="margin-bottom:20px; display:flex; align-items:center; gap:12px; background:var(--bg-card); padding:12px 16px; border-radius:var(--radius); border:1px solid var(--border); flex-wrap:wrap;">
+    <span style="font-size:13px; font-weight:600; color:var(--text-secondary);">Business Unit Filter:</span>
+    <a href="{{ url_for('dashboard', tab='portfolio') }}" style="font-size:12px; padding:4px 10px; border-radius:4px; {% if not selected_bu_id %}background:var(--accent); color:#fff;{% else %}background:var(--bg-secondary); color:var(--text-secondary);{% endif %}">
+        All Portfolio
+    </a>
+    {% for bu in business_units %}
+    <a href="{{ url_for('dashboard', tab='portfolio', business_unit_id=bu.id) }}" style="font-size:12px; padding:4px 10px; border-radius:4px; {% if selected_bu_id == bu.id %}background:var(--accent); color:#fff;{% else %}background:var(--bg-secondary); color:var(--text-secondary);{% endif %}">
+        {{ bu.name }} ({{ bu.code }})
+    </a>
+    {% endfor %}
+</div>
+{% endif %}
+
+<div class="stats-grid" style="grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); margin-bottom:24px;">
+    <div class="stat-card">
+        <div class="label">Total Assets</div>
+        <div class="value">{{ metrics.assets | default(0) }}</div>
+    </div>
+    <div class="stat-card">
+        <div class="label">Verified Ownership</div>
+        <div class="value" style="color:var(--success);">{{ metrics.verified_assets | default(0) }} <span style="font-size:14px; font-weight:normal; color:var(--text-muted);">({{ metrics.verification_coverage_pct | default(0) }}%)</span></div>
+    </div>
+    <div class="stat-card">
+        <div class="label">Internet Facing</div>
+        <div class="value" style="color:var(--warning);">{{ metrics.internet_facing_assets | default(0) }}</div>
+    </div>
+    <div class="stat-card">
+        <div class="label">Critical Assets</div>
+        <div class="value" style="color:var(--critical);">{{ metrics.critical_assets | default(0) }}</div>
+    </div>
+    <div class="stat-card">
+        <div class="label">Open P1 / KEV</div>
+        <div class="value" style="color:var(--danger);">{{ metrics.open_p1 | default(0) }} / {{ metrics.open_kev | default(0) }}</div>
+    </div>
+    <div class="stat-card">
+        <div class="label">SLA Breaches</div>
+        <div class="value" style="color:var(--danger);">{{ metrics.sla_breaches | default(0) }}</div>
+    </div>
+</div>
+
+<div style="display:grid; grid-template-columns:1fr 1fr; gap:20px; margin-bottom:24px;">
+    <div style="background:var(--bg-card); border:1px solid var(--border); border-radius:var(--radius); padding:20px;">
+        <h3 style="font-size:16px; font-weight:600; margin-bottom:16px; color:var(--text-primary);">Ownership &amp; Governance Coverage</h3>
+        <div style="display:flex; flex-direction:column; gap:14px;">
+            <div>
+                <div style="display:flex; justify-content:space-between; font-size:13px; margin-bottom:4px;">
+                    <span style="color:var(--text-secondary);">Business Owner Assigned</span>
+                    <span style="font-weight:600;">{{ metrics.business_owner_coverage_pct | default(0) }}%</span>
+                </div>
+                <div style="width:100%; height:6px; background:var(--bg-secondary); border-radius:3px; overflow:hidden;">
+                    <div style="width:{{ metrics.business_owner_coverage_pct | default(0) }}%; height:100%; background:var(--accent);"></div>
+                </div>
+            </div>
+            <div>
+                <div style="display:flex; justify-content:space-between; font-size:13px; margin-bottom:4px;">
+                    <span style="color:var(--text-secondary);">Technical Owner Assigned</span>
+                    <span style="font-weight:600;">{{ metrics.technical_owner_coverage_pct | default(0) }}%</span>
+                </div>
+                <div style="width:100%; height:6px; background:var(--bg-secondary); border-radius:3px; overflow:hidden;">
+                    <div style="width:{{ metrics.technical_owner_coverage_pct | default(0) }}%; height:100%; background:var(--info);"></div>
+                </div>
+            </div>
+            <div>
+                <div style="display:flex; justify-content:space-between; font-size:13px; margin-bottom:4px;">
+                    <span style="color:var(--text-secondary);">Mapped to Business Unit</span>
+                    <span style="font-weight:600;">{{ metrics.bu_assignment_coverage_pct | default(0) }}%</span>
+                </div>
+                <div style="width:100%; height:6px; background:var(--bg-secondary); border-radius:3px; overflow:hidden;">
+                    <div style="width:{{ metrics.bu_assignment_coverage_pct | default(0) }}%; height:100%; background:var(--success);"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div style="background:var(--bg-card); border:1px solid var(--border); border-radius:var(--radius); padding:20px;">
+        <h3 style="font-size:16px; font-weight:600; margin-bottom:16px; color:var(--text-primary);">Organizational Units</h3>
+        {% if business_units %}
+        <ul style="list-style:none; display:flex; flex-direction:column; gap:10px; font-size:13px;">
+            {% for bu in business_units %}
+            <li style="display:flex; justify-content:space-between; align-items:center; padding-bottom:8px; border-bottom:1px solid var(--border);">
+                <div>
+                    <strong>{{ bu.name }}</strong> <span style="font-size:11px; color:var(--text-muted); font-family:monospace;">({{ bu.code }})</span>
+                </div>
+                <span class="badge {% if bu.criticality == 'critical' %}badge-critical{% elif bu.criticality == 'high' %}badge-high{% else %}badge-info{% endif %}">
+                    {{ bu.criticality }}
+                </span>
+            </li>
+            {% endfor %}
+        </ul>
+        {% else %}
+        <p style="font-size:13px; color:var(--text-muted);">No Business Units defined yet.</p>
+        {% endif %}
+    </div>
+</div>
+
+{% elif active_tab == 'reports' %}
+<!-- TAB 3: EXECUTIVE SUMMARY & REPORTS -->
+<div style="background:var(--bg-card); border:1px solid var(--border); border-radius:var(--radius); padding:24px; margin-bottom:24px;">
+    <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:16px; flex-wrap:wrap; gap:12px;">
+        <div>
+            <h3 style="font-size:18px; font-weight:700; color:var(--text-primary); margin-bottom:6px;">Executive Exposure Portfolio Summary</h3>
+            <p style="font-size:13px; color:var(--text-muted);">High-level board-safe overview of corporate exposure, verified coverage, critical vulnerabilities, and SLA compliance.</p>
+        </div>
+        <a href="{{ url_for('executive_report_view') }}" target="_blank" class="btn btn-primary btn-sm">
+            Open Printable Report
+        </a>
+    </div>
+
+    <p style="font-size:14px; line-height:1.6; color:var(--text-secondary); margin-bottom:20px;">
+        SentinelWP continuously governs the corporate attack surface across <strong>{{ metrics.assets | default(0) }}</strong> known WordPress assets.
+        Currently, <strong>{{ metrics.verified_assets | default(0) }}</strong> assets (<strong>{{ metrics.verification_coverage_pct | default(0) }}%</strong>) have cryptographically verified domain ownership, while <strong>{{ metrics.internet_facing_assets | default(0) }}</strong> assets are identified as internet-facing.
+    </p>
+
+    <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:16px;">
+        <div style="padding:16px; background:var(--bg-secondary); border-radius:var(--radius); border:1px solid var(--border);">
+            <div style="font-size:12px; color:var(--text-muted); text-transform:uppercase;">Confirmed High/P1 Exposure</div>
+            <div style="font-size:24px; font-weight:700; color:var(--danger); margin-top:4px;">{{ metrics.open_p1 | default(0) }}</div>
+        </div>
+        <div style="padding:16px; background:var(--bg-secondary); border-radius:var(--radius); border:1px solid var(--border);">
+            <div style="font-size:12px; color:var(--text-muted); text-transform:uppercase;">Active CISA KEV Exposures</div>
+            <div style="font-size:24px; font-weight:700; color:var(--critical); margin-top:4px;">{{ metrics.open_kev | default(0) }}</div>
+        </div>
+        <div style="padding:16px; background:var(--bg-secondary); border-radius:var(--radius); border:1px solid var(--border);">
+            <div style="font-size:12px; color:var(--text-muted); text-transform:uppercase;">SLA Compliance Breaches</div>
+            <div style="font-size:24px; font-weight:700; color:var(--warning); margin-top:4px;">{{ metrics.sla_breaches | default(0) }}</div>
+        </div>
+        <div style="padding:16px; background:var(--bg-secondary); border-radius:var(--radius); border:1px solid var(--border);">
+            <div style="font-size:12px; color:var(--text-muted); text-transform:uppercase;">Accepted Risk Exceptions</div>
+            <div style="font-size:24px; font-weight:700; color:var(--info); margin-top:4px;">{{ metrics.risk_accepted | default(0) }}</div>
+        </div>
+    </div>
+</div>
+
+{% else %}
+<!-- TAB 1: POSTURE OVERVIEW (DEFAULT) -->
 <div class="stats-grid">
     <div class="stat-card">
         <div class="label">Total Scans</div>
@@ -21,8 +188,70 @@
     </div>
 </div>
 
+{% if monitoring %}
+<div class="page-header" style="margin-top:20px; margin-bottom:12px;">
+    <h3 style="font-size:18px; font-weight:600; color:var(--text-primary);">Continuous Monitoring Health</h3>
+</div>
+<div class="stats-grid" style="grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap:12px; margin-bottom:24px;">
+    <div class="stat-card">
+        <div class="label">Monitored Assets</div>
+        <div class="value"><a href="{{ url_for('assets') }}" style="color:inherit;">{{ monitoring.monitored_assets | default(0) }}</a></div>
+    </div>
+    <div class="stat-card">
+        <div class="label">Paused</div>
+        <div class="value" style="color:var(--warning)">{{ monitoring.paused_assets | default(0) }}</div>
+    </div>
+    <div class="stat-card">
+        <div class="label">Need Attention</div>
+        <div class="value" style="color:var(--danger)">{{ monitoring.assets_needing_attention | default(0) }}</div>
+    </div>
+    <div class="stat-card">
+        <div class="label">Critical Findings</div>
+        <div class="value" style="color:var(--danger)"><a href="{{ url_for('findings_list', tab='critical') }}" style="color:inherit;">{{ monitoring.critical_findings | default(0) }}</a></div>
+    </div>
+    <div class="stat-card">
+        <div class="label">High Findings</div>
+        <div class="value" style="color:var(--warning)"><a href="{{ url_for('findings_list', severity='high') }}" style="color:inherit;">{{ monitoring.high_findings | default(0) }}</a></div>
+    </div>
+    <div class="stat-card">
+        <div class="label">New (24h)</div>
+        <div class="value" style="color:var(--danger)">{{ monitoring.newly_discovered_last_24h | default(0) }}</div>
+    </div>
+    <div class="stat-card">
+        <div class="label">Resolved (24h)</div>
+        <div class="value" style="color:var(--success)">{{ monitoring.resolved_last_24h | default(0) }}</div>
+    </div>
+    <div class="stat-card">
+        <div class="label">Scan Failures (24h)</div>
+        <div class="value" {% if monitoring.scan_failures_last_24h | default(0) > 0 %}style="color:var(--danger)"{% endif %}>
+            {{ monitoring.scan_failures_last_24h | default(0) }}
+        </div>
+    </div>
+    {% if monitoring.intel_freshness_seconds is not none %}
+    <div class="stat-card">
+        <div class="label">Intel Freshness</div>
+        <div class="value" {% if (monitoring.intel_freshness_seconds | default(0)) > 86400 %}style="color:var(--warning)"{% else %}style="color:var(--success)"{% endif %}>
+            {% set hrs = (monitoring.intel_freshness_seconds / 3600) | round(1) %}
+            {{ hrs }}h
+        </div>
+    </div>
+    {% endif %}
+    {% if monitoring.historical_risk_trend %}
+    <div class="stat-card" style="grid-column: span 2;" title="7-day risk trend">
+        <div class="label">7-Day Risk Trend</div>
+        <div class="value" style="font-size:13px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
+            {% for pt in monitoring.historical_risk_trend[-3:] %}
+            {{ pt.date }}: {{ (pt.risk_score_avg | default(pt.risk_score, true) | default(0, true)) | round(1) }}
+            {% if not loop.last %} &rarr; {% endif %}
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endif %}
+
 <div class="page-header" style="margin-bottom:16px;">
-    <h2>Recent Scans</h2>
+    <h3 style="font-size:18px; font-weight:600; color:var(--text-primary);">Recent Scans</h3>
 </div>
 
 {% if scans %}
@@ -88,9 +317,9 @@
     </td>
     <td>
         {% if s.is_wordpress %}
-            <span class="badge badge-info">WP {{ s.wp_version or 'Detected' }}</span>
+            <span class="badge badge-info">{% if s.wp_version and s.wp_version not in ('Unknown', 'Not WordPress') %}WP {{ s.wp_version }}{% else %}WordPress{% endif %}</span>
         {% else %}
-            <span class="badge" style="background:var(--border); color:var(--text-muted);">{{ s.wp_version or 'Not WordPress' }}</span>
+            <span class="badge" style="background:var(--border); color:var(--text-muted);">Not WordPress</span>
         {% endif %}
     </td>
     <td><span class="badge badge-info">{{ s.status.value if s.status.value is defined else s.status }}</span></td>
@@ -105,8 +334,9 @@
 {% else %}
 <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:40px;text-align:center;">
     <p style="color:var(--text-muted);">No scans recorded yet.</p>
-    <a href="{{ url_for('new_scan') }}" class="btn btn-primary" style="margin-top:16px;">New Scan</a>
+    <a href="{{ url_for('scan_history') }}" class="btn btn-primary" style="margin-top:16px;">Launch First Scan</a>
 </div>
+{% endif %}
 {% endif %}
 
 <script>

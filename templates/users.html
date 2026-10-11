@@ -10,6 +10,7 @@
 <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:24px;margin-bottom:24px;max-width:600px;">
     <h3 style="font-size:14px;margin-bottom:16px;color:var(--text-secondary);">Create New User</h3>
     <form method="POST" action="{{ url_for('create_user_route') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
             <div class="form-group">
                 <label>Username</label>
@@ -51,6 +52,7 @@
     <td style="color:var(--text-muted);font-size:12px;">{{ u.created_at[:10] }}</td>
     <td>
         <form method="POST" action="{{ url_for('delete_user_route', user_id=u.id) }}" style="display:inline;" onsubmit="return confirm('Delete user {{ u.username }}?')">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <button type="submit" class="btn btn-danger btn-sm">Delete</button>
         </form>
     </td>

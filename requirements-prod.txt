@@ -1,0 +1,17 @@
+# SentinelWP Enterprise Production Dependencies (Python 3.12 Pinned)
+# Generated and certified for reproducible Ubuntu Server LTS deployments
+
+flask==3.1.3
+werkzeug==3.1.9
+requests==2.34.2
+urllib3==2.8.0
+openpyxl==3.1.5
+reportlab==4.2.0
+bcrypt==4.1.3
+python-dotenv==1.2.4
+gunicorn==22.0.0
+sqlalchemy==2.0.30
+alembic==1.13.1
+psycopg[binary]==3.1.19
+redis==5.0.4
+celery==5.4.0

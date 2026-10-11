@@ -1,0 +1,113 @@
+{% extends "base.html" %}
+{% block title %}SLA Governance &amp; Risk Metrics - SentinelWP{% endblock %}
+
+{% block content %}
+<div class="page-header" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:24px;">
+    <div>
+        <h1 style="font-size:24px; font-weight:700; color:var(--text-primary); margin:0;">SLA Governance &amp; Exposure Trends</h1>
+        <p style="font-size:13px; color:var(--text-muted); margin:4px 0 0;">Track service level agreements, breach risk, policy rules, and daily posture trends</p>
+    </div>
+    <div style="display:flex; gap:10px;">
+        <a href="{{ url_for('findings_list') }}" class="btn btn-secondary btn-sm">Findings</a>
+        <a href="{{ url_for('remediation_dashboard') }}" class="btn btn-secondary btn-sm">Remediation Hub</a>
+    </div>
+</div>
+
+<!-- SLA KPI Cards -->
+<div style="display:grid; grid-template-columns:repeat(4, 1fr); gap:16px; margin-bottom:24px;">
+    <div class="card" style="background:var(--bg-secondary); border:1px solid var(--border); border-radius:var(--radius); padding:16px;">
+        <div style="font-size:11px; text-transform:uppercase; color:var(--text-muted); font-weight:600;">On Track</div>
+        <div style="font-size:26px; font-weight:700; color:#10b981; margin-top:4px;">{{ on_track_count }}</div>
+    </div>
+    <div class="card" style="background:var(--bg-secondary); border:1px solid var(--border); border-radius:var(--radius); padding:16px;">
+        <div style="font-size:11px; text-transform:uppercase; color:var(--text-muted); font-weight:600;">Approaching Warning</div>
+        <div style="font-size:26px; font-weight:700; color:#f59e0b; margin-top:4px;">{{ warning_count }}</div>
+    </div>
+    <div class="card" style="background:var(--bg-secondary); border:1px solid var(--border); border-radius:var(--radius); padding:16px;">
+        <div style="font-size:11px; text-transform:uppercase; color:var(--text-muted); font-weight:600;">SLA Breaches</div>
+        <div style="font-size:26px; font-weight:700; color:#ef4444; margin-top:4px;">{{ breached_count }}</div>
+    </div>
+    <div class="card" style="background:var(--bg-secondary); border:1px solid var(--border); border-radius:var(--radius); padding:16px;">
+        <div style="font-size:11px; text-transform:uppercase; color:var(--text-muted); font-weight:600;">Exceptions (Paused)</div>
+        <div style="font-size:26px; font-weight:700; color:#a855f7; margin-top:4px;">{{ paused_count }}</div>
+    </div>
+</div>
+
+<!-- SLA Policies Table -->
+<div class="card" style="background:var(--bg-secondary); border:1px solid var(--border); border-radius:var(--radius); padding:20px; margin-bottom:24px;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+        <h3 style="font-size:15px; font-weight:600; color:var(--text-primary); margin:0;">Active SLA Policies</h3>
+    </div>
+    <div style="overflow-x:auto;">
+        <table style="width:100%; border-collapse:collapse; text-align:left; font-size:13px;">
+            <thead>
+                <tr style="border-bottom:1px solid var(--border); background:var(--bg-card); color:var(--text-muted); font-size:11px; text-transform:uppercase;">
+                    <th style="padding:10px 14px;">Policy Name</th>
+                    <th style="padding:10px 14px;">Criteria (Severity / Criticality)</th>
+                    <th style="padding:10px 14px;">KEV / Internet</th>
+                    <th style="padding:10px 14px;">Due Window</th>
+                    <th style="padding:10px 14px;">Warning Threshold</th>
+                    <th style="padding:10px 14px;">Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% if not policies %}
+                <tr>
+                    <td colspan="6" style="padding:20px; text-align:center; color:var(--text-muted);">
+                        No custom policies configured. Using standard enterprise default SLA windows (P1: 48h, P2: 14d, P3: 30d, P4: 90d).
+                    </td>
+                </tr>
+                {% endif %}
+                {% for p in policies %}
+                <tr style="border-bottom:1px solid var(--border);">
+                    <td style="padding:10px 14px; font-weight:600; color:var(--text-primary);">{{ p.name }}</td>
+                    <td style="padding:10px 14px; text-transform:capitalize;">{{ p.severity or 'Any' }} / {{ p.criticality or 'Any' }}</td>
+                    <td style="padding:10px 14px;">KEV: {{ p.kev if p.kev is not None else 'Any' }} | Internet: {{ p.internet_exposed if p.internet_exposed is not None else 'Any' }}</td>
+                    <td style="padding:10px 14px; font-weight:600;">{{ p.due_days }} days</td>
+                    <td style="padding:10px 14px; color:var(--text-muted);">{{ p.warning_days }} days prior</td>
+                    <td style="padding:10px 14px;"><span style="color:#10b981; font-weight:600;">Enabled</span></td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Daily Risk Snapshots Trend -->
+<div class="card" style="background:var(--bg-secondary); border:1px solid var(--border); border-radius:var(--radius); padding:20px;">
+    <h3 style="font-size:15px; font-weight:600; color:var(--text-primary); margin:0 0 14px;">Daily Exposure Snapshots</h3>
+    <div style="overflow-x:auto;">
+        <table style="width:100%; border-collapse:collapse; text-align:left; font-size:13px;">
+            <thead>
+                <tr style="border-bottom:1px solid var(--border); background:var(--bg-card); color:var(--text-muted); font-size:11px; text-transform:uppercase;">
+                    <th style="padding:10px 14px;">Date</th>
+                    <th style="padding:10px 14px;">Open Findings</th>
+                    <th style="padding:10px 14px;">P1 / P2</th>
+                    <th style="padding:10px 14px;">Active KEVs</th>
+                    <th style="padding:10px 14px;">SLA Breaches</th>
+                    <th style="padding:10px 14px;">Average Risk Score</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% if not snapshots %}
+                <tr>
+                    <td colspan="6" style="padding:24px; text-align:center; color:var(--text-muted);">
+                        No daily snapshots recorded yet. Next snapshot generates via Celery Beat at midnight.
+                    </td>
+                </tr>
+                {% endif %}
+                {% for s in snapshots %}
+                <tr style="border-bottom:1px solid var(--border);">
+                    <td style="padding:10px 14px; font-weight:600;">{{ s.date }}</td>
+                    <td style="padding:10px 14px;">{{ s.open_findings }}</td>
+                    <td style="padding:10px 14px;"><span style="color:#ef4444; font-weight:600;">{{ s.p1_count }}</span> / <span style="color:#f97316; font-weight:600;">{{ s.p2_count }}</span></td>
+                    <td style="padding:10px 14px; color:#dc2626; font-weight:600;">{{ s.kev_count }}</td>
+                    <td style="padding:10px 14px; color:{% if s.sla_breaches > 0 %}#ef4444{% else %}#10b981{% endif %}; font-weight:600;">{{ s.sla_breaches }}</td>
+                    <td style="padding:10px 14px; font-weight:600; color:var(--accent);">{{ s.risk_score_avg }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,388 @@
+# ==============================================================================
+# SentinelWP Enterprise Production Docker Compose Configuration
+# Operating System: Ubuntu Server LTS
+# Topology: 7 persistent services + 1 ephemeral migration service
+# Security: Hardened reverse proxy ingress, internal DB/Redis, non-root containers
+# ==============================================================================
+
+name: sentinelwp-enterprise
+
+services:
+  # ----------------------------------------------------------------------------
+  # 1. Reverse Proxy Gateway (Single public ingress point)
+  # ----------------------------------------------------------------------------
+  gateway:
+    image: nginx:1.25-alpine
+    container_name: sentinelwp-gateway
+    restart: unless-stopped
+    ports:
+      - "${GATEWAY_HTTP_PORT:-80}:80"
+      - "${GATEWAY_HTTPS_PORT:-443}:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+      - ./nginx/certs:/etc/nginx/certs:ro
+    networks:
+      - sentinelwp-frontend
+    depends_on:
+      web:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O - http://127.0.0.1/healthz || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+    cap_drop:
+      - ALL
+    cap_add:
+      - NET_BIND_SERVICE
+      - CHOWN
+      - SETUID
+      - SETGID
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "20m"
+        max-file: "5"
+
+  # ----------------------------------------------------------------------------
+  # 2. Ephemeral Schema Migration Service (One-shot init container)
+  # ----------------------------------------------------------------------------
+  migrate:
+    build:
+      context: .
+      dockerfile: Dockerfile.prod
+    image: sentinelwp:4.1.0
+    container_name: sentinelwp-migrate
+    restart: "no"
+    command: ["python3", "scripts/run_migrations.py", "--confirm"]
+    environment:
+      ENVIRONMENT: production
+      WSA_SECRET_KEY: ${WSA_SECRET_KEY}
+      DATABASE_URL: ${DATABASE_URL}
+      PYTHONPATH: /app
+    networks:
+      - sentinelwp-backend
+    depends_on:
+      postgres:
+        condition: service_healthy
+    user: "1000:1000"
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp:size=64M,mode=1777
+
+  # ----------------------------------------------------------------------------
+  # 3. Operational Relational Database (Internal network only)
+  # ----------------------------------------------------------------------------
+  postgres:
+    image: postgres:16-alpine
+    container_name: sentinelwp-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-sentinelwp}
+      POSTGRES_USER: ${POSTGRES_USER:-sentinelwp}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - sentinelwp_pgdata:/var/lib/postgresql/data
+    networks:
+      - sentinelwp-backend
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "20m"
+        max-file: "5"
+
+  # ----------------------------------------------------------------------------
+  # 4. Redis Task Broker & State Cache (Internal network only)
+  # ----------------------------------------------------------------------------
+  redis:
+    image: redis:7-alpine
+    container_name: sentinelwp-redis
+    restart: unless-stopped
+    command: ["redis-server", "--requirepass", "${REDIS_PASSWORD}", "--appendonly", "yes", "--appendfsync", "everysec"]
+    volumes:
+      - sentinelwp_redisdata:/data
+    networks:
+      - sentinelwp-backend
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -a \"$$REDIS_PASSWORD\" ping | grep PONG"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "20m"
+        max-file: "5"
+
+  # ----------------------------------------------------------------------------
+  # 5. Core Web Application (Gunicorn WSGI behind Nginx Gateway)
+  # ----------------------------------------------------------------------------
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile.prod
+    image: sentinelwp:4.1.0
+    container_name: sentinelwp-web
+    restart: unless-stopped
+    environment:
+      ENVIRONMENT: production
+      WSA_SECRET_KEY: ${WSA_SECRET_KEY}
+      DATABASE_URL: ${DATABASE_URL}
+      REDIS_URL: ${REDIS_URL}
+      CELERY_BROKER_URL: ${CELERY_BROKER_URL}
+      CELERY_RESULT_BACKEND: ${CELERY_RESULT_BACKEND}
+      SCAN_EXECUTION_BACKEND: celery
+      WSA_BEHIND_PROXY: "true"
+      WSA_PROXY_X_FOR: "1"
+      WSA_PROXY_X_PROTO: "1"
+      WSA_PROXY_X_HOST: "1"
+      WSA_PROXY_X_PORT: "1"
+      WSA_PROXY_X_PREFIX: "0"
+      WSA_SESSION_COOKIE_SECURE: "true"
+      WSA_SESSION_COOKIE_SAMESITE: "Lax"
+      WSA_ALLOW_PRIVATE_TARGETS: "false"
+      WSA_STRICT_DNS: "true"
+      PORT: 8080
+    volumes:
+      - sentinelwp_appdata:/app/data
+    networks:
+      - sentinelwp-frontend
+      - sentinelwp-backend
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/ready"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+    mem_limit: 2g
+    cpus: "2.0"
+    user: "1000:1000"
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp:size=128M,mode=1777
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "20m"
+        max-file: "5"
+
+  # ----------------------------------------------------------------------------
+  # 6. Dedicated Scan Worker (Celery 'scan' queue)
+  # ----------------------------------------------------------------------------
+  worker-scan:
+    build:
+      context: .
+      dockerfile: Dockerfile.prod
+    image: sentinelwp:4.1.0
+    container_name: sentinelwp-worker-scan
+    restart: unless-stopped
+    command: [
+      "celery", "-A", "core.tasks.celery_app", "worker",
+      "-Q", "scan",
+      "-c", "${WORKER_SCAN_CONCURRENCY:-4}",
+      "--max-tasks-per-child=50",
+      "--max-memory-per-child=250000",
+      "--loglevel=INFO"
+    ]
+    stop_signal: SIGTERM
+    stop_grace_period: 60s
+    environment:
+      ENVIRONMENT: production
+      WSA_SECRET_KEY: ${WSA_SECRET_KEY}
+      DATABASE_URL: ${DATABASE_URL}
+      REDIS_URL: ${REDIS_URL}
+      CELERY_BROKER_URL: ${CELERY_BROKER_URL}
+      CELERY_RESULT_BACKEND: ${CELERY_RESULT_BACKEND}
+      SCAN_EXECUTION_BACKEND: celery
+      WSA_ALLOW_PRIVATE_TARGETS: "false"
+      WSA_STRICT_DNS: "true"
+    volumes:
+      - sentinelwp_appdata:/app/data
+    networks:
+      - sentinelwp-backend
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      disable: true
+    mem_limit: 1536m
+    cpus: "2.0"
+    user: "1000:1000"
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp:size=128M,mode=1777
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "20m"
+        max-file: "5"
+
+  # ----------------------------------------------------------------------------
+  # 7. Dedicated Intelligence & Maintenance Worker (Celery 'intel,maintenance' queues)
+  # ----------------------------------------------------------------------------
+  worker-intel:
+    build:
+      context: .
+      dockerfile: Dockerfile.prod
+    image: sentinelwp:4.1.0
+    container_name: sentinelwp-worker-intel
+    restart: unless-stopped
+    command: [
+      "celery", "-A", "core.tasks.celery_app", "worker",
+      "-Q", "intel,maintenance",
+      "-c", "${WORKER_INTEL_CONCURRENCY:-2}",
+      "--max-tasks-per-child=100",
+      "--loglevel=INFO"
+    ]
+    stop_signal: SIGTERM
+    stop_grace_period: 60s
+    environment:
+      ENVIRONMENT: production
+      WSA_SECRET_KEY: ${WSA_SECRET_KEY}
+      DATABASE_URL: ${DATABASE_URL}
+      REDIS_URL: ${REDIS_URL}
+      CELERY_BROKER_URL: ${CELERY_BROKER_URL}
+      CELERY_RESULT_BACKEND: ${CELERY_RESULT_BACKEND}
+      SCAN_EXECUTION_BACKEND: celery
+      WORDFENCE_API_KEY: ${WORDFENCE_API_KEY:-}
+      NVD_API_KEY: ${NVD_API_KEY:-}
+      WSA_ALLOW_PRIVATE_TARGETS: "false"
+      WSA_STRICT_DNS: "true"
+    volumes:
+      - sentinelwp_appdata:/app/data
+    networks:
+      - sentinelwp-backend
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      disable: true
+    mem_limit: 1536m
+    cpus: "1.5"
+    user: "1000:1000"
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp:size=128M,mode=1777
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "20m"
+        max-file: "5"
+
+  # ----------------------------------------------------------------------------
+  # 8. Celery Beat Scheduler (Periodic tasks & maintenance dispatch)
+  # IMPORTANT: Run exactly ONE beat instance per deployment (shared schedule file on appdata volume).
+  # ----------------------------------------------------------------------------
+  beat:
+    build:
+      context: .
+      dockerfile: Dockerfile.prod
+    image: sentinelwp:4.1.0
+    container_name: sentinelwp-beat
+    restart: unless-stopped
+    command: [
+      "celery", "-A", "core.tasks.celery_app", "beat",
+      "--schedule=/app/data/celerybeat-schedule",
+      "--loglevel=INFO"
+    ]
+    stop_signal: SIGTERM
+    environment:
+      ENVIRONMENT: production
+      WSA_SECRET_KEY: ${WSA_SECRET_KEY}
+      DATABASE_URL: ${DATABASE_URL}
+      REDIS_URL: ${REDIS_URL}
+      CELERY_BROKER_URL: ${CELERY_BROKER_URL}
+      CELERY_RESULT_BACKEND: ${CELERY_RESULT_BACKEND}
+      SCAN_EXECUTION_BACKEND: celery
+    volumes:
+      - sentinelwp_appdata:/app/data
+    networks:
+      - sentinelwp-backend
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      disable: true
+    mem_limit: 512m
+    cpus: "0.5"
+    user: "1000:1000"
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp:size=64M,mode=1777
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "20m"
+        max-file: "5"
+
+# ==============================================================================
+# Isolated Networks Specification
+# ==============================================================================
+networks:
+  sentinelwp-frontend:
+    driver: bridge
+    name: sentinelwp-frontend
+  sentinelwp-backend:
+    driver: bridge
+    name: sentinelwp-backend
+
+# ==============================================================================
+# Persistent Named Volumes
+# ==============================================================================
+volumes:
+  sentinelwp_pgdata:
+    name: sentinelwp_pgdata
+  sentinelwp_redisdata:
+    name: sentinelwp_redisdata
+  sentinelwp_appdata:
+    name: sentinelwp_appdata

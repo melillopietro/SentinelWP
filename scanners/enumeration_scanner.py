@@ -7,6 +7,7 @@ WordPress User Enumeration Scanner
 """
 import re
 import json
+import hashlib
 from scanners.base import BaseScanner
 from core.models import Severity
 
@@ -66,12 +67,15 @@ class EnumerationScanner(BaseScanner):
                 users = resp.json()
                 if isinstance(users, list) and len(users) > 0:
                     primary_exposed = True
-                    usernames = [u.get("slug", u.get("name", "unknown")) for u in users[:20]]
+                    user_hashes = [
+                        hashlib.sha256(str(u.get("slug", u.get("name", "unknown"))).encode("utf-8")).hexdigest()[:12]
+                        for u in users[:20]
+                    ]
                     self._add_finding(
                         category="enumeration",
                         title="REST API User Enumeration",
-                        description=f"The WordPress REST API exposes user information publicly. "
-                                    f"Found {len(users)} user(s): {', '.join(usernames[:10])}",
+                        description=f"The WordPress REST API exposes user profile information publicly. "
+                                    f"Detected {len(users)} public user account(s).",
                         severity=Severity.HIGH,
                         confidence=0.95,
                         remediation="Disable the /wp/v2/users endpoint for unauthenticated requests. "
@@ -79,7 +83,12 @@ class EnumerationScanner(BaseScanner):
                                     "add_filter('rest_endpoints', function($endpoints) { "
                                     "unset($endpoints['/wp/v2/users']); return $endpoints; });",
                         reference="https://developer.wordpress.org/rest-api/reference/users/",
-                        raw_data={"users": usernames, "endpoint": url}
+                        raw_data={
+                            "exposure_detected": True,
+                            "user_count": len(users),
+                            "pseudonymized_user_hashes": user_hashes,
+                            "endpoint": url
+                        }
                     )
             except (json.JSONDecodeError, ValueError):
                 pass
@@ -100,20 +109,28 @@ class EnumerationScanner(BaseScanner):
             try:
                 bypass_users = bypass_resp.json()
                 if isinstance(bypass_users, list) and len(bypass_users) > 0:
-                    bypass_usernames = [u.get("slug", u.get("name", "unknown")) for u in bypass_users[:20]]
+                    bypass_user_hashes = [
+                        hashlib.sha256(str(u.get("slug", u.get("name", "unknown"))).encode("utf-8")).hexdigest()[:12]
+                        for u in bypass_users[:20]
+                    ]
                     if not primary_exposed:
                         # WAF / URL rewrite bypass discovered!
                         self._add_finding(
                             category="enumeration",
                             title="REST API WAF/Rewrite Bypass for User Enumeration (?rest_route=/wp/v2/users)",
                             description="Path-based blocking on /wp-json/wp/v2/users was bypassed using the query parameter "
-                                        f"?rest_route=/wp/v2/users. Disclosed {len(bypass_users)} user(s): {', '.join(bypass_usernames[:10])}",
+                                        f"?rest_route=/wp/v2/users. Disclosed {len(bypass_users)} user account(s).",
                             severity=Severity.HIGH,
                             confidence=0.95,
                             remediation="Ensure WAF and rewrite rules inspect both URL paths and query parameters (?rest_route=). "
                                         "Disable the endpoint at application level using the rest_endpoints filter.",
                             reference="https://developer.wordpress.org/rest-api/extending-the-rest-api/routes-and-endpoints/",
-                            raw_data={"users": bypass_usernames, "bypass_url": bypass_url}
+                            raw_data={
+                                "exposure_detected": True,
+                                "user_count": len(bypass_users),
+                                "pseudonymized_user_hashes": bypass_user_hashes,
+                                "bypass_url": bypass_url
+                            }
                         )
             except (json.JSONDecodeError, ValueError):
                 pass
@@ -150,11 +167,15 @@ class EnumerationScanner(BaseScanner):
                     found_users.append(creator)
 
         if found_users:
+            found_hashes = [
+                hashlib.sha256(str(u).encode("utf-8")).hexdigest()[:12]
+                for u in found_users
+            ]
             self._add_finding(
                 category="enumeration",
                 title="Author Archive User Enumeration",
                 description=f"User enumeration via author archives or RSS feeds is possible. "
-                            f"Found {len(found_users)} user(s): {', '.join(found_users[:10])}",
+                            f"Identified {len(found_users)} public author account(s).",
                 severity=Severity.HIGH,
                 confidence=0.9,
                 remediation="Disable author archives or redirect them. Add to .htaccess: "
@@ -162,7 +183,12 @@ class EnumerationScanner(BaseScanner):
                             "RewriteRule .* - [F,L]. "
                             "Alternatively use a plugin to disable author enumeration.",
                 reference="https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/03-Identity_Management_Testing/04-Testing_for_Account_Enumeration_and_Guessable_User_Account",
-                raw_data={"users": found_users, "method": "author_archive_or_feed"}
+                raw_data={
+                    "exposure_detected": True,
+                    "user_count": len(found_users),
+                    "pseudonymized_user_hashes": found_hashes,
+                    "method": "author_archive_or_feed"
+                }
             )
 
     def _check_login_oracle(self):
@@ -202,14 +228,19 @@ class EnumerationScanner(BaseScanner):
             data = resp.json()
             author = data.get("author_name")
             if author:
+                author_hash = hashlib.sha256(str(author).encode("utf-8")).hexdigest()[:12]
                 self._add_finding(
                     category="enumeration",
                     title="oEmbed Author Information Leakage",
-                    description=f"The oEmbed endpoint exposes author information: {author}",
+                    description="The oEmbed endpoint exposes author identity information publicly.",
                     severity=Severity.LOW,
                     confidence=0.8,
                     remediation="Disable oEmbed or filter out author data from the response.",
-                    raw_data={"author": author, "endpoint": url}
+                    raw_data={
+                        "exposure_detected": True,
+                        "pseudonymized_author_hash": author_hash,
+                        "endpoint": url
+                    }
                 )
         except (json.JSONDecodeError, ValueError):
             pass

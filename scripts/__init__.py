@@ -1,0 +1,3 @@
+"""
+SentinelWP scripts package
+"""

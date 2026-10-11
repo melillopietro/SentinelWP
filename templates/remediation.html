@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+{% block title %}Remediation Hub &amp; Governance - SentinelWP{% endblock %}
+
+{% block content %}
+<div class="page-header" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:24px;">
+    <div>
+        <h1 style="font-size:24px; font-weight:700; color:var(--text-primary); margin:0;">Remediation Governance</h1>
+        <p style="font-size:13px; color:var(--text-muted); margin:4px 0 0;">Manage vulnerability treatment, engineering ownership, verification, and closure</p>
+    </div>
+    <div style="display:flex; gap:10px;">
+        <a href="{{ url_for('findings_list') }}" class="btn btn-secondary btn-sm">All Findings</a>
+        <a href="{{ url_for('sla_dashboard') }}" class="btn btn-secondary btn-sm">SLA Dashboard</a>
+    </div>
+</div>
+
+<!-- Remediation KPI Overview -->
+<div style="display:grid; grid-template-columns:repeat(4, 1fr); gap:16px; margin-bottom:24px;">
+    <div class="card" style="background:var(--bg-secondary); border:1px solid var(--border); border-radius:var(--radius); padding:16px;">
+        <div style="font-size:11px; text-transform:uppercase; color:var(--text-muted); font-weight:600;">Total Plans</div>
+        <div style="font-size:26px; font-weight:700; color:var(--text-primary); margin-top:4px;">{{ total_remediations }}</div>
+    </div>
+    <div class="card" style="background:var(--bg-secondary); border:1px solid var(--border); border-radius:var(--radius); padding:16px;">
+        <div style="font-size:11px; text-transform:uppercase; color:var(--text-muted); font-weight:600;">In Progress</div>
+        <div style="font-size:26px; font-weight:700; color:#3b82f6; margin-top:4px;">{{ in_progress_count }}</div>
+    </div>
+    <div class="card" style="background:var(--bg-secondary); border:1px solid var(--border); border-radius:var(--radius); padding:16px;">
+        <div style="font-size:11px; text-transform:uppercase; color:var(--text-muted); font-weight:600;">Pending Verification</div>
+        <div style="font-size:26px; font-weight:700; color:#f59e0b; margin-top:4px;">{{ pending_verification_count }}</div>
+    </div>
+    <div class="card" style="background:var(--bg-secondary); border:1px solid var(--border); border-radius:var(--radius); padding:16px;">
+        <div style="font-size:11px; text-transform:uppercase; color:var(--text-muted); font-weight:600;">Completed / Verified</div>
+        <div style="font-size:26px; font-weight:700; color:#10b981; margin-top:4px;">{{ completed_count }}</div>
+    </div>
+</div>
+
+<!-- Remediations Table -->
+<div class="card" style="background:var(--bg-secondary); border:1px solid var(--border); border-radius:var(--radius); overflow:hidden;">
+    <div style="overflow-x:auto;">
+        <table style="width:100%; border-collapse:collapse; text-align:left; font-size:13px;">
+            <thead>
+                <tr style="border-bottom:1px solid var(--border); background:var(--bg-card); color:var(--text-muted); font-size:11px; text-transform:uppercase;">
+                    <th style="padding:12px 16px;">Remediation Title</th>
+                    <th style="padding:12px 16px;">Owner</th>
+                    <th style="padding:12px 16px;">Status</th>
+                    <th style="padding:12px 16px;">Priority</th>
+                    <th style="padding:12px 16px;">Target Due</th>
+                    <th style="padding:12px 16px;">Verification</th>
+                    <th style="padding:12px 16px; text-align:right;">Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% if not remediations %}
+                <tr>
+                    <td colspan="7" style="padding:32px; text-align:center; color:var(--text-muted);">
+                        No remediation plans registered yet. Open a finding to create a plan.
+                    </td>
+                </tr>
+                {% endif %}
+                {% for r in remediations %}
+                <tr style="border-bottom:1px solid var(--border); transition:background 0.15s;" onmouseover="this.style.background='var(--bg-hover)'" onmouseout="this.style.background='transparent'">
+                    <td style="padding:12px 16px;">
+                        <a href="{{ url_for('finding_detail', finding_id=r.finding_id) }}" style="font-weight:600; color:var(--text-primary); text-decoration:none;">
+                            {{ r.title or 'Remediation Plan' }}
+                        </a>
+                        <div style="font-size:11px; color:var(--text-muted); margin-top:2px;">Finding ID: {{ r.finding_id[:12] }}...</div>
+                    </td>
+                    <td style="padding:12px 16px; color:var(--text-secondary);">
+                        {{ r.owner_user_id or r.owner_external or 'Unassigned' }}
+                    </td>
+                    <td style="padding:12px 16px;">
+                        <span style="display:inline-block; padding:3px 8px; border-radius:10px; font-size:11px; font-weight:600;
+                            {% if r.status == 'COMPLETED' %}background:rgba(16,185,129,0.15); color:#10b981;
+                            {% elif r.status == 'IN_PROGRESS' %}background:rgba(59,130,246,0.15); color:#3b82f6;
+                            {% else %}background:rgba(239,68,68,0.15); color:#ef4444;{% endif %}">
+                            {{ r.status }}
+                        </span>
+                    </td>
+                    <td style="padding:12px 16px; font-weight:600;">{{ r.priority }}</td>
+                    <td style="padding:12px 16px; color:var(--text-muted);">{{ r.due_date or 'No date' }}</td>
+                    <td style="padding:12px 16px;">
+                        <span style="font-size:12px; color:{% if r.verification_status == 'verified' %}#10b981{% else %}#f59e0b{% endif %};">
+                            {{ r.verification_status }}
+                        </span>
+                    </td>
+                    <td style="padding:12px 16px; text-align:right;">
+                        <a href="{{ url_for('finding_detail', finding_id=r.finding_id) }}" class="btn btn-secondary btn-sm">Inspect</a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

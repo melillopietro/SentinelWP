@@ -1,0 +1,82 @@
+# syntax=docker/dockerfile:1
+# SentinelWP Enterprise Production Dockerfile
+# Base: Python 3.12-slim (Debian Bookworm)
+# Multi-stage build with non-root security context and minimal runtime attack surface
+
+# ==============================================================================
+# Stage 1: Builder (Compiles wheels and C-extensions)
+# ==============================================================================
+FROM python:3.12-slim-bookworm AS builder
+
+# Prevent interactive prompts during package installation
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Install build dependencies for C-extensions (psycopg, bcrypt, reportlab)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    libpq-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /build
+
+# Copy pinned production requirements
+COPY requirements-prod.txt .
+
+# Install dependencies into an isolated prefix
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir --prefix=/install -r requirements-prod.txt
+
+# ==============================================================================
+# Stage 2: Runtime (Minimal attack surface, no compilers)
+# ==============================================================================
+FROM python:3.12-slim-bookworm AS runtime
+
+ENV DEBIAN_FRONTEND=noninteractive \
+    PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONPATH=/app \
+    PATH=/usr/local/bin:$PATH
+
+# Install only minimal runtime shared libraries and curl for healthchecks
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libpq5 \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy installed Python packages from builder stage
+COPY --from=builder /install /usr/local
+
+# Create dedicated non-root application user and group (UID/GID 1000)
+RUN groupadd -g 1000 appuser && \
+    useradd -u 1000 -g appuser -d /app -s /bin/bash -m appuser
+
+WORKDIR /app
+
+# Copy application source code with non-root ownership
+COPY --chown=appuser:appuser . /app
+
+# Ensure explicit permissions on writable data directory
+RUN mkdir -p /app/data && \
+    chown -R appuser:appuser /app/data && \
+    chmod 750 /app/data
+
+# Switch to non-root execution context
+USER appuser
+
+# Internal application port (never published directly to host in production)
+EXPOSE 8080
+
+# Production Healthcheck
+HEALTHCHECK --interval=20s --timeout=5s --start-period=15s --retries=3 \
+    CMD curl -f http://localhost:8080/health || exit 1
+
+# Production Gunicorn server with graceful worker recycling
+CMD ["gunicorn", \
+     "--bind", "0.0.0.0:8080", \
+     "--workers", "4", \
+     "--threads", "2", \
+     "--timeout", "120", \
+     "--graceful-timeout", "30", \
+     "--access-logfile", "-", \
+     "--error-logfile", "-", \
+     "app:app"]

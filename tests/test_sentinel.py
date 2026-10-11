@@ -206,6 +206,15 @@ class TestDNSScanner(unittest.TestCase):
         self.assertTrue(any("SPF" in t for t in titles))
         self.assertTrue(any("DMARC" in t for t in titles))
 
+    @patch("scanners.base.requests.Session.get")
+    def test_dns_scanner_skips_ip_and_local_targets(self, mock_get):
+        from scanners.dns_scanner import DNSScanner
+        for target in ("http://127.0.0.1:8099", "http://localhost:8080", "http://192.168.1.50", "http://app.internal"):
+            scanner = DNSScanner(target)
+            findings = scanner.scan()
+            self.assertEqual(len(findings), 0, f"Expected 0 DNS findings for local/IP target {target}")
+        mock_get.assert_not_called()
+
 
 class TestEOLHeaders(unittest.TestCase):
     @patch("scanners.base.requests.Session.get")

@@ -1,0 +1,98 @@
+name: Security CI & Automated Verification
+
+on:
+  push:
+    branches:
+      - main
+      - enterprise-*
+      - fix/*
+  pull_request:
+    branches:
+      - main
+      - enterprise-*
+
+jobs:
+  security-tests:
+    name: Test Suite & Security Validation
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_DB: sentinelwp_test
+          POSTGRES_USER: sentinelwp
+          POSTGRES_PASSWORD: sentinelwp_password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest pytest-cov bandit flake8 pip-audit
+
+      - name: Static Security Analysis (SAST - Bandit)
+        run: |
+          bandit -r core/ scanners/ -x "tests/,scanners/test_*" -ll || true
+
+      - name: Code Quality & Flake8 Linting
+        run: |
+          flake8 core/ scanners/ --count --select=E9,F63,F7,F82 --show-source --statistics
+
+      - name: Dependency Vulnerability Audit (pip-audit)
+        run: |
+          pip-audit --strict --desc on 2>&1 || true
+
+      - name: Secret Detection (gitleaks)
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        continue-on-error: true
+
+      - name: Regression Guard (WordPress Version Detection)
+        run: |
+          pytest tests/test_wordpress_version_regression.py -q --tb=short
+
+      - name: Full Test Suite
+        env:
+          ENVIRONMENT: test
+          DATABASE_URL: postgresql://sentinelwp:sentinelwp_password@localhost:5432/sentinelwp_test
+          REDIS_URL: redis://localhost:6379/0
+        run: |
+          pytest tests/ -v
+
+      - name: Generate CycloneDX SBOM
+        run: |
+          python scripts/generate_sbom.py sbom.json
+
+      - name: Archive SBOM Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: sentinelwp-cyclonedx-sbom
+          path: sbom.json

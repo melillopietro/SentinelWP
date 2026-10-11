@@ -29,13 +29,14 @@ def run_batch(
     scan_mode: str = "passive",
     max_workers: Optional[int] = None,
     progress_callback: Optional[Callable] = None,
+    tenant_id: str = "default-tenant",
 ) -> BatchJob:
     job = BatchJob(targets=targets, total=len(targets), scan_mode=scan_mode)
     workers = max_workers or min(MAX_CONCURRENT_SCANS, len(targets))
 
     with ThreadPoolExecutor(max_workers=workers) as executor:
         future_map = {
-            executor.submit(run_scan, url, initiated_by, scan_mode): url
+            executor.submit(run_scan, url, initiated_by, scan_mode, None, True, tenant_id): url
             for url in targets
         }
         for future in as_completed(future_map):

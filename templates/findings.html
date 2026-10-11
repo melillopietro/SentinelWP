@@ -1,0 +1,310 @@
+{% extends "base.html" %}
+{% block title %}Vulnerabilities - SentinelWP Enterprise{% endblock %}
+{% block content %}
+<div class="workspace-header">
+    <div>
+        <h2>Vulnerabilities &amp; Exposure Governance</h2>
+        <p>Centralized findings triage, remediation velocity, SLA compliance, and risk exceptions.</p>
+    </div>
+    <div style="display:flex; gap:10px;">
+        <a href="{{ url_for('scan_history') }}" class="btn btn-secondary btn-sm">Scan Queue</a>
+    </div>
+</div>
+
+<!-- Workspace 3 Navigation Tabs -->
+<div class="workspace-tabs">
+    <a href="{{ url_for('findings_list', tab='all') }}" class="workspace-tab {% if active_tab == 'all' %}active{% endif %}">
+        <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+        All Findings
+        <span class="tab-badge">{{ total_count }}</span>
+    </a>
+    <a href="{{ url_for('findings_list', tab='critical') }}" class="workspace-tab {% if active_tab == 'critical' %}active{% endif %}">
+        <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+        Critical &amp; High
+        <span class="tab-badge" style="background:rgba(239,68,68,0.2); color:var(--danger);">P1 / KEV</span>
+    </a>
+    <a href="{{ url_for('findings_list', tab='remediation') }}" class="workspace-tab {% if active_tab == 'remediation' %}active{% endif %}">
+        <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/></svg>
+        Remediation Backlog
+        {% if total_remediations %}<span class="tab-badge">{{ total_remediations }}</span>{% endif %}
+    </a>
+    <a href="{{ url_for('findings_list', tab='sla') }}" class="workspace-tab {% if active_tab == 'sla' %}active{% endif %}">
+        <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+        SLA Governance
+        {% if breached_count > 0 %}<span class="tab-badge" style="background:rgba(239,68,68,0.2); color:var(--danger);">{{ breached_count }} breached</span>{% endif %}
+    </a>
+    <a href="{{ url_for('findings_list', tab='exceptions') }}" class="workspace-tab {% if active_tab == 'exceptions' %}active{% endif %}">
+        <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+        Risk Exceptions
+        <span class="tab-badge">{{ risk_acceptances | length }}</span>
+    </a>
+</div>
+
+{% if active_tab == 'remediation' %}
+<!-- TAB 3: REMEDIATION BACKLOG (CONSOLIDATING REMEDIATION.HTML) -->
+<div class="stats-grid" style="grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); margin-bottom:24px;">
+    <div class="stat-card">
+        <div class="label">Total Tasks</div>
+        <div class="value">{{ total_remediations }}</div>
+    </div>
+    <div class="stat-card">
+        <div class="label">In Progress</div>
+        <div class="value" style="color:var(--warning)">{{ in_progress_count }}</div>
+    </div>
+    <div class="stat-card">
+        <div class="label">Pending Verification</div>
+        <div class="value" style="color:var(--info)">{{ pending_verification_count }}</div>
+    </div>
+    <div class="stat-card">
+        <div class="label">Completed</div>
+        <div class="value" style="color:var(--success)">{{ completed_remediations_count }}</div>
+    </div>
+</div>
+
+<div style="background:var(--bg-card); border:1px solid var(--border); border-radius:var(--radius); padding:20px;">
+    <h3 style="font-size:16px; font-weight:600; margin-bottom:16px;">Active Remediation Actions</h3>
+    {% if remediations %}
+    <div class="table-wrap">
+        <table>
+            <thead>
+                <tr>
+                    <th>Remediation ID</th>
+                    <th>Status</th>
+                    <th>Verification</th>
+                    <th>Assignee</th>
+                    <th>Created</th>
+                    <th style="text-align:right;">Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for r in remediations %}
+                <tr>
+                    <td style="font-family:monospace;">{{ r.id[:8] }}</td>
+                    <td><span class="badge badge-info">{{ r.status }}</span></td>
+                    <td><span class="badge {% if r.verification_status == 'verified' %}badge-success{% else %}badge-warning{% endif %}">{{ r.verification_status or 'unverified' }}</span></td>
+                    <td>{{ r.assigned_to_user_id or 'Unassigned' }}</td>
+                    <td style="color:var(--text-muted); font-size:12px;">{{ r.created_at[:10] if r.created_at else '-' }}</td>
+                    <td style="text-align:right;">
+                        <a href="{{ url_for('finding_detail', finding_id=r.finding_id) }}" class="btn btn-secondary btn-sm">View Finding</a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <p style="font-size:13px; color:var(--text-muted);">No active remediation workflows found.</p>
+    {% endif %}
+</div>
+
+{% elif active_tab == 'sla' %}
+<!-- TAB 4: SLA GOVERNANCE (CONSOLIDATING SLA.HTML) -->
+<div class="stats-grid" style="grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); margin-bottom:24px;">
+    <div class="stat-card">
+        <div class="label">On Track</div>
+        <div class="value" style="color:var(--success)">{{ on_track_count }}</div>
+    </div>
+    <div class="stat-card">
+        <div class="label">Warning (Near Due)</div>
+        <div class="value" style="color:var(--warning)">{{ warning_count }}</div>
+    </div>
+    <div class="stat-card">
+        <div class="label">Breached</div>
+        <div class="value" style="color:var(--danger)">{{ breached_count }}</div>
+    </div>
+    <div class="stat-card">
+        <div class="label">Paused</div>
+        <div class="value" style="color:var(--text-muted)">{{ paused_count }}</div>
+    </div>
+</div>
+
+<div style="background:var(--bg-card); border:1px solid var(--border); border-radius:var(--radius); padding:20px; margin-bottom:24px;">
+    <h3 style="font-size:16px; font-weight:600; margin-bottom:16px;">SLA Policy Definitions</h3>
+    {% if sla_policies %}
+    <div class="table-wrap">
+        <table>
+            <thead>
+                <tr>
+                    <th>Priority Band</th>
+                    <th>Max Days to Resolve</th>
+                    <th>Warning Threshold (Days)</th>
+                    <th>Description</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for p in sla_policies %}
+                <tr>
+                    <td><span class="badge badge-critical">{{ p.priority_band }}</span></td>
+                    <td><strong>{{ p.remediation_target_days }} days</strong></td>
+                    <td>{{ p.warning_threshold_days }} days</td>
+                    <td style="color:var(--text-secondary);">{{ p.description or 'Standard policy' }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <p style="font-size:13px; color:var(--text-muted);">Standard enterprise SLA policy active: P1 (7 days), P2 (30 days), P3 (90 days).</p>
+    {% endif %}
+</div>
+
+{% elif active_tab == 'exceptions' %}
+<!-- TAB 5: RISK EXCEPTIONS (CONSOLIDATING RISK_ACCEPTANCES.HTML) -->
+<div style="background:var(--bg-card); border:1px solid var(--border); border-radius:var(--radius); padding:20px;">
+    <h3 style="font-size:16px; font-weight:600; margin-bottom:16px;">Authorized Risk Exceptions &amp; Waivers</h3>
+    {% if risk_acceptances %}
+    <div class="table-wrap">
+        <table>
+            <thead>
+                <tr>
+                    <th>Exception ID</th>
+                    <th>Status</th>
+                    <th>Approved By</th>
+                    <th>Expires At</th>
+                    <th>Justification</th>
+                    <th style="text-align:right;">Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for ra in risk_acceptances %}
+                <tr>
+                    <td style="font-family:monospace;">{{ ra.id[:8] }}</td>
+                    <td><span class="badge {% if ra.status == 'APPROVED' %}badge-success{% elif ra.status == 'PENDING' %}badge-warning{% else %}badge-info{% endif %}">{{ ra.status }}</span></td>
+                    <td>{{ ra.approved_by_user_id or '-' }}</td>
+                    <td style="color:var(--text-muted); font-size:12px;">{{ ra.expiration_date[:10] if ra.expiration_date else '-' }}</td>
+                    <td style="max-width:250px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{{ ra.justification }}</td>
+                    <td style="text-align:right;">
+                        <a href="{{ url_for('finding_detail', finding_id=ra.finding_id) }}" class="btn btn-secondary btn-sm">Inspect</a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <p style="font-size:13px; color:var(--text-muted);">No risk exceptions or waivers on file.</p>
+    {% endif %}
+</div>
+
+{% else %}
+<!-- TAB 1 & TAB 2: FINDINGS TABLE (ALL / CRITICAL) -->
+<!-- Filters Toolbar -->
+<div class="card" style="margin-bottom:20px; padding:16px; background:var(--bg-secondary); border:1px solid var(--border); border-radius:var(--radius);">
+    <form method="GET" action="{{ url_for('findings_list') }}" style="display:flex; flex-wrap:wrap; gap:12px; align-items:flex-end;">
+        <input type="hidden" name="tab" value="{{ active_tab }}"/>
+        <div style="flex:2; min-width:200px;">
+            <label style="display:block; font-size:12px; color:var(--text-muted); margin-bottom:4px;">Search CVE / Title</label>
+            <input type="text" name="search" value="{{ filters.search or '' }}" placeholder="Search by title, CVE, plugin..." style="width:100%; padding:8px 12px; background:var(--bg-primary); border:1px solid var(--border); border-radius:var(--radius); color:var(--text-primary); font-size:13px;">
+        </div>
+        <div style="flex:1; min-width:130px;">
+            <label style="display:block; font-size:12px; color:var(--text-muted); margin-bottom:4px;">Severity</label>
+            <select name="severity" style="width:100%; padding:8px 12px; background:var(--bg-primary); border:1px solid var(--border); border-radius:var(--radius); color:var(--text-primary); font-size:13px;">
+                <option value="">All Severities</option>
+                <option value="critical" {% if filters.severity == 'critical' %}selected{% endif %}>Critical</option>
+                <option value="high" {% if filters.severity == 'high' %}selected{% endif %}>High</option>
+                <option value="medium" {% if filters.severity == 'medium' %}selected{% endif %}>Medium</option>
+                <option value="low" {% if filters.severity == 'low' %}selected{% endif %}>Low</option>
+            </select>
+        </div>
+        <div style="flex:1; min-width:130px;">
+            <label style="display:block; font-size:12px; color:var(--text-muted); margin-bottom:4px;">Status</label>
+            <select name="status" style="width:100%; padding:8px 12px; background:var(--bg-primary); border:1px solid var(--border); border-radius:var(--radius); color:var(--text-primary); font-size:13px;">
+                <option value="">All Statuses</option>
+                <option value="OPEN" {% if filters.status == 'OPEN' %}selected{% endif %}>Open</option>
+                <option value="IN_PROGRESS" {% if filters.status == 'IN_PROGRESS' %}selected{% endif %}>In Progress</option>
+                <option value="RESOLVED" {% if filters.status == 'RESOLVED' %}selected{% endif %}>Resolved</option>
+                <option value="ACCEPTED" {% if filters.status == 'ACCEPTED' %}selected{% endif %}>Risk Accepted</option>
+            </select>
+        </div>
+        <div style="flex:1; min-width:130px;">
+            <label style="display:block; font-size:12px; color:var(--text-muted); margin-bottom:4px;">SLA State</label>
+            <select name="sla_status" style="width:100%; padding:8px 12px; background:var(--bg-primary); border:1px solid var(--border); border-radius:var(--radius); color:var(--text-primary); font-size:13px;">
+                <option value="">All SLA</option>
+                <option value="ON_TRACK" {% if filters.sla_status == 'ON_TRACK' %}selected{% endif %}>On Track</option>
+                <option value="WARNING" {% if filters.sla_status == 'WARNING' %}selected{% endif %}>Warning</option>
+                <option value="BREACHED" {% if filters.sla_status == 'BREACHED' %}selected{% endif %}>Breached</option>
+            </select>
+        </div>
+        <div style="display:flex; gap:8px;">
+            <button type="submit" class="btn btn-secondary btn-sm" style="height:35px; align-self:flex-end;">Filter</button>
+            <a href="{{ url_for('findings_list', tab=active_tab) }}" class="btn btn-secondary btn-sm" style="height:35px; align-self:flex-end;">Reset</a>
+        </div>
+    </form>
+</div>
+
+<!-- Findings Master Table -->
+{% if findings %}
+<div class="table-wrap">
+<table>
+    <thead>
+        <tr>
+            <th>Severity</th>
+            <th>Vulnerability Title</th>
+            <th>Affected Asset</th>
+            <th>Category</th>
+            <th>SLA</th>
+            <th>Confidence</th>
+            <th>Discovered</th>
+            <th style="text-align:right;">Action</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for f in findings %}
+        <tr>
+            <td>
+                <span class="badge badge-{{ f.severity.value if f.severity.value is defined else f.severity }}">
+                    {{ (f.severity.value if f.severity.value is defined else f.severity)|upper }}
+                </span>
+                {% if f.kev %}
+                <span class="badge badge-critical" style="margin-left:4px;" title="CISA Known Exploited Vulnerability">KEV</span>
+                {% endif %}
+            </td>
+            <td>
+                <div style="font-weight:600; color:var(--text-primary);">
+                    <a href="{{ url_for('finding_detail', finding_id=f.id) }}">{{ f.title }}</a>
+                </div>
+                {% if f.cve_id %}
+                <div style="font-size:11px; color:var(--accent); font-family:monospace; margin-top:2px;">
+                    {{ f.cve_id }}
+                </div>
+                {% endif %}
+            </td>
+            <td>
+                {% if f.asset_id %}
+                <a href="{{ url_for('asset_detail', asset_id=f.asset_id) }}" style="font-size:12px; font-weight:500;">
+                    Asset #{{ f.asset_id[:8] }}
+                </a>
+                {% else %}
+                <span style="color:var(--text-muted); font-size:12px;">-</span>
+                {% endif %}
+            </td>
+            <td style="color:var(--text-secondary); font-size:12px;">{{ f.category }}</td>
+            <td>
+                {% if f.sla_status == 'BREACHED' %}
+                <span class="badge badge-critical">BREACHED</span>
+                {% elif f.sla_status == 'WARNING' %}
+                <span class="badge badge-warning">WARNING</span>
+                {% else %}
+                <span class="badge badge-info">{{ f.sla_status or 'ON_TRACK' }}</span>
+                {% endif %}
+            </td>
+            <td>
+                <span style="font-size:11px; color:var(--text-muted);">{{ f.finding_confidence or 'HIGH' }}</span>
+            </td>
+            <td style="color:var(--text-muted); font-size:12px;">{{ f.created_at[:10] }}</td>
+            <td style="text-align:right;">
+                <a href="{{ url_for('finding_detail', finding_id=f.id) }}" class="btn btn-secondary btn-sm">Triage</a>
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+</div>
+{% else %}
+<div style="background:var(--bg-card); border:1px solid var(--border); border-radius:var(--radius); padding:40px; text-align:center;">
+    <p style="color:var(--text-muted);">No security findings matching your criteria.</p>
+</div>
+{% endif %}
+{% endif %}
+
+{% endblock %}

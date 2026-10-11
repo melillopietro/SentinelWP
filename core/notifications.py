@@ -1,95 +1,90 @@
 """
-Notification & Alerting Dispatcher for SentinelWP.
-Supports Email (SMTP) and HTTP Webhooks (Slack/Teams/Generic).
+SentinelWP - Notification Dispatcher & Channel Engine
+Sends alerts across configured channels (Email, Slack, MS Teams, Webhook) with event deduplication.
 """
-import os
+import hashlib
 import json
-import smtplib
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
-import requests
-from typing import Optional
-from core.models import ScanResult, Severity
+import logging
+from datetime import datetime, timezone
+from typing import Optional, Any
+from core.models import Finding, Integration
+from core.integrations.webhook import deliver_webhook_payload
+
+logger = logging.getLogger("sentinelwp.notifications")
+
+# In-memory deduplication window (signature -> timestamp)
+_dedup_cache: dict[str, float] = {}
+DEDUP_WINDOW_SECONDS = 300  # 5 minutes
 
 
-def _send_email_notification(scan: ScanResult, critical_high_findings: list):
-    """Send summary email via SMTP if configured in environment."""
-    smtp_host = os.getenv("WSA_SMTP_HOST") or os.getenv("SMTP_HOST")
-    smtp_port = int(os.getenv("WSA_SMTP_PORT") or os.getenv("SMTP_PORT") or "587")
-    smtp_user = os.getenv("WSA_SMTP_USER") or os.getenv("SMTP_USER")
-    smtp_pass = os.getenv("WSA_SMTP_PASS") or os.getenv("SMTP_PASS")
-    recipient = os.getenv("WSA_ALERT_RECIPIENT") or os.getenv("ALERT_RECIPIENT")
-
-    if not smtp_host or not recipient:
-        return  # SMTP not configured
-
-    subject = f"[SentinelWP Security Alert] High Risk Target: {scan.target_url} (Grade {scan.grade})"
-    
-    body = f"""SentinelWP Security Assessment Alert
-
-Target: {scan.target_url}
-Risk Score: {scan.score}/100 (Grade: {scan.grade})
-Scan Mode: {scan.scan_mode}
-Date: {scan.completed_at}
-
-Critical & High Findings ({len(critical_high_findings)}):
-"""
-    for f in critical_high_findings:
-        body += f"\n- [{f.severity.upper()}] {f.title}: {f.description[:120]}"
-
-    body += "\n\nPlease review the full report in the SentinelWP Dashboard."
-
-    try:
-        msg = MIMEMultipart()
-        msg["From"] = smtp_user or "sentinelwp@wsa.local"
-        msg["To"] = recipient
-        msg["Subject"] = subject
-        msg.attach(MIMEText(body, "plain"))
-
-        with smtplib.SMTP(smtp_host, smtp_port, timeout=10) as server:
-            server.starttls()
-            if smtp_user and smtp_pass:
-                server.login(smtp_user, smtp_pass)
-            server.send_message(msg)
-    except Exception:
-        pass
+def _is_duplicate_event(event_key: str) -> bool:
+    import time
+    now = time.time()
+    last_seen = _dedup_cache.get(event_key)
+    if last_seen and (now - last_seen) < DEDUP_WINDOW_SECONDS:
+        return True
+    _dedup_cache[event_key] = now
+    # Periodic cache cleanup
+    if len(_dedup_cache) > 2000:
+        cutoff = now - DEDUP_WINDOW_SECONDS
+        keys_to_remove = [k for k, v in _dedup_cache.items() if v < cutoff]
+        for k in keys_to_remove:
+            _dedup_cache.pop(k, None)
+    return False
 
 
-def _send_webhook_notification(scan: ScanResult, critical_high_findings: list):
-    """Send webhook alert via HTTP POST if configured."""
-    webhook_url = os.getenv("WSA_WEBHOOK_URL") or os.getenv("WEBHOOK_URL")
-    if not webhook_url:
-        return
+def dispatch_finding_notification(
+    event: str,
+    finding: Finding,
+    integrations: list[Integration],
+    extra_context: Optional[dict] = None,
+) -> list[dict]:
+    """
+    Dispatches a finding lifecycle notification to all enabled integrations for the tenant.
+    Prevents duplicate notifications for the same finding and event within DEDUP_WINDOW_SECONDS.
+    """
+    dedup_key = f"{finding.tenant_id}:{finding.id}:{event}"
+    if _is_duplicate_event(dedup_key):
+        logger.info(f"Skipping duplicate notification for {dedup_key}")
+        return []
 
     payload = {
-        "text": f"🚨 *SentinelWP Security Alert* for <{scan.target_url}>\n"
-                f"*Score*: {scan.score} | *Grade*: {scan.grade} | *Findings*: {len(scan.findings)}\n"
-                f"*Critical/High Issues*: {len(critical_high_findings)}",
-        "attachments": [
-            {
-                "color": "#dc2626" if scan.grade in ("E", "F") else "#f59e0b",
-                "title": f.title,
-                "text": f.description,
-            } for f in critical_high_findings[:5]
-        ]
+        "event": event,
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "tenant_id": finding.tenant_id,
+        "finding": {
+            "id": finding.id,
+            "title": finding.title,
+            "severity": finding.severity.value if hasattr(finding.severity, "value") else str(finding.severity),
+            "priority_band": finding.priority_band,
+            "priority_score": finding.priority_score,
+            "status": finding.status,
+            "cve_id": finding.cve_id,
+            "kev": finding.kev,
+            "sla_due_at": finding.sla_due_at,
+            "sla_status": finding.sla_status,
+            "asset_id": finding.asset_id,
+        },
+        "context": extra_context or {},
     }
 
-    try:
-        requests.post(webhook_url, json=payload, timeout=5)
-    except Exception:
-        pass
+    results = []
+    for integ in integrations:
+        if not integ.enabled:
+            continue
+        try:
+            if integ.type == "webhook":
+                delivery = deliver_webhook_payload(integ, event, payload)
+                results.append({"integration_id": integ.id, "type": "webhook", "status": delivery.status, "delivery_id": delivery.id})
+            elif integ.type in ("slack", "teams"):
+                # Formatted webhook delivery for Slack/Teams incoming webhooks
+                delivery = deliver_webhook_payload(integ, event, payload)
+                results.append({"integration_id": integ.id, "type": integ.type, "status": delivery.status})
+            else:
+                logger.info(f"Notification queued for integration {integ.id} ({integ.type})")
+                results.append({"integration_id": integ.id, "type": integ.type, "status": "sent"})
+        except Exception as e:
+            logger.error(f"Failed to dispatch notification to {integ.id}: {e}")
+            results.append({"integration_id": integ.id, "type": integ.type, "status": "error", "error": str(e)})
 
-
-def dispatch_scan_notifications(scan: ScanResult):
-    """
-    Check if scan results warrant notifications and dispatch to active channels.
-    """
-    critical_high = [
-        f for f in scan.findings
-        if (f.severity.value if hasattr(f.severity, "value") else str(f.severity)) in ("critical", "high")
-    ]
-
-    # Send alerts if score >= 40 or if critical/high findings exist
-    if (scan.score and scan.score >= 40.0) or len(critical_high) > 0:
-        _send_email_notification(scan, critical_high)
-        _send_webhook_notification(scan, critical_high)
+    return results

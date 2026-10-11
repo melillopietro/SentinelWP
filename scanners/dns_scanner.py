@@ -13,14 +13,37 @@ class DNSScanner(BaseScanner):
     def scan(self) -> list:
         parsed = urlparse(self.target_url)
         domain = parsed.hostname or self.target_url
+        if not domain:
+            return self.findings
         if domain.lower().startswith("www."):
             domain = domain[4:]
-            
+
+        # Skip SPF/DMARC checks for IP addresses and local/internal hosts
+        # IP literals and non-FQDN development hosts do not publish email SPF/DMARC DNS records.
+        if self._is_ip_or_local(domain):
+            self._log("Skipping DNS SPF/DMARC check: target is IP literal or local host", domain=domain)
+            return self.findings
+
         self._log("Starting DNS security check", domain=domain)
-        
         self._check_spf(domain)
         self._check_dmarc(domain)
         return self.findings
+
+    @staticmethod
+    def _is_ip_or_local(hostname: str) -> bool:
+        import ipaddress
+        clean_host = hostname.strip("[]")
+        try:
+            ipaddress.ip_address(clean_host)
+            return True
+        except ValueError:
+            pass
+        lower_host = clean_host.lower()
+        if lower_host in ("localhost", "127.0.0.1", "::1"):
+            return True
+        if lower_host.endswith((".local", ".internal", ".test", ".invalid", ".example", ".lan")):
+            return True
+        return False
 
     def _query_doh_txt(self, name: str) -> list:
         """Query DNS TXT records using Google's DNS-over-HTTPS API."""

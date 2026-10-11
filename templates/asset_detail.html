@@ -1,0 +1,398 @@
+{% extends "base.html" %}
+{% block title %}{{ asset.display_name or asset.hostname }} - Asset 360 - SentinelWP Enterprise{% endblock %}
+{% block content %}
+<div class="page-header" style="margin-bottom:20px;">
+    <div style="margin-bottom:8px;">
+        <a href="{{ url_for('assets') }}" style="color:var(--text-muted); font-size:13px; display:inline-flex; align-items:center; gap:6px;">
+            <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
+            Back to Asset Inventory
+        </a>
+    </div>
+    <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:16px;">
+        <div>
+            <div style="display:flex; align-items:center; gap:12px;">
+                <h2 style="margin:0;">{{ asset.display_name or asset.hostname }}</h2>
+                {% if asset.authorization_status == 'authorized' %}
+                <span style="font-size:12px; padding:3px 10px; border-radius:4px; background:rgba(16,185,129,0.15); color:var(--success); border:1px solid rgba(16,185,129,0.3); font-weight:600;">
+                    ✓ Authorized for Active Scanning
+                </span>
+                {% else %}
+                <span style="font-size:12px; padding:3px 10px; border-radius:4px; background:rgba(239,68,68,0.15); color:var(--danger); border:1px solid rgba(239,68,68,0.3); font-weight:600;">
+                    Passive Only (Active Scanning Unauthorized)
+                </span>
+                {% endif %}
+            </div>
+            <p style="font-family:monospace; color:var(--text-muted); font-size:13px; margin-top:4px;">{{ asset.canonical_url }}</p>
+        </div>
+        <div style="display:flex; gap:8px;">
+            {% if session.get('role') in ('admin', 'analyst') %}
+            <form method="POST" action="{{ url_for('new_scan') }}" style="display:inline;">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                <input type="hidden" name="target_url" value="{{ asset.canonical_url }}"/>
+                <input type="hidden" name="scan_mode" value="{% if active_auth %}safe-active{% else %}passive{% endif %}"/>
+                <button type="submit" class="btn btn-primary btn-sm">
+                    Run {% if active_auth %}Safe Active{% else %}Passive{% endif %} Scan
+                </button>
+            </form>
+            <a href="{{ url_for('edit_asset_view', asset_id=asset.id) }}" class="btn btn-secondary btn-sm">Edit Metadata</a>
+            {% endif %}
+            {% if session.get('role') == 'admin' %}
+            <form method="POST" action="{{ url_for('delete_asset_route', asset_id=asset.id) }}" onsubmit="return confirm('Are you sure you want to decommission/disable this asset?');" style="display:inline;">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                <button type="submit" class="btn btn-danger btn-sm">Decommission</button>
+            </form>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Asset Contextual Navigation Tabs (6 Areas) -->
+<div class="workspace-tabs">
+    <a href="{{ url_for('asset_detail', asset_id=asset.id, tab='overview') }}" class="workspace-tab {% if active_tab == 'overview' %}active{% endif %}">
+        Overview
+    </a>
+    <a href="{{ url_for('asset_detail', asset_id=asset.id, tab='vulns') }}" class="workspace-tab {% if active_tab == 'vulns' %}active{% endif %}">
+        Vulnerabilities
+        <span class="tab-badge">{{ findings | length }}</span>
+    </a>
+    <a href="{{ url_for('asset_detail', asset_id=asset.id, tab='scans') }}" class="workspace-tab {% if active_tab == 'scans' %}active{% endif %}">
+        Scan History
+        <span class="tab-badge">{{ scans | length }}</span>
+    </a>
+    <a href="{{ url_for('asset_detail', asset_id=asset.id, tab='monitoring') }}" class="workspace-tab {% if active_tab == 'monitoring' %}active{% endif %}">
+        Continuous Monitoring
+    </a>
+    <a href="{{ url_for('asset_detail', asset_id=asset.id, tab='tech') }}" class="workspace-tab {% if active_tab == 'tech' %}active{% endif %}">
+        Technology Inventory
+    </a>
+    <a href="{{ url_for('asset_detail', asset_id=asset.id, tab='reports') }}" class="workspace-tab {% if active_tab == 'reports' %}active{% endif %}">
+        Reports &amp; Diff
+    </a>
+</div>
+
+{% if active_tab == 'vulns' %}
+<!-- TAB 2: VULNERABILITIES FOR THIS ASSET -->
+<div>
+    <h3 style="font-size:16px; color:var(--text-primary); margin-bottom:12px;">Active Findings on {{ asset.display_name or asset.hostname }} ({{ findings | length }})</h3>
+    {% if findings %}
+    <div class="table-wrap">
+        <table style="width:100%; border-collapse:collapse; font-size:13px;">
+            <thead>
+                <tr style="background:var(--bg-card); border-bottom:1px solid var(--border); text-align:left; color:var(--text-secondary);">
+                    <th style="padding:10px 14px;">Severity</th>
+                    <th style="padding:10px 14px;">Category</th>
+                    <th style="padding:10px 14px;">Finding Title</th>
+                    <th style="padding:10px 14px;">SLA Status</th>
+                    <th style="padding:10px 14px;">Discovered</th>
+                    <th style="padding:10px 14px; text-align:right;">Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for f in findings %}
+                <tr style="border-bottom:1px solid var(--border);">
+                    <td style="padding:10px 14px;">
+                        <span class="badge badge-{{ f.severity.value if f.severity.value is defined else f.severity }}">
+                            {{ (f.severity.value if f.severity.value is defined else f.severity)|upper }}
+                        </span>
+                    </td>
+                    <td style="padding:10px 14px; color:var(--text-secondary);">{{ f.category }}</td>
+                    <td style="padding:10px 14px; font-weight:500;">
+                        <a href="{{ url_for('finding_detail', finding_id=f.id) }}">{{ f.title }}</a>
+                    </td>
+                    <td style="padding:10px 14px;">
+                        {% if f.sla_status == 'BREACHED' %}
+                        <span class="badge badge-critical">BREACHED</span>
+                        {% elif f.sla_status == 'WARNING' %}
+                        <span class="badge badge-warning">WARNING</span>
+                        {% else %}
+                        <span class="badge badge-info">{{ f.sla_status or 'ON_TRACK' }}</span>
+                        {% endif %}
+                    </td>
+                    <td style="padding:10px 14px; color:var(--text-muted);">{{ f.created_at[:10] }}</td>
+                    <td style="padding:10px 14px; text-align:right;">
+                        <a href="{{ url_for('finding_detail', finding_id=f.id) }}" class="btn btn-secondary btn-sm">Triage</a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <p style="font-size:13px; color:var(--text-muted); background:var(--bg-secondary); padding:16px; border-radius:var(--radius); border:1px solid var(--border);">
+        No findings recorded on this asset.
+    </p>
+    {% endif %}
+</div>
+
+{% elif active_tab == 'scans' %}
+<!-- TAB 3: SCAN HISTORY FOR THIS ASSET -->
+<div>
+    <h3 style="font-size:16px; color:var(--text-primary); margin-bottom:12px;">Historical Scans ({{ scans | length }})</h3>
+    {% if scans %}
+    <div class="table-wrap">
+        <table style="width:100%; border-collapse:collapse; font-size:13px;">
+            <thead>
+                <tr style="background:var(--bg-card); border-bottom:1px solid var(--border); text-align:left; color:var(--text-secondary);">
+                    <th style="padding:10px 14px;">Scan ID</th>
+                    <th style="padding:10px 14px;">Mode</th>
+                    <th style="padding:10px 14px;">Grade &amp; Score</th>
+                    <th style="padding:10px 14px;">Started</th>
+                    <th style="padding:10px 14px;">Status</th>
+                    <th style="padding:10px 14px; text-align:right;">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for s in scans %}
+                <tr style="border-bottom:1px solid var(--border);">
+                    <td style="padding:10px 14px; font-family:monospace;">
+                        <a href="{{ url_for('scan_detail', scan_id=s.id) }}">{{ s.id[:8] }}</a>
+                    </td>
+                    <td style="padding:10px 14px; text-transform:capitalize;">{{ s.scan_mode }}</td>
+                    <td style="padding:10px 14px;">
+                        {% if s.grade %}
+                        <span class="badge {% if s.grade.startswith('A') %}badge-info{% elif s.grade.startswith('B') %}badge-low{% elif s.grade.startswith('C') %}badge-medium{% else %}badge-critical{% endif %}">{{ s.grade }} ({{ s.score }})</span>
+                        {% else %}-{% endif %}
+                    </td>
+                    <td style="padding:10px 14px; color:var(--text-muted);">{{ s.started_at[:19].replace('T', ' ') if s.started_at else '-' }}</td>
+                    <td style="padding:10px 14px;">{{ s.status.value if s.status.value is defined else s.status }}</td>
+                    <td style="padding:10px 14px; text-align:right;">
+                        <a href="{{ url_for('scan_detail', scan_id=s.id) }}" class="btn btn-secondary btn-sm">Report</a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <p style="font-size:13px; color:var(--text-muted); background:var(--bg-secondary); padding:16px; border-radius:var(--radius); border:1px solid var(--border);">
+        No scans have been executed for this asset yet.
+    </p>
+    {% endif %}
+</div>
+
+{% elif active_tab == 'monitoring' %}
+<!-- TAB 4: CONTINUOUS MONITORING CONFIGURATION -->
+<div style="background:var(--bg-card); border:1px solid var(--border); border-radius:var(--radius); padding:24px;">
+    <h3 style="font-size:16px; font-weight:600; color:var(--text-primary); margin-bottom:16px;">Continuous Security Monitoring</h3>
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:20px; font-size:13px; margin-bottom:20px;">
+        <div>
+            <span style="color:var(--text-muted); display:block; margin-bottom:4px;">Monitoring Status</span>
+            <span class="badge badge-success">ACTIVE &amp; MONITORED</span>
+        </div>
+        <div>
+            <span style="color:var(--text-muted); display:block; margin-bottom:4px;">Cadence Policy</span>
+            <strong>Every 24 Hours (Daily Differential)</strong>
+        </div>
+        <div>
+            <span style="color:var(--text-muted); display:block; margin-bottom:4px;">Last Automated Check</span>
+            <span>{{ latest_scan.started_at[:16] if latest_scan and latest_scan.started_at else 'Pending first cycle' }}</span>
+        </div>
+        <div>
+            <span style="color:var(--text-muted); display:block; margin-bottom:4px;">Auto-Reassessment on Intel Updates</span>
+            <span style="color:var(--success);">Enabled (Outbox Linked)</span>
+        </div>
+    </div>
+    <div style="display:flex; gap:10px;">
+        <a href="{{ url_for('scan_history', tab='schedules') }}" class="btn btn-secondary btn-sm">View Recurring Schedules</a>
+    </div>
+</div>
+
+{% elif active_tab == 'tech' %}
+<!-- TAB 5: TECHNOLOGY INVENTORY -->
+<div style="background:var(--bg-card); border:1px solid var(--border); border-radius:var(--radius); padding:24px;">
+    <h3 style="font-size:16px; font-weight:600; color:var(--text-primary); margin-bottom:16px;">Detected Technologies &amp; Software Components</h3>
+    <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:16px; margin-bottom:24px;">
+        <div style="padding:16px; background:var(--bg-secondary); border-radius:var(--radius); border:1px solid var(--border);">
+            <div style="font-size:12px; color:var(--text-muted);">Core CMS Platform</div>
+            <div style="font-size:16px; font-weight:600; margin-top:6px;">
+                {% if latest_scan and (latest_scan.wordpress_detected or latest_scan.is_wordpress) %}
+                WordPress {% if latest_scan.wordpress_version and latest_scan.wordpress_version not in ('Unknown', 'Not WordPress') %}v{{ latest_scan.wordpress_version }}{% elif latest_scan.wp_version and latest_scan.wp_version not in ('Unknown', 'Not WordPress') %}v{{ latest_scan.wp_version }}{% else %}(Detected){% endif %}
+                {% else %}
+                WordPress (Fingerprint Pending)
+                {% endif %}
+            </div>
+        </div>
+        <div style="padding:16px; background:var(--bg-secondary); border-radius:var(--radius); border:1px solid var(--border);">
+            <div style="font-size:12px; color:var(--text-muted);">Hosting / Server</div>
+            <div style="font-size:16px; font-weight:600; margin-top:6px;">{{ latest_scan.server if latest_scan and latest_scan.server else 'Standard Webserver' }}</div>
+        </div>
+    </div>
+    {% if technologies %}
+    <div class="table-wrap">
+        <table>
+            <thead>
+                <tr>
+                    <th>Component Name</th>
+                    <th>Type</th>
+                    <th>Detected Version</th>
+                    <th>Confidence</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for t in technologies %}
+                <tr>
+                    <td><strong>{{ t.name }}</strong></td>
+                    <td>{{ t.category or 'Plugin/Theme' }}</td>
+                    <td>{{ t.version or 'Unknown' }}</td>
+                    <td><span class="badge badge-info">{{ t.confidence or 'HIGH' }}</span></td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <p style="font-size:13px; color:var(--text-muted);">Run a Safe-Active or Passive scan to update granular plugin and theme inventory.</p>
+    {% endif %}
+</div>
+
+{% elif active_tab == 'reports' %}
+<!-- TAB 6: REPORTS & DIFFERENTIAL LOG -->
+<div style="background:var(--bg-card); border:1px solid var(--border); border-radius:var(--radius); padding:24px;">
+    <h3 style="font-size:16px; font-weight:600; color:var(--text-primary); margin-bottom:16px;">Reports &amp; Differential Telemetry</h3>
+    <div style="display:flex; flex-direction:column; gap:12px; font-size:13px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; padding:12px; background:var(--bg-secondary); border-radius:var(--radius);">
+            <div>
+                <strong>Differential Drift Analysis</strong>
+                <div style="font-size:12px; color:var(--text-muted);">Compare asset changes across historical scan baselines.</div>
+            </div>
+            <a href="/api/v1/assets/{{ asset.id }}/differential" target="_blank" class="btn btn-secondary btn-sm">View JSON Differential</a>
+        </div>
+        {% if latest_scan %}
+        <div style="display:flex; justify-content:space-between; align-items:center; padding:12px; background:var(--bg-secondary); border-radius:var(--radius);">
+            <div>
+                <strong>Latest Assessment Report</strong>
+                <div style="font-size:12px; color:var(--text-muted);">Scan #{{ latest_scan.id[:8] }} completed {{ latest_scan.started_at[:10] if latest_scan.started_at else '' }}</div>
+            </div>
+            <a href="{{ url_for('scan_detail', scan_id=latest_scan.id) }}" class="btn btn-primary btn-sm">Open Scan Report</a>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+{% else %}
+<!-- TAB 1: OVERVIEW (DEFAULT) -->
+<div style="display:grid; grid-template-columns:1.5fr 1fr; gap:20px; margin-bottom:24px;">
+    <!-- Metadata Card -->
+    <div class="card" style="background:var(--bg-secondary); border:1px solid var(--border); border-radius:var(--radius); padding:20px;">
+        <h3 style="font-size:15px; margin-bottom:16px; color:var(--text-primary); border-bottom:1px solid var(--border); padding-bottom:8px;">
+            Governance &amp; Categorization
+        </h3>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; font-size:13px;">
+            <div>
+                <span style="color:var(--text-muted); display:block; margin-bottom:2px;">Environment</span>
+                <strong style="text-transform:uppercase;">{{ asset.environment }}</strong>
+            </div>
+            <div>
+                <span style="color:var(--text-muted); display:block; margin-bottom:2px;">Criticality</span>
+                <strong style="text-transform:capitalize;">{{ asset.criticality }}</strong>
+            </div>
+            <div>
+                <span style="color:var(--text-muted); display:block; margin-bottom:2px;">Internet Exposure</span>
+                <strong style="text-transform:capitalize;">{{ asset.internet_exposure }}</strong>
+            </div>
+            <div>
+                <span style="color:var(--text-muted); display:block; margin-bottom:2px;">Data Classification</span>
+                <strong style="text-transform:capitalize;">{{ asset.data_classification }}</strong>
+            </div>
+            <div>
+                <span style="color:var(--text-muted); display:block; margin-bottom:2px;">Business Owner</span>
+                <span>{{ asset.business_owner or 'Unassigned' }}</span>
+            </div>
+            <div>
+                <span style="color:var(--text-muted); display:block; margin-bottom:2px;">Technical Owner</span>
+                <span>{{ asset.technical_owner or 'Unassigned' }}</span>
+            </div>
+            <div>
+                <span style="color:var(--text-muted); display:block; margin-bottom:2px;">Asset ID</span>
+                <span style="font-family:monospace; font-size:11px;">{{ asset.id }}</span>
+            </div>
+            <div>
+                <span style="color:var(--text-muted); display:block; margin-bottom:2px;">Tags</span>
+                <span>{{ asset.tags or 'None' }}</span>
+            </div>
+            <div>
+                <span style="color:var(--text-muted); display:block; margin-bottom:2px;">CMS Platform &amp; Version</span>
+                {% if latest_scan and (latest_scan.wordpress_detected or latest_scan.is_wordpress) %}
+                <span class="badge badge-info" style="font-size:12px;">
+                    WordPress {% if latest_scan.wordpress_version and latest_scan.wordpress_version not in ('Unknown', 'Not WordPress') %}v{{ latest_scan.wordpress_version }}{% elif latest_scan.wp_version and latest_scan.wp_version not in ('Unknown', 'Not WordPress') %}v{{ latest_scan.wp_version }}{% else %}(Version Unknown){% endif %}
+                </span>
+                {% elif latest_scan and (latest_scan.wordpress_detected is false or latest_scan.is_wordpress is false) %}
+                <span class="badge" style="background:var(--border); color:var(--text-muted); font-size:12px;">Not WordPress</span>
+                {% else %}
+                <span style="color:var(--text-muted);">Not Fingerprinted</span>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Active Authorization Card -->
+    <div class="card" style="background:var(--bg-secondary); border:1px solid var(--border); border-radius:var(--radius); padding:20px;">
+        <h3 style="font-size:15px; margin-bottom:16px; color:var(--text-primary); border-bottom:1px solid var(--border); padding-bottom:8px;">
+            Scan Authorization Guardrail
+        </h3>
+        {% if active_auth %}
+        <div style="font-size:13px; margin-bottom:16px;">
+            <div style="margin-bottom:8px;">
+                <span style="color:var(--text-muted); display:block;">Active Window:</span>
+                <strong>{{ active_auth.valid_from[:16] }} to {{ active_auth.valid_until[:16] }}</strong>
+            </div>
+            <div style="margin-bottom:8px;">
+                <span style="color:var(--text-muted); display:block;">Approved By:</span>
+                <span>{{ active_auth.approved_by or 'System Admin' }}</span>
+            </div>
+            <div style="margin-bottom:8px;">
+                <span style="color:var(--text-muted); display:block;">Allowed Profiles:</span>
+                <span style="font-family:monospace;">{{ active_auth.allowed_profiles }}</span>
+            </div>
+        </div>
+        {% if session.get('role') in ('admin', 'analyst') %}
+        <form method="POST" action="{{ url_for('revoke_authorization_route', auth_id=active_auth.id) }}" onsubmit="return confirm('Revoke this scan authorization? Safe Active scans will immediately be blocked.');">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+            <button type="submit" class="btn btn-secondary btn-sm" style="color:var(--danger); border-color:rgba(239,68,68,0.3);">Revoke Authorization</button>
+        </form>
+        {% endif %}
+        {% else %}
+        <p style="font-size:13px; color:var(--text-muted); margin-bottom:16px;">
+            No active authorization window found. Safe Active scans targeting this asset are strictly blocked by the enterprise guardrail.
+        </p>
+        {% if session.get('role') in ('admin', 'analyst') %}
+        <button onclick="document.getElementById('grant-auth-modal').style.display = 'block';" class="btn btn-primary btn-sm">
+            Grant Scan Authorization
+        </button>
+        {% endif %}
+        {% endif %}
+    </div>
+</div>
+
+<!-- Grant Authorization Modal / Form -->
+<div id="grant-auth-modal" style="display:none; background:var(--bg-secondary); border:1px solid var(--accent); border-radius:var(--radius); padding:20px; margin-bottom:24px;">
+    <h3 style="font-size:15px; margin-bottom:12px; color:var(--accent);">Grant Active Scan Authorization</h3>
+    <form method="POST" action="{{ url_for('authorize_asset_route', asset_id=asset.id) }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+        <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:16px; margin-bottom:16px;">
+            <div>
+                <label style="display:block; font-size:12px; color:var(--text-muted); margin-bottom:4px;">Valid Until <span style="color:var(--danger)">*</span></label>
+                <input type="datetime-local" name="valid_until" required style="width:100%; padding:8px 12px; background:var(--bg-primary); border:1px solid var(--border); border-radius:var(--radius); color:var(--text-primary); font-size:13px;">
+            </div>
+            <div>
+                <label style="display:block; font-size:12px; color:var(--text-muted); margin-bottom:4px;">Request Budget</label>
+                <input type="number" name="request_budget" value="1000" min="100" max="100000" style="width:100%; padding:8px 12px; background:var(--bg-primary); border:1px solid var(--border); border-radius:var(--radius); color:var(--text-primary); font-size:13px;">
+            </div>
+            <div>
+                <label style="display:block; font-size:12px; color:var(--text-muted); margin-bottom:4px;">Allowed Profiles</label>
+                <input type="text" name="allowed_profiles" value="safe_active,passive" style="width:100%; padding:8px 12px; background:var(--bg-primary); border:1px solid var(--border); border-radius:var(--radius); color:var(--text-primary); font-size:13px;">
+            </div>
+        </div>
+        <div style="margin-bottom:16px;">
+            <label style="display:block; font-size:12px; color:var(--text-muted); margin-bottom:4px;">Authorization Notes / Approval Reference</label>
+            <input type="text" name="notes" placeholder="e.g. Approved via SecOps Ticket #1042" style="width:100%; padding:8px 12px; background:var(--bg-primary); border:1px solid var(--border); border-radius:var(--radius); color:var(--text-primary); font-size:13px;">
+        </div>
+        <div style="display:flex; gap:8px;">
+            <button type="submit" class="btn btn-primary btn-sm">Confirm Authorization</button>
+            <button type="button" onclick="document.getElementById('grant-auth-modal').style.display = 'none';" class="btn btn-secondary btn-sm">Cancel</button>
+        </div>
+    </form>
+</div>
+{% endif %}
+
+{% endblock %}

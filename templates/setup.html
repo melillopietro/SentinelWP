@@ -11,6 +11,7 @@
             Welcome to SentinelWP. Please create your primary Administrator account to secure your installation. No default credentials are used.
         </p>
         <form method="POST">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <div class="form-group">
                 <label>Admin Username</label>
                 <input type="text" name="username" required autofocus placeholder="Choose admin username" minlength="3">
