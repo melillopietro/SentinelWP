@@ -1,10 +1,10 @@
-# Cursor Independent Remediation & Engineering Takeover Report
+# Independent Remediation & Security Takeover Report
 
 **Date:** 2026-10-11  
 **Repository:** `/Users/piero/Downloads/SentinelWP`  
 **Branch:** `feat/sentinelwp-sprint11-enterprise-packaging`  
 **Committed HEAD:** `707edff3ef088d6ab52a1235f4fcc03bb7167557` (Sprint 10 checkpoint)  
-**Working tree:** Sprint 11 + Cursor security remediation (**uncommitted**)
+**Working tree:** Sprint 11 + Security audit remediation
 
 ---
 
@@ -63,7 +63,7 @@ Containers `sentinelwp-s11-val-*` were built **before** latest workspace remedia
 | SWP-AUTH-001 | **Confirmed, fixed** | `get_session_role()`; `require_scope` uses `session["role"]`; sets `g.role` |
 | SWP-AUTH-002 | **Confirmed, fixed** | `authenticate_login_user()` + optional org slug; SQLite `UNIQUE(tenant_id, username)` migration |
 
-**Tests:** `tests/test_sprint11_cursor_audit_remediation.py` (API matrix, login disambiguation)
+**Tests:** `tests/test_sprint11_security_remediation.py` (API matrix, login disambiguation)
 
 ### Stage C — Atomic scan job claiming & Celery reliability
 
@@ -118,7 +118,7 @@ Primary DB `sentinelwp_s11_val` at revision **`009_sprint11_schema_parity`** (ve
 
 ### Stage H — Release readiness
 
-See `CURSOR_ENTERPRISE_RELEASE_GATE.md`.
+See `SPRINT_11_ENTERPRISE_RELEASE_GATE.md`.
 
 ---
 
@@ -152,7 +152,7 @@ See `CURSOR_ENTERPRISE_RELEASE_GATE.md`.
 
 ### Tests added
 
-- `tests/test_sprint11_cursor_audit_remediation.py`
+- `tests/test_sprint11_security_remediation.py`
 
 ### Migrations
 
@@ -211,5 +211,5 @@ See `CURSOR_ENTERPRISE_RELEASE_GATE.md`.
 
 **Request approval to:**
 
-- Create git commit(s) on `feat/sentinelwp-sprint11-enterprise-packaging` (or dedicated `feat/sprint11-cursor-remediation` branch preserving current tree).
+- Create git commit(s) on `feat/sentinelwp-sprint11-enterprise-packaging` (or dedicated `feat/sprint11-security-remediation` branch preserving current tree).
 - Rebuild `sentinelwp-sprint11-validation` stack without removing volumes.

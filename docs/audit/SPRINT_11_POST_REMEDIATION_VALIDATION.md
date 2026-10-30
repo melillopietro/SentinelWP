@@ -1,7 +1,7 @@
 # SentinelWP — Post-Remediation Final Validation
 
 **Date (UTC):** 2026-10-11  
-**Validator:** Cursor Agent (authorized laboratory run)  
+**Validator:** Security Engineering Review (authorized laboratory run)  
 **Workspace:** `/Users/piero/Downloads/SentinelWP`  
 **Docker project:** `sentinelwp-sprint11-validation`  
 **Compose file:** `docker-compose.sprint11-validation.yml`  
@@ -116,7 +116,7 @@ This demonstrates that two (or more) independent workers cannot both claim the s
 
 ### B. Automated regression
 
-`tests/test_sprint11_cursor_audit_remediation.py`:
+`tests/test_sprint11_security_remediation.py`:
 
 - SQLite: `test_exactly_one_worker_claims_job` — **PASS**
 - Live PostgreSQL (`SENTINELWP_TEST_POSTGRES_URL` / Sprint 10 lab port): `test_postgres_concurrent_claim_single_winner` — **PASS**
@@ -216,7 +216,7 @@ docker run --rm -v "$PWD:/app" -w /app python:3.12-slim-bookworm \
 | Duration | ~41s |
 | Baseline expectation | ≥636 — **met** |
 
-Remediation module alone: **15/15 passed** (`tests/test_sprint11_cursor_audit_remediation.py`).
+Remediation module alone: **15/15 passed** (`tests/test_sprint11_security_remediation.py`).
 
 ---
 

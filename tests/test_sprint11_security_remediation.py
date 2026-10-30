@@ -1,5 +1,5 @@
 """
-Sprint 11 — Independent Cursor audit remediation regression tests.
+Sprint 11 — Independent security audit remediation regression tests.
 Covers SWP-AUTH-001, SWP-DIST-001, SWP-AUTH-002, and SSRF strict-DNS hardening.
 """
 import os

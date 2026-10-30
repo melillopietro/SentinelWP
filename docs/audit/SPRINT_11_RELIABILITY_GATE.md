@@ -146,8 +146,8 @@ Duplicate delivery test: `run_scan_task.delay(job_id)` ×2 for `reljob_ea0246fc`
 
 ```bash
 python3 -m pytest \
-  tests/test_sprint11_cursor_audit_remediation.py::TestScanJobAtomicClaimPostgres \
-  tests/test_sprint11_cursor_audit_remediation.py::TestScanJobAtomicClaimSqlite -q
+  tests/test_sprint11_security_remediation.py::TestScanJobAtomicClaimPostgres \
+  tests/test_sprint11_security_remediation.py::TestScanJobAtomicClaimSqlite -q
 ```
 
 **3 passed** (including live PostgreSQL concurrent claim).
@@ -238,8 +238,8 @@ docker exec sentinelwp-s11-val-postgres psql -U s11_admin -d sentinelwp_s11_val 
 # Service restarts: docker restart sentinelwp-s11-val-{redis,worker-scan,beat,postgres}
 
 # Pytest atomic claim
-python3 -m pytest tests/test_sprint11_cursor_audit_remediation.py::TestScanJobAtomicClaimPostgres \
-  tests/test_sprint11_cursor_audit_remediation.py::TestScanJobAtomicClaimSqlite -q
+python3 -m pytest tests/test_sprint11_security_remediation.py::TestScanJobAtomicClaimPostgres \
+  tests/test_sprint11_security_remediation.py::TestScanJobAtomicClaimSqlite -q
 ```
 
 ---
@@ -260,4 +260,4 @@ Authorized patch **`fix(sprint11): reject unsafe scan submissions and clarify wo
 | SWP-REL-002 | **RESOLVED** — E2E counts DB rows + HTTP 400 |
 | SWP-REL-003 | **RESOLVED** — `[scan_task_outcome]` structured logs; bool unchanged |
 
-Full validation: [`CURSOR_RELIABILITY_PATCH_VALIDATION.md`](CURSOR_RELIABILITY_PATCH_VALIDATION.md)
+Full validation: [`SPRINT_11_RELIABILITY_PATCH_VALIDATION.md`](SPRINT_11_RELIABILITY_PATCH_VALIDATION.md)

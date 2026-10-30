@@ -1,4 +1,4 @@
-# Cursor Enterprise Release Gate
+# Enterprise Release Gate
 
 **Product:** SentinelWP v3.7.0 (codename Pilot-Readiness)  
 **Assessment date:** 2026-10-11  

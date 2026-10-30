@@ -1,4 +1,4 @@
-# Sprint 11 — Independent Cursor Audit Remediation
+# Sprint 11 — Independent Security Audit Remediation
 
 **Date:** 2026-10-11  
 **Branch:** `feat/sentinelwp-sprint11-enterprise-packaging`  
@@ -33,7 +33,7 @@
 |-------|--------|
 | **Status** | Confirmed |
 | **Root cause** | Login stored `session["role"]`; `require_scope` read `session["user_role"]`, defaulting all session API callers to viewer. |
-| **Files changed** | `core/api_auth.py`, `core/auth/session_roles.py`, `tests/test_sprint11_cursor_audit_remediation.py`, `tests/test_p0_security.py` |
+| **Files changed** | `core/api_auth.py`, `core/auth/session_roles.py`, `tests/test_sprint11_security_remediation.py`, `tests/test_p0_security.py` |
 | **Fix** | Canonical `get_session_role()` reads `role` then legacy `user_role`; sets `g.role` on session auth. API-key path unchanged. |
 | **Tests** | API matrix: admin/analyst/viewer, 401/403, API key scopes, tenant binding |
 | **Evidence** | `636 passed` including `TestApiSessionAuthorizationMatrix` |
@@ -146,14 +146,14 @@
 ```bash
 cd /Users/piero/Downloads/SentinelWP
 python3 -m pytest tests/ -q
-python3 -m pytest tests/test_sprint11_cursor_audit_remediation.py -v
+python3 -m pytest tests/test_sprint11_security_remediation.py -v
 ```
 
 Optional (live PostgreSQL claim test):
 
 ```bash
 # Requires Sprint 10 lab Postgres on 127.0.0.1:5439
-python3 -m pytest tests/test_sprint11_cursor_audit_remediation.py::TestScanJobAtomicClaimPostgres -v
+python3 -m pytest tests/test_sprint11_security_remediation.py::TestScanJobAtomicClaimPostgres -v
 ```
 
 ---

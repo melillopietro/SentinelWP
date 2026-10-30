@@ -11,7 +11,7 @@
 This PR introduces **SentinelWP 4.1.0**, the enterprise production line built on Sprints 8–11:
 - Docker/Nginx/Celery/PostgreSQL HA deployment
 - Alembic migrations through `009_sprint11_schema_parity`
-- Cursor audit remediation (session RBAC, atomic scan claims, SSRF preflight + worker enforcement)
+- Security audit remediation (session RBAC, atomic scan claims, SSRF preflight + worker enforcement)
 - Reliability patch SWP-REL-001/002/003
 
 ## History note (critical)
