@@ -16,6 +16,7 @@ SentinelWP is an advanced enterprise security auditing platform designed to eval
 | **Flask / Gunicorn, PostgreSQL, Redis, Celery & Beat** | HTTP layer enqueues durable work; scanners run in worker processes, not in request threads. Beat drives scheduled scans with slot deduplication. |
 | **Multi-tenant auth & RBAC** | Workspace-scoped data, roles (Admin / Analyst / Viewer), optional organization slug at login, centralized object authorization (404 on cross-tenant access). |
 | **WordPress scanning & vuln intelligence** | Multi-signal WP detection, passive/safe-active/full modes, local Wordfence/CISA KEV pipeline and Threat Intelligence UI. |
+| **Detection integrity** | Soft-404 anti-FP, authoritative local CVE matching, optional advisory OSV, PHP webshell *indicators* (verify manually) — see [ENTERPRISE_DETECTION_INTEGRITY.md](docs/ENTERPRISE_DETECTION_INTEGRITY.md). |
 | **Atomic Scan Job claiming** | Workers claim jobs with database-level atomicity to prevent duplicate execution under horizontal scale. |
 | **SSRF security controls** | Target validation blocks private ranges and unsafe hosts at submission and again in workers (fail-closed). |
 | **Finding lifecycle & reporting** | Normalized findings, remediation workflow, executive PDF/HTML/Excel/SARIF exports. |
@@ -26,6 +27,7 @@ SentinelWP is an advanced enterprise security auditing platform designed to eval
 - [Ubuntu / Docker deployment](docs/DEPLOYMENT_UBUNTU.md)
 - [Production configuration](docs/PRODUCTION_CONFIGURATION.md)
 - [Security hardening](docs/SECURITY_HARDENING.md)
+- [Enterprise detection integrity](docs/ENTERPRISE_DETECTION_INTEGRITY.md)
 - [Backup & recovery](docs/BACKUP_RECOVERY.md)
 - [Upgrade & rollback](docs/UPGRADE_ROLLBACK.md)
 - [Operations runbook](docs/OPERATIONS_RUNBOOK.md)
@@ -40,7 +42,8 @@ SentinelWP is an advanced enterprise security auditing platform designed to eval
   - **Environment Configuration Leaks**: Audits exposed dotenv files (`/.env`, `/.env.local`, `/.env.production`) across modern Docker, Bedrock, and Roots deployments with automatic secret redaction.
   - **Database Management & Diagnostic Tool Leaks**: Probes for exposed standalone database managers (`adminer.php`) and diagnostic scripts (`phpinfo.php`).
   - **Live Secrets in Sample Files**: Detects if `wp-config-sample.php` was accidentally populated with live production database credentials.
-- **Anti-False-Positive Engine (*Soft-404 Payload Inspection*)**: Intelligent payload inspection preventing false positives caused by web servers or custom WordPress themes returning `HTTP 200 OK` on custom 404 error pages.
+- **Anti-False-Positive Engine (*Soft-404 Payload Inspection*)**: Shared soft-404 heuristics across plugin probing, exposure checks, and PHP artifact scans — prefers false negatives over alarmist hits on themed 200 OK error pages.
+- **PHP Webshell Indicators (safe-active/full)**: Bounded path probes + conservative signatures (`PhpArtifactScanner`). Findings are *Likely* / *Suspicious* with `verification_required` — never labeled confirmed compromise from HTTP alone.
 - **Privilege Escalation & WAF Bypass Detection**:
   - **Open User Registration Audit**: Probes `wp-login.php?action=register` to detect if `users_can_register` is enabled, eliminating the primary attack vector for subscriber-to-admin privilege escalation CVEs.
   - **REST API WAF/Rewrite Bypass**: Tests `/?rest_route=/wp/v2/users` to verify if static path-based WAF or Nginx blocks on `/wp-json/` can be bypassed.

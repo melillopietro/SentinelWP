@@ -39,6 +39,29 @@
 <!-- TAB 2: BUSINESS UNITS -->
 <div style="background:var(--bg-card); border:1px solid var(--border); border-radius:var(--radius); padding:20px; margin-bottom:24px;">
     <h3 style="font-size:16px; font-weight:600; margin-bottom:16px;">Organizational Business Units</h3>
+    {% if session.get('role') in ('admin', 'analyst') %}
+    <form method="POST" action="{{ url_for('create_business_unit') }}" style="display:grid; grid-template-columns:2fr 1fr 1fr auto; gap:12px; align-items:end; margin-bottom:20px; padding:16px; background:var(--bg-secondary); border:1px solid var(--border); border-radius:var(--radius);">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="form-group" style="margin:0;">
+            <label style="font-size:12px;">Name</label>
+            <input type="text" name="name" required placeholder="Finance IT" style="width:100%;">
+        </div>
+        <div class="form-group" style="margin:0;">
+            <label style="font-size:12px;">Code</label>
+            <input type="text" name="code" required placeholder="FIN-IT" style="width:100%;">
+        </div>
+        <div class="form-group" style="margin:0;">
+            <label style="font-size:12px;">Criticality</label>
+            <select name="criticality" style="width:100%;">
+                <option value="medium">Medium</option>
+                <option value="high">High</option>
+                <option value="critical">Critical</option>
+                <option value="low">Low</option>
+            </select>
+        </div>
+        <button type="submit" class="btn btn-primary btn-sm">Create Unit</button>
+    </form>
+    {% endif %}
     {% if business_units %}
     <div class="table-wrap">
         <table>
@@ -47,8 +70,9 @@
                     <th>Business Unit</th>
                     <th>Code</th>
                     <th>Criticality</th>
-                    <th>Lead Contact</th>
+                    <th>Owner</th>
                     <th>Created</th>
+                    {% if session.get('role') in ('admin', 'analyst') %}<th style="text-align:right;">Actions</th>{% endif %}
                 </tr>
             </thead>
             <tbody>
@@ -61,15 +85,45 @@
                             {{ bu.criticality }}
                         </span>
                     </td>
-                    <td style="color:var(--text-secondary);">{{ bu.lead_contact or 'Unassigned' }}</td>
+                    <td style="color:var(--text-secondary);">{{ bu.owner_user_id or 'Unassigned' }}</td>
                     <td style="color:var(--text-muted); font-size:12px;">{{ bu.created_at[:10] if bu.created_at else '-' }}</td>
+                    {% if session.get('role') in ('admin', 'analyst') %}
+                    <td style="text-align:right;">
+                        <details style="display:inline-block; text-align:left;">
+                            <summary class="btn btn-secondary btn-sm" style="cursor:pointer; list-style:none; padding:2px 8px; font-size:11px;">Edit</summary>
+                            <form method="POST" action="{{ url_for('edit_business_unit', bu_id=bu.id) }}" style="margin-top:8px; padding:12px; background:var(--bg-secondary); border:1px solid var(--border); border-radius:var(--radius); min-width:240px;">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <div style="margin-bottom:8px;">
+                                    <label style="font-size:11px; color:var(--text-muted);">Name</label>
+                                    <input type="text" name="name" value="{{ bu.name }}" required style="width:100%; padding:6px 8px; font-size:12px;">
+                                </div>
+                                <div style="margin-bottom:8px;">
+                                    <label style="font-size:11px; color:var(--text-muted);">Criticality</label>
+                                    <select name="criticality" style="width:100%; padding:6px 8px; font-size:12px;">
+                                        <option value="low" {% if bu.criticality == 'low' %}selected{% endif %}>Low</option>
+                                        <option value="medium" {% if bu.criticality == 'medium' %}selected{% endif %}>Medium</option>
+                                        <option value="high" {% if bu.criticality == 'high' %}selected{% endif %}>High</option>
+                                        <option value="critical" {% if bu.criticality == 'critical' %}selected{% endif %}>Critical</option>
+                                    </select>
+                                </div>
+                                <button type="submit" class="btn btn-primary btn-sm" style="font-size:11px;">Save</button>
+                            </form>
+                        </details>
+                        {% if session.get('role') == 'admin' %}
+                        <form method="POST" action="{{ url_for('delete_business_unit_route', bu_id=bu.id) }}" onsubmit="return confirm('Delete this Business Unit? Assets must be unassigned first.');" style="display:inline;">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button type="submit" class="btn btn-danger btn-sm" style="padding:2px 8px; font-size:11px;">Delete</button>
+                        </form>
+                        {% endif %}
+                    </td>
+                    {% endif %}
                 </tr>
                 {% endfor %}
             </tbody>
         </table>
     </div>
     {% else %}
-    <p style="font-size:13px; color:var(--text-muted);">No Business Units configured.</p>
+    <p style="font-size:13px; color:var(--text-muted);">No Business Units configured yet. Create one above to populate Executive Report distribution.</p>
     {% endif %}
 </div>
 
@@ -222,6 +276,8 @@
                     <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
                     Authorized
                 </span>
+                {% elif a.authorization_status == 'expired' %}
+                <span style="font-size:11px; color:var(--warning); font-weight:600;">Expired</span>
                 {% elif a.authorization_status == 'pending' %}
                 <span style="font-size:11px; color:var(--warning); font-weight:600;">Pending</span>
                 {% else %}

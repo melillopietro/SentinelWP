@@ -620,8 +620,9 @@ class TestCvssSeverityNormalisation:
 
         # OSV returns a vuln but no cvss_score field
         mock_cves = [{"cve_id": "CVE-2023-9999", "summary": "XSS", "details": "", "references": []}]
-        with patch("scanners.vuln_intel.lookup_osv_vulnerabilities", return_value=mock_cves):
-            result = enrich_findings_with_cves([f])
+        with patch("config.OSV_LIVE_ENRICHMENT_ENABLED", True):
+            with patch("scanners.vuln_intel.lookup_osv_vulnerabilities", return_value=mock_cves):
+                result = enrich_findings_with_cves([f])
 
         # Severity must be preserved (not escalated to HIGH or CRITICAL)
         assert result[0].severity == Severity.MEDIUM
@@ -643,8 +644,9 @@ class TestCvssSeverityNormalisation:
 
         mock_cves = [{"cve_id": "CVE-2023-9999", "summary": "XSS", "cvss_score": 4.0,
                       "details": "", "references": []}]
-        with patch("scanners.vuln_intel.lookup_osv_vulnerabilities", return_value=mock_cves):
-            result = enrich_findings_with_cves([f])
+        with patch("config.OSV_LIVE_ENRICHMENT_ENABLED", True):
+            with patch("scanners.vuln_intel.lookup_osv_vulnerabilities", return_value=mock_cves):
+                result = enrich_findings_with_cves([f])
 
         assert result[0].severity == Severity.MEDIUM
 
@@ -665,8 +667,9 @@ class TestCvssSeverityNormalisation:
 
         mock_cves = [{"cve_id": "CVE-2024-0001", "summary": "RCE", "cvss_score": 9.8,
                       "details": "", "references": []}]
-        with patch("scanners.vuln_intel.lookup_osv_vulnerabilities", return_value=mock_cves):
-            result = enrich_findings_with_cves([f])
+        with patch("config.OSV_LIVE_ENRICHMENT_ENABLED", True):
+            with patch("scanners.vuln_intel.lookup_osv_vulnerabilities", return_value=mock_cves):
+                result = enrich_findings_with_cves([f])
 
         assert result[0].severity == Severity.CRITICAL
 

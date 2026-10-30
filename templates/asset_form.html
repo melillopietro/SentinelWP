@@ -53,6 +53,21 @@
             </div>
         </div>
 
+        <div style="margin-bottom:20px;">
+            <label style="display:block; font-size:13px; font-weight:600; margin-bottom:6px; color:var(--text-primary);">Business Unit</label>
+            <select name="business_unit_id" style="width:100%; padding:10px 14px; background:var(--bg-primary); border:1px solid var(--border); border-radius:var(--radius); color:var(--text-primary); font-size:14px;">
+                <option value="">— Unassigned —</option>
+                {% for bu in business_units|default([]) %}
+                <option value="{{ bu.id }}" {% if asset and asset.business_unit_id == bu.id %}selected{% endif %}>
+                    {{ bu.name }} ({{ bu.code }})
+                </option>
+                {% endfor %}
+            </select>
+            <span style="display:block; font-size:11px; color:var(--text-muted); margin-top:4px;">
+                Maps this asset into portfolio and executive reporting by Business Unit.
+            </span>
+        </div>
+
         <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:20px;">
             <div>
                 <label style="display:block; font-size:13px; font-weight:600; margin-bottom:6px; color:var(--text-primary);">Criticality</label>

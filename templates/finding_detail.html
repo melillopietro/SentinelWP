@@ -220,11 +220,11 @@
                 </div>
                 <div style="display:flex; justify-content:space-between;">
                     <span style="color:var(--text-muted);">CVSS Base</span>
-                    <span style="font-weight:600;">{{ finding.cvss_score if finding.cvss_score is not None else 'N/A' }}</span>
+                    <span style="font-weight:600;">{{ finding.cvss_score if finding.cvss_score is not none else 'N/A' }}</span>
                 </div>
                 <div style="display:flex; justify-content:space-between;">
                     <span style="color:var(--text-muted);">EPSS Exploit Prob.</span>
-                    <span style="font-weight:600;">{{ "%.1f%%"|format(finding.epss_score * 100) if finding.epss_score is not None else 'N/A' }}</span>
+                    <span style="font-weight:600;">{{ "%.1f%%"|format(finding.epss_score * 100) if finding.epss_score is not none else 'N/A' }}</span>
                 </div>
                 <div style="display:flex; justify-content:space-between;">
                     <span style="color:var(--text-muted);">CISA KEV</span>

@@ -1,0 +1,43 @@
+{
+  "generated_at": "2026-10-30T09:58:13.237388+00:00",
+  "product_version": "4.1.0",
+  "policies": {
+    "osv_live_enrichment_default": false,
+    "local_intel_authoritative": true,
+    "php_artifact_verification_required": true,
+    "osv_requires_local_corroboration_for_high_confidence": true
+  },
+  "suites": [
+    {
+      "module": "tests/test_enterprise_detection_integrity.py",
+      "exit_code": 0,
+      "summary": "14 passed in 0.37s",
+      "passed": true
+    },
+    {
+      "module": "tests/test_sprint2_detection_hardening.py",
+      "exit_code": 0,
+      "summary": "42 passed, 2 warnings in 16.01s",
+      "passed": true
+    },
+    {
+      "module": "tests/test_sprint7_qa_hardening.py",
+      "exit_code": 0,
+      "summary": "11 passed in 1.21s",
+      "passed": true
+    },
+    {
+      "module": "tests/vulnerability_intelligence/test_service.py",
+      "exit_code": 0,
+      "summary": "11 passed in 13.38s",
+      "passed": true
+    },
+    {
+      "module": "tests/test_scan_pipeline.py",
+      "exit_code": 0,
+      "summary": "2 passed in 0.26s",
+      "passed": true
+    }
+  ],
+  "status": "PASS"
+}

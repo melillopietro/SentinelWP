@@ -19,6 +19,7 @@ os.environ["SCAN_EXECUTION_BACKEND"] = "local"
 
 from app import app
 from core import repository
+from core.version import __version__
 from core.models import (
     Tenant, Asset, ScanAuthorization, ScanResult, ScanStatus,
     ScanJob, ScanJobStatus, ScheduledScan, ScheduledRun, AuditEvent,
@@ -67,7 +68,7 @@ class TestPhase3PostgresCeleryHA(unittest.TestCase):
         data = resp.get_json()
         self.assertEqual(data["status"], "ok")
         self.assertEqual(data["app"], "SentinelWP")
-        self.assertEqual(data["version"], "4.1.0")
+        self.assertEqual(data["version"], __version__)
 
     def test_ready_endpoint(self):
         resp = self.client.get("/ready")

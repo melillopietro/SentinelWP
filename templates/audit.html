@@ -1,9 +1,14 @@
 {% extends "base.html" %}
 {% block title %}Security Audit Log - SentinelWP Enterprise{% endblock %}
 {% block content %}
-<div class="page-header" style="margin-bottom:20px;">
-    <h2>Security Audit Log</h2>
-    <p>Immutable append-only trail of all administrative, authentication, and scanning operations</p>
+<div class="page-header" style="margin-bottom:20px; display:flex; justify-content:space-between; align-items:flex-start; gap:16px; flex-wrap:wrap;">
+    <div>
+        <h2>Security Audit Log</h2>
+        <p>Immutable append-only trail of all administrative, authentication, and scanning operations</p>
+    </div>
+    <a href="{{ url_for('settings', tab='audit') }}" class="btn btn-secondary btn-sm" style="display:inline-flex; align-items:center; gap:6px;">
+        ← Back to Administration
+    </a>
 </div>
 
 <!-- Filters Card -->

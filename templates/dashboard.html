@@ -7,9 +7,12 @@
         <p>Unified security posture, portfolio governance, and executive reporting.</p>
     </div>
     <div style="display:flex; gap:10px;">
+        <a href="{{ url_for('executive_report_export', format='pdf') }}" class="btn btn-secondary btn-sm" style="display:inline-flex; align-items:center; gap:6px;">
+            <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+            Export Executive Report (PDF)
+        </a>
         <a href="{{ url_for('executive_report_view') }}" target="_blank" class="btn btn-secondary btn-sm" style="display:inline-flex; align-items:center; gap:6px;">
-            <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
-            Export Executive Report
+            Preview
         </a>
         <a href="{{ url_for('scan_history') }}" class="btn btn-primary btn-sm" style="display:inline-flex; align-items:center; gap:6px;">
             <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
@@ -141,17 +144,30 @@
             <h3 style="font-size:18px; font-weight:700; color:var(--text-primary); margin-bottom:6px;">Executive Exposure Portfolio Summary</h3>
             <p style="font-size:13px; color:var(--text-muted);">High-level board-safe overview of corporate exposure, verified coverage, critical vulnerabilities, and SLA compliance.</p>
         </div>
-        <a href="{{ url_for('executive_report_view') }}" target="_blank" class="btn btn-primary btn-sm">
+        <a href="{{ url_for('executive_report_export', format='pdf') }}" class="btn btn-primary btn-sm">
+            Download PDF
+        </a>
+        <a href="{{ url_for('executive_report_view') }}" target="_blank" class="btn btn-secondary btn-sm">
             Open Printable Report
         </a>
     </div>
 
     <p style="font-size:14px; line-height:1.6; color:var(--text-secondary); margin-bottom:20px;">
-        SentinelWP continuously governs the corporate attack surface across <strong>{{ metrics.assets | default(0) }}</strong> known WordPress assets.
-        Currently, <strong>{{ metrics.verified_assets | default(0) }}</strong> assets (<strong>{{ metrics.verification_coverage_pct | default(0) }}%</strong>) have cryptographically verified domain ownership, while <strong>{{ metrics.internet_facing_assets | default(0) }}</strong> assets are identified as internet-facing.
+        SentinelWP continuously governs the corporate attack surface across <strong>{{ metrics.assets | default(0) }}</strong> known WordPress assets
+        with <strong>{{ metrics.open_findings | default(0) }}</strong> open findings (<strong>{{ metrics.open_critical | default(0) }}</strong> critical).
+        Currently, <strong>{{ metrics.verified_assets | default(0) }}</strong> assets (<strong>{{ metrics.verification_coverage_pct | default(0) }}%</strong>) have verified domain ownership, while <strong>{{ metrics.internet_facing_assets | default(0) }}</strong> assets are identified as internet-facing.
+        Completed scans in this workspace: <strong>{{ completed | default(0) }}</strong> / <strong>{{ total | default(0) }}</strong>.
     </p>
 
     <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:16px;">
+        <div style="padding:16px; background:var(--bg-secondary); border-radius:var(--radius); border:1px solid var(--border);">
+            <div style="font-size:12px; color:var(--text-muted); text-transform:uppercase;">Open Findings</div>
+            <div style="font-size:24px; font-weight:700; color:var(--text-primary); margin-top:4px;">{{ metrics.open_findings | default(0) }}</div>
+        </div>
+        <div style="padding:16px; background:var(--bg-secondary); border-radius:var(--radius); border:1px solid var(--border);">
+            <div style="font-size:12px; color:var(--text-muted); text-transform:uppercase;">Critical Severity</div>
+            <div style="font-size:24px; font-weight:700; color:var(--critical); margin-top:4px;">{{ metrics.open_critical | default(0) }}</div>
+        </div>
         <div style="padding:16px; background:var(--bg-secondary); border-radius:var(--radius); border:1px solid var(--border);">
             <div style="font-size:12px; color:var(--text-muted); text-transform:uppercase;">Confirmed High/P1 Exposure</div>
             <div style="font-size:24px; font-weight:700; color:var(--danger); margin-top:4px;">{{ metrics.open_p1 | default(0) }}</div>

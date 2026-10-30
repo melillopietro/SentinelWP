@@ -20,6 +20,11 @@
         User Management
         <span class="tab-badge">{{ users | length }} users</span>
     </a>
+    <a href="{{ url_for('settings', tab='requests') }}" class="workspace-tab {% if active_tab == 'requests' %}active{% endif %}">
+        <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"/></svg>
+        Access Requests
+        <span class="tab-badge">{{ pending_access_requests | default([]) | length }}</span>
+    </a>
     {% endif %}
     {% if session.get('role') in ('admin', 'analyst') %}
     <a href="{{ url_for('settings', tab='api') }}" class="workspace-tab {% if active_tab == 'api' %}active{% endif %}">
@@ -36,7 +41,60 @@
     {% endif %}
 </div>
 
-{% if active_tab == 'users' and session.get('role') == 'admin' %}
+{% if active_tab == 'requests' and session.get('role') == 'admin' %}
+<!-- TAB: PENDING ACCESS & PASSWORD RESET REQUESTS -->
+<div style="background:var(--bg-card); border:1px solid var(--border); border-radius:var(--radius); padding:24px; margin-bottom:24px;">
+    <div style="border-bottom:1px solid var(--border); padding-bottom:16px; margin-bottom:20px;">
+        <h3 style="font-size:18px; font-weight:600; color:var(--text-primary); margin:0;">Pending Access &amp; Reset Requests</h3>
+        <p style="font-size:13px; color:var(--text-muted); margin-top:4px;">
+            Invite-only model: review password-reset and account-access requests, then provision or reset from User Management.
+        </p>
+    </div>
+    {% if pending_access_requests %}
+    <div class="table-wrap">
+        <table>
+            <thead>
+                <tr>
+                    <th>Type</th>
+                    <th>Requester</th>
+                    <th>Details</th>
+                    <th>Requested</th>
+                    <th style="text-align:right;">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for req in pending_access_requests %}
+                <tr>
+                    <td>
+                        <span class="badge {% if req.request_type == 'password_reset' %}badge-high{% else %}badge-info{% endif %}">
+                            {{ 'Password Reset' if req.request_type == 'password_reset' else 'Account Access' }}
+                        </span>
+                    </td>
+                    <td><strong>{{ req.username }}</strong></td>
+                    <td style="font-size:12px; color:var(--text-secondary); max-width:320px;">
+                        {% if req.email %}<div>Email: {{ req.email }}</div>{% endif %}
+                        {% if req.justification %}<div>{{ req.justification }}</div>{% endif %}
+                        {% if req.tenant_slug %}<div>Tenant: {{ req.tenant_slug }}</div>{% endif %}
+                        {% if not req.email and not req.justification and not req.tenant_slug %}<span style="color:var(--text-muted);">—</span>{% endif %}
+                    </td>
+                    <td style="color:var(--text-muted); font-size:12px;">{{ req.created_at[:19] if req.created_at else '-' }}</td>
+                    <td style="text-align:right;">
+                        <form method="POST" action="{{ url_for('handle_access_request', event_id=req.id) }}" style="display:inline;">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                            <button type="submit" class="btn btn-secondary btn-sm" style="padding:2px 8px; font-size:11px;">Mark Handled</button>
+                        </form>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <p style="font-size:13px; color:var(--text-muted);">No pending access or password-reset requests.</p>
+    {% endif %}
+</div>
+
+{% elif active_tab == 'users' and session.get('role') == 'admin' %}
 <!-- TAB 2: USER MANAGEMENT (ADMIN ONLY) -->
 <div style="background:var(--bg-card); border:1px solid var(--border); border-radius:var(--radius); padding:24px; margin-bottom:24px;">
     <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border); padding-bottom:16px; margin-bottom:20px; flex-wrap:wrap; gap:12px;">

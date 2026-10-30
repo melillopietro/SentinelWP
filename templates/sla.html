@@ -62,7 +62,7 @@
                 <tr style="border-bottom:1px solid var(--border);">
                     <td style="padding:10px 14px; font-weight:600; color:var(--text-primary);">{{ p.name }}</td>
                     <td style="padding:10px 14px; text-transform:capitalize;">{{ p.severity or 'Any' }} / {{ p.criticality or 'Any' }}</td>
-                    <td style="padding:10px 14px;">KEV: {{ p.kev if p.kev is not None else 'Any' }} | Internet: {{ p.internet_exposed if p.internet_exposed is not None else 'Any' }}</td>
+                    <td style="padding:10px 14px;">KEV: {{ p.kev if p.kev is not none else 'Any' }} | Internet: {{ p.internet_exposed if p.internet_exposed is not none else 'Any' }}</td>
                     <td style="padding:10px 14px; font-weight:600;">{{ p.due_days }} days</td>
                     <td style="padding:10px 14px; color:var(--text-muted);">{{ p.warning_days }} days prior</td>
                     <td style="padding:10px 14px;"><span style="color:#10b981; font-weight:600;">Enabled</span></td>

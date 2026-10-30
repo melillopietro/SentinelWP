@@ -4415,6 +4415,95 @@ def list_business_units(tenant_id: str) -> list:
     ) for r in rows]
 
 
+def update_business_unit(bu_id: str, tenant_id: str, **kwargs) -> Optional[BusinessUnit]:
+    """Update mutable Business Unit fields (name, criticality). Code is immutable."""
+    bu = get_business_unit(bu_id, tenant_id)
+    if not bu:
+        return None
+    if "name" in kwargs and kwargs["name"]:
+        bu.name = str(kwargs["name"]).strip()
+    if "criticality" in kwargs:
+        crit = str(kwargs["criticality"]).strip().lower()
+        if crit in ("critical", "high", "medium", "low"):
+            bu.criticality = crit
+    bu.updated_at = datetime.now(timezone.utc).isoformat()
+    return save_business_unit(bu)
+
+
+def delete_business_unit(bu_id: str, tenant_id: str) -> tuple:
+    """Delete BU only when no assets are assigned. Returns (ok: bool, message: str)."""
+    conn = _get_conn()
+    bu = get_business_unit(bu_id, tenant_id)
+    if not bu:
+        return False, "Business Unit not found."
+    assigned = conn.execute(
+        "SELECT COUNT(*) AS cnt FROM assets WHERE business_unit_id = ? AND tenant_id = ?",
+        (bu_id, tenant_id),
+    ).fetchone()
+    count = int(assigned["cnt"] if assigned else 0)
+    if count > 0:
+        return False, f"Cannot delete: {count} asset(s) still assigned. Reassign them first."
+    conn.execute("DELETE FROM business_units WHERE id = ? AND tenant_id = ?", (bu_id, tenant_id))
+    conn.commit()
+    return True, "Business Unit deleted."
+
+
+def list_pending_access_requests(tenant_id: Optional[str] = None, limit: int = 100) -> list:
+    """
+    Derive pending password-reset / account-access requests from audit trail.
+    A request is pending until a matching *_handled event references its id as resource_id.
+    """
+    conn = _get_conn()
+    query = """
+        SELECT * FROM audit_events
+        WHERE action IN ('password_reset_requested', 'account_access_requested')
+    """
+    params: list = []
+    if tenant_id:
+        query += " AND tenant_id = ?"
+        params.append(tenant_id)
+    query += " ORDER BY created_at DESC LIMIT ?"
+    params.append(limit * 3)  # over-fetch before filtering handled
+    rows = conn.execute(query, params).fetchall()
+
+    handled_ids = set()
+    handled_q = """
+        SELECT resource_id FROM audit_events
+        WHERE action IN ('password_reset_handled', 'account_access_handled')
+          AND resource_id IS NOT NULL AND resource_id != ''
+    """
+    handled_params: list = []
+    if tenant_id:
+        handled_q += " AND tenant_id = ?"
+        handled_params.append(tenant_id)
+    for hr in conn.execute(handled_q, handled_params).fetchall():
+        handled_ids.add(hr["resource_id"])
+
+    pending = []
+    for row in rows:
+        if row["id"] in handled_ids:
+            continue
+        meta = {}
+        try:
+            meta = json.loads(row["metadata"] or "{}") if isinstance(row["metadata"], str) else (row["metadata"] or {})
+        except Exception:
+            meta = {}
+        action = row["action"]
+        pending.append({
+            "id": row["id"],
+            "request_type": "password_reset" if action == "password_reset_requested" else "account_access",
+            "username": row["actor_username"] or "unknown",
+            "email": meta.get("email", ""),
+            "justification": meta.get("justification", ""),
+            "tenant_slug": meta.get("tenant_slug", ""),
+            "created_at": row["created_at"],
+            "tenant_id": row["tenant_id"],
+        })
+        if len(pending) >= limit:
+            break
+    return pending
+
+
 def save_business_service(service: BusinessService) -> BusinessService:
     conn = _get_conn()
     now_iso = datetime.now(timezone.utc).isoformat()
@@ -4815,6 +4904,7 @@ def get_portfolio_metrics(tenant_id: str, bu_id: Optional[str] = None) -> dict:
     f_params = [tenant_id]
     if bu_id:
         f_params.append(bu_id)
+    # LEFT JOIN so findings without asset_id still appear in executive metrics (SWP-06).
     finding_row = conn.execute(f"""
         SELECT
             COUNT(f.id) as total_open_findings,
@@ -4824,10 +4914,11 @@ def get_portfolio_metrics(tenant_id: str, bu_id: Optional[str] = None) -> dict:
             SUM(CASE WHEN f.sla_status = 'BREACHED' THEN 1 ELSE 0 END) as sla_breaches,
             SUM(CASE WHEN f.status = 'ACCEPTED' THEN 1 ELSE 0 END) as risk_accepted,
             SUM(CASE WHEN f.assigned_to_user_id IS NULL OR f.assigned_to_user_id = '' THEN 1 ELSE 0 END) as unassigned_findings,
-            SUM(CASE WHEN f.finding_confidence IN ('HIGH', 'CONFIRMED') THEN 1 ELSE 0 END) as high_confidence_findings
+            SUM(CASE WHEN f.finding_confidence IN ('HIGH', 'CONFIRMED') THEN 1 ELSE 0 END) as high_confidence_findings,
+            SUM(CASE WHEN lower(COALESCE(f.severity, '')) = 'critical' THEN 1 ELSE 0 END) as open_critical
         FROM findings f
-        JOIN assets a ON f.asset_id = a.id
-        {finding_filter} AND f.status NOT IN ('RESOLVED', 'CLOSED', 'FALSE_POSITIVE')
+        LEFT JOIN assets a ON f.asset_id = a.id
+        {finding_filter} AND f.status NOT IN ('RESOLVED', 'CLOSED', 'FALSE_POSITIVE', 'VERIFIED', 'REMEDIATED')
     """, f_params).fetchone()
 
     # Discovery candidates
@@ -4848,6 +4939,8 @@ def get_portfolio_metrics(tenant_id: str, bu_id: Optional[str] = None) -> dict:
         "open_p1": (finding_row["open_p1"] or 0) if finding_row else 0,
         "open_p2": (finding_row["open_p2"] or 0) if finding_row else 0,
         "open_kev": (finding_row["open_kev"] or 0) if finding_row else 0,
+        "open_critical": (finding_row["open_critical"] or 0) if finding_row else 0,
+        "open_findings": (finding_row["total_open_findings"] or 0) if finding_row else 0,
         "sla_breaches": (finding_row["sla_breaches"] or 0) if finding_row else 0,
         "risk_accepted": (finding_row["risk_accepted"] or 0) if finding_row else 0,
         "unassigned_findings": (finding_row["unassigned_findings"] or 0) if finding_row else 0,

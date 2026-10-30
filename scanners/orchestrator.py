@@ -6,7 +6,6 @@ from datetime import datetime, timezone
 from typing import Optional
 from core.models import ScanResult, ScanStatus
 from core import repository
-from core.risk_engine import compute_risk_score
 from scanners.base import BaseScanner
 from scanners.wp_detector import WordPressDetector
 from scanners.core_security_scanner import CoreSecurityScanner
@@ -26,6 +25,7 @@ from scanners.cookie_scanner import CookieSecurityScanner
 from scanners.whois_scanner import WhoisScanner
 from scanners.security_txt_scanner import SecurityTxtScanner
 from scanners.dns_scanner import DNSScanner
+from scanners.php_artifact_scanner import PhpArtifactScanner
 
 
 
@@ -64,6 +64,7 @@ SCAN_PROFILES = {
         WhoisScanner,
         SecurityTxtScanner,
         DNSScanner,
+        PhpArtifactScanner,
     ],
     # 'full' profile is maintained for backward compatibility as an extended safe profile;
     # BruteForceScanner has been removed to enforce Enterprise Credential Safety.
@@ -85,6 +86,7 @@ SCAN_PROFILES = {
         WhoisScanner,
         SecurityTxtScanner,
         DNSScanner,
+        PhpArtifactScanner,
     ],
 }
 
@@ -263,101 +265,13 @@ def run_scan(
     if whois_findings:
         scan.whois_info = whois_findings[0].raw_data["whois_info"]
 
-    # Enrich findings with Live Vulnerability Intelligence if available
-    try:
-        from scanners.vuln_intel import enrich_findings_with_cves
-        all_findings = enrich_findings_with_cves(all_findings)
-    except Exception:
-        pass
+    from core.scan_pipeline import finalize_and_score_scan
 
-    # Match findings against local vulnerability intelligence database
-    try:
-        from core.vulnerability_intelligence.service import match_scan_findings
-        from core.models import Finding, Severity
-        
-        # Collect detected plugins from findings
-        detected_plugins = []
-        for f in all_findings:
-            slug = f.raw_data.get("slug") or f.raw_data.get("plugin")
-            version = f.raw_data.get("version")
-            if slug and f.category in ("plugins",):
-                detected_plugins.append({"slug": slug, "version": version})
-        
-        # Get existing CVEs to avoid duplicates
-        existing_cves = set()
-        for f in all_findings:
-            if f.raw_data.get("cve_matches"):
-                for m in f.raw_data["cve_matches"]:
-                    if m.get("cve_id"):
-                        existing_cves.add(m["cve_id"])
-        
-        vuln_matches = match_scan_findings(scan.wp_version, detected_plugins)
-        for vm in vuln_matches:
-            if vm.get("cve") and vm["cve"] in existing_cves:
-                continue  # Skip duplicate CVE
-            
-            severity_map = {"critical": Severity.CRITICAL, "high": Severity.HIGH, "medium": Severity.MEDIUM}
-            cvss = vm.get("cvss_score", 0) or 0
-            if cvss >= 9.0:
-                sev = Severity.CRITICAL
-            elif cvss >= 7.0:
-                sev = Severity.HIGH
-            elif cvss >= 4.0:
-                sev = Severity.MEDIUM
-            else:
-                sev = Severity.LOW
-            
-            match_status = vm.get("match_status", "affected")
-            if match_status == "version_unknown":
-                title = f"Potential Exposure: {vm.get('cve', 'Unknown CVE')} — {vm.get('plugin_slug', 'unknown')}"
-                desc = f"Potential exposure — version not detected. {vm.get('cve', '')} affects {vm.get('plugin_slug', 'unknown')} ({vm.get('affected_range', 'unknown range')})."
-                sev = Severity.MEDIUM
-            else:
-                title = f"Vulnerability: {vm.get('cve', 'Unknown CVE')} — {vm.get('plugin_slug', 'unknown')} {vm.get('detected_version', '')}"
-                desc = f"{vm.get('cve', '')} affects {vm.get('plugin_slug', 'unknown')} version {vm.get('detected_version', 'unknown')} (range: {vm.get('affected_range', 'N/A')}). Patched in: {vm.get('patched_version', 'N/A')}."
-            
-            kev_label = "Listed in CISA KEV" if vm.get("kev_listed") else ""
-            if kev_label:
-                title += f" [{kev_label}]"
-            
-            remediation = f"Update to patched version: {vm.get('patched_version', 'N/A')}."
-            refs = vm.get("references", [])
-            reference = refs[0] if refs else ""
-            
-            intel_finding = Finding(
-                scan_id=scan.id,
-                category="vulnerability_intelligence",
-                title=title,
-                description=desc,
-                severity=sev,
-                confidence=0.95 if match_status == "affected" else 0.6,
-                remediation=remediation,
-                reference=reference,
-                raw_data=vm,
-            )
-            all_findings.append(intel_finding)
-    except Exception:
-        pass
-
-    try:
-        from core.scan_pipeline import add_core_maintenance_findings
-
-        wp_for_maintenance = None
-        if scan.is_wordpress and scan.wp_version not in (None, "Unknown", "Not WordPress"):
-            wp_for_maintenance = scan.wp_version
-        all_findings = add_core_maintenance_findings(all_findings, scan.id, wp_for_maintenance)
-    except Exception:
-        pass
-
-    # Compute risk score
-    score, grade = compute_risk_score(all_findings)
-    for f in all_findings:
+    finalize_and_score_scan(all_findings, scan)
+    for f in scan.findings:
         f.tenant_id = scan.tenant_id
         f.asset_id = scan.asset_id
 
-    scan.score = score
-    scan.grade = grade
-    scan.findings = all_findings
     scan.status = ScanStatus.COMPLETED
     scan.completed_at = datetime.now(timezone.utc).isoformat()
 

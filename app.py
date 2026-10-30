@@ -279,14 +279,23 @@ def setup():
 
 
 # --- Routes: Auth ---
+def _sso_enabled() -> bool:
+    try:
+        from core.auth.oidc import OIDCClient
+        return bool(OIDCClient().is_enabled)
+    except Exception:
+        return False
+
+
 @app.route("/login", methods=["GET", "POST"])
 def login():
+    sso_enabled = _sso_enabled()
     if request.method == "POST":
         ip = request.remote_addr or "127.0.0.1"
         allowed, retry_after = rate_limiter.is_allowed(f"login:{ip}", max_requests=5, window_seconds=60)
         if not allowed:
             flash(f"Too many login attempts. Please retry in {retry_after} seconds.", "error")
-            return render_template("login.html"), 429
+            return render_template("login.html", sso_enabled=sso_enabled), 429
 
         username = request.form.get("username", "").strip()
         password = request.form.get("password", "")
@@ -303,7 +312,7 @@ def login():
                     result="denied",
                     metadata={"ip": ip, "reason": "account_inactive"}
                 )
-                return render_template("login.html")
+                return render_template("login.html", sso_enabled=sso_enabled)
 
             # Session fixation defense: clear prior unauthenticated session and regenerate CSRF
             session.clear()
@@ -336,7 +345,49 @@ def login():
             metadata={"ip": ip, "reason": "invalid_credentials"}
         )
         flash("Invalid credentials.", "error")
-    return render_template("login.html")
+    return render_template("login.html", sso_enabled=sso_enabled)
+
+
+@app.route("/forgot-password", methods=["GET", "POST"])
+def forgot_password():
+    """SWP-12: enterprise-safe password reset request (admin-mediated)."""
+    if request.method == "POST":
+        username = request.form.get("username", "").strip()
+        tenant_slug = request.form.get("tenant_slug", "").strip()
+        repository.log_audit_event(
+            tenant_id="default-tenant",
+            actor_user_id="",
+            actor_username=username or "unknown",
+            action="password_reset_requested",
+            result="success",
+            metadata={"tenant_slug": tenant_slug, "ip": request.remote_addr or ""},
+        )
+        flash(
+            "Password reset request recorded. An administrator must reset your password from Administration → Users.",
+            "success",
+        )
+        return redirect(url_for("login"))
+    return render_template("forgot_password.html")
+
+
+@app.route("/request-access", methods=["GET", "POST"])
+def request_access():
+    """SWP-12: invite-only account model — record access requests for admins."""
+    if request.method == "POST":
+        username = request.form.get("username", "").strip()
+        email = request.form.get("email", "").strip()
+        justification = request.form.get("justification", "").strip()
+        repository.log_audit_event(
+            tenant_id="default-tenant",
+            actor_user_id="",
+            actor_username=username or "unknown",
+            action="account_access_requested",
+            result="success",
+            metadata={"email": email, "justification": justification[:500], "ip": request.remote_addr or ""},
+        )
+        flash("Access request submitted. An administrator will provision your account if approved.", "success")
+        return redirect(url_for("login"))
+    return render_template("request_access.html")
 
 
 @app.route("/logout")
@@ -551,6 +602,147 @@ def executive_report_view():
     return render_template("executive_report.html", metrics=metrics, business_units=business_units, dq_issues=dq_issues)
 
 
+@app.route("/reports/executive/export")
+@login_required
+def executive_report_export():
+    """SWP-05: downloadable executive report (PDF preferred, HTML attachment fallback)."""
+    tenant_id = session.get("tenant_id", "default-tenant")
+    metrics = repository.get_portfolio_metrics(tenant_id)
+    business_units = repository.list_business_units(tenant_id)
+    findings, _ = repository.list_findings(tenant_id, filters=None, page=1, page_size=500)
+    fmt = (request.args.get("format") or "pdf").lower()
+
+    if fmt == "html":
+        from reports.generator import generate_executive_exposure_report
+        html_body = generate_executive_exposure_report(tenant_id, findings)
+        return Response(
+            html_body,
+            mimetype="text/html",
+            headers={"Content-Disposition": f'attachment; filename="sentinelwp-executive-{tenant_id}.html"'},
+        )
+
+    # PDF via ReportLab (enriched: metrics + BU distribution + top exposures)
+    try:
+        from io import BytesIO
+        from reportlab.lib.pagesizes import A4
+        from reportlab.lib.units import cm
+        from reportlab.pdfgen import canvas
+
+        def _pdf_ensure_space(c_obj, y_pos, needed, page_h):
+            if y_pos < needed:
+                c_obj.showPage()
+                c_obj.setFont("Helvetica", 10)
+                return page_h - 2 * cm
+            return y_pos
+
+        open_findings = [
+            f for f in findings
+            if str(getattr(f, "status", "OPEN")).upper()
+            not in ("REMEDIATED", "VERIFIED", "CLOSED", "FALSE_POSITIVE", "RESOLVED")
+        ]
+        # Prefer P1 / critical / KEV first
+        def _finding_rank(f):
+            band = str(getattr(f, "priority_band", "P4") or "P4")
+            sev = str(getattr(f, "severity", "") or "").lower()
+            kev = 1 if getattr(f, "kev", False) else 0
+            band_rank = {"P1": 0, "P2": 1, "P3": 2}.get(band, 3)
+            sev_rank = 0 if sev == "critical" else 1
+            return (band_rank, -kev, sev_rank, -float(getattr(f, "priority_score", 0) or 0))
+
+        top_findings = sorted(open_findings, key=_finding_rank)[:15]
+
+        buf = BytesIO()
+        c = canvas.Canvas(buf, pagesize=A4)
+        width, height = A4
+        y = height - 2 * cm
+        c.setFont("Helvetica-Bold", 16)
+        c.drawString(2 * cm, y, "SentinelWP Executive Exposure Report")
+        y -= 1 * cm
+        c.setFont("Helvetica", 10)
+        c.drawString(2 * cm, y, f"Workspace: {tenant_id}")
+        y -= 0.6 * cm
+        c.drawString(2 * cm, y, f"Generated: {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')}")
+        y -= 1.2 * cm
+        c.setFont("Helvetica-Bold", 12)
+        c.drawString(2 * cm, y, "Portfolio Metrics")
+        y -= 0.8 * cm
+        c.setFont("Helvetica", 10)
+        rows = [
+            ("Assets", metrics.get("assets", 0)),
+            ("Verified ownership", metrics.get("verified_assets", 0)),
+            ("BU assignment coverage %", metrics.get("bu_assignment_coverage_pct", 0)),
+            ("Open findings", metrics.get("open_findings", 0)),
+            ("Open critical", metrics.get("open_critical", 0)),
+            ("Open P1", metrics.get("open_p1", 0)),
+            ("Open P2", metrics.get("open_p2", 0)),
+            ("Active CISA KEV exposures", metrics.get("open_kev", 0)),
+            ("SLA breaches", metrics.get("sla_breaches", 0)),
+            ("Risk accepted", metrics.get("risk_accepted", 0)),
+            ("Business units", len(business_units)),
+        ]
+        for label, value in rows:
+            y = _pdf_ensure_space(c, y, 2.5 * cm, height)
+            c.drawString(2.2 * cm, y, f"{label}: {value}")
+            y -= 0.55 * cm
+
+        y -= 0.4 * cm
+        y = _pdf_ensure_space(c, y, 3.5 * cm, height)
+        c.setFont("Helvetica-Bold", 12)
+        c.drawString(2 * cm, y, "Business Unit Distribution")
+        y -= 0.7 * cm
+        c.setFont("Helvetica", 10)
+        if not business_units:
+            c.drawString(2.2 * cm, y, "No Business Units defined.")
+            y -= 0.55 * cm
+        else:
+            for bu in business_units[:25]:
+                y = _pdf_ensure_space(c, y, 2.5 * cm, height)
+                bu_metrics = repository.get_portfolio_metrics(tenant_id, bu_id=bu.id)
+                line = (
+                    f"{bu.name} ({bu.code}) — assets: {bu_metrics.get('assets', 0)}, "
+                    f"open: {bu_metrics.get('open_findings', 0)}, "
+                    f"P1: {bu_metrics.get('open_p1', 0)}, KEV: {bu_metrics.get('open_kev', 0)}"
+                )
+                c.drawString(2.2 * cm, y, line[:110])
+                y -= 0.55 * cm
+
+        y -= 0.4 * cm
+        y = _pdf_ensure_space(c, y, 3.5 * cm, height)
+        c.setFont("Helvetica-Bold", 12)
+        c.drawString(2 * cm, y, "Top Active Exposures")
+        y -= 0.7 * cm
+        c.setFont("Helvetica", 9)
+        if not top_findings:
+            c.drawString(2.2 * cm, y, "No open exposures.")
+            y -= 0.5 * cm
+        else:
+            for f in top_findings:
+                y = _pdf_ensure_space(c, y, 2.5 * cm, height)
+                title = str(getattr(f, "title", "Untitled") or "Untitled")[:70]
+                band = str(getattr(f, "priority_band", "P3") or "P3")
+                cve = str(getattr(f, "cve_id", "") or "")
+                kev = "KEV" if getattr(f, "kev", False) else ""
+                bits = [band, title]
+                if cve:
+                    bits.append(cve)
+                if kev:
+                    bits.append(kev)
+                c.drawString(2.2 * cm, y, " | ".join(bits)[:115])
+                y -= 0.48 * cm
+
+        c.showPage()
+        c.save()
+        pdf_bytes = buf.getvalue()
+        return Response(
+            pdf_bytes,
+            mimetype="application/pdf",
+            headers={"Content-Disposition": f'attachment; filename="sentinelwp-executive-{tenant_id}.pdf"'},
+        )
+    except Exception as exc:
+        logger.warning("Executive PDF export failed, falling back to HTML: %s", exc)
+        return redirect(url_for("executive_report_export", format="html"))
+
+
 
 @app.route("/vuln-intel")
 @login_required
@@ -567,9 +759,19 @@ def vuln_intel_dashboard():
         stale = is_stale()
         wf_key = get_wf_key()
         nvd_key = get_nvd_key()
+        # SWP-04: real tenant asset KEV matches (not catalog size).
+        try:
+            tenant_id = session.get("tenant_id", "default-tenant")
+            _, kev_total = repository.list_findings(
+                tenant_id, filters={"kev": True}, page=1, page_size=1
+            )
+            stats["asset_kev_matches"] = int(kev_total or 0)
+        except Exception:
+            stats["asset_kev_matches"] = 0
     except Exception:
         stats = {"total_records": 0, "critical_recent": 0, "core_count": 0,
-                 "plugin_count": 0, "popular_plugin_vuln_count": 0, "kev_count": 0}
+                 "plugin_count": 0, "popular_plugin_vuln_count": 0, "kev_count": 0,
+                 "asset_kev_matches": 0}
         status = None
         stale = False
         wf_key = ""
@@ -688,6 +890,24 @@ def assets():
         "authorization_status": request.args.get("authorization_status", "").strip(),
     }
     asset_list = repository.list_assets(tenant_id=tenant_id, filters=filters)
+    # SWP-09: derive live authorization status from active windows (not stale column).
+    for asset in asset_list:
+        try:
+            active = repository.get_active_authorization(asset.id, tenant_id=tenant_id)
+            live_status = "authorized" if active else "unauthorized"
+            if active and active.valid_until:
+                # Surface near-expiry as expired only when window already passed (handled by get_active).
+                pass
+            if not active:
+                # Distinguish expired vs never-authorized when a past auth exists.
+                prior = repository.list_scan_authorizations(asset_id=asset.id, tenant_id=tenant_id)
+                if prior:
+                    live_status = "expired"
+            if asset.authorization_status != live_status:
+                repository.update_asset(asset.id, tenant_id=tenant_id, authorization_status=live_status)
+                asset.authorization_status = live_status
+        except Exception:
+            pass
     active_tab = request.args.get("tab", "inventory")
     business_units = []
     open_dq_issues = []
@@ -711,10 +931,66 @@ def assets():
     )
 
 
+@app.route("/business-units/create", methods=["POST"])
+@analyst_required
+def create_business_unit():
+    """SWP-10: UI path to create Business Units (API already existed)."""
+    tenant_id = session.get("tenant_id", "default-tenant")
+    name = request.form.get("name", "").strip()
+    code = request.form.get("code", "").strip().upper()
+    criticality = request.form.get("criticality", "medium").strip().lower()
+    if criticality not in ("critical", "high", "medium", "low"):
+        criticality = "medium"
+    if not name or not code:
+        flash("Business Unit name and code are required.", "error")
+        return redirect(url_for("assets", tab="units"))
+    from core.models import BusinessUnit
+    bu = BusinessUnit(
+        tenant_id=tenant_id,
+        name=name,
+        code=code,
+        criticality=criticality,
+        owner_user_id=session.get("user_id"),
+    )
+    repository.save_business_unit(bu)
+    flash(f"Business Unit '{name}' created.", "success")
+    return redirect(url_for("assets", tab="units"))
+
+
+@app.route("/business-units/<bu_id>/edit", methods=["POST"])
+@analyst_required
+def edit_business_unit(bu_id):
+    """Update Business Unit name/criticality (code immutable)."""
+    tenant_id = session.get("tenant_id", "default-tenant")
+    name = request.form.get("name", "").strip()
+    criticality = request.form.get("criticality", "medium").strip().lower()
+    if not name:
+        flash("Business Unit name is required.", "error")
+        return redirect(url_for("assets", tab="units"))
+    updated = repository.update_business_unit(bu_id, tenant_id, name=name, criticality=criticality)
+    if not updated:
+        flash("Business Unit not found.", "error")
+    else:
+        flash(f"Business Unit '{updated.name}' updated.", "success")
+    return redirect(url_for("assets", tab="units"))
+
+
+@app.route("/business-units/<bu_id>/delete", methods=["POST"])
+@admin_required
+def delete_business_unit_route(bu_id):
+    """Delete BU only when no assets are assigned (safe guard)."""
+    tenant_id = session.get("tenant_id", "default-tenant")
+    ok, message = repository.delete_business_unit(bu_id, tenant_id)
+    flash(message, "success" if ok else "error")
+    return redirect(url_for("assets", tab="units"))
+
+
 @app.route("/asset/new")
 @analyst_required
 def new_asset():
-    return render_template("asset_form.html", asset=None)
+    tenant_id = session.get("tenant_id", "default-tenant")
+    business_units = repository.list_business_units(tenant_id)
+    return render_template("asset_form.html", asset=None, business_units=business_units)
 
 
 @app.route("/asset/create", methods=["POST"])
@@ -744,6 +1020,9 @@ def create_asset():
     criticality = request.form.get("criticality", "medium").strip().lower()
     data_classification = request.form.get("data_classification", "confidential").strip().lower()
     tags = request.form.get("tags", "").strip()
+    business_unit_id = request.form.get("business_unit_id", "").strip() or None
+    if business_unit_id and not repository.get_business_unit(business_unit_id, tenant_id):
+        business_unit_id = None
 
     asset = Asset(
         tenant_id=tenant_id,
@@ -757,6 +1036,7 @@ def create_asset():
         criticality=criticality,
         data_classification=data_classification,
         tags=tags,
+        business_unit_id=business_unit_id,
         status="active"
     )
     repository.save_asset(asset)
@@ -807,6 +1087,16 @@ def asset_detail(asset_id):
     findings = repository.get_findings_for_asset(asset_id, tenant_id=tenant_id)
     authorizations = repository.list_scan_authorizations(asset_id=asset_id, tenant_id=tenant_id)
     active_auth = repository.get_active_authorization(asset_id, tenant_id=tenant_id)
+    # SWP-09 / residual B: keep Asset 360 badge aligned with live authorization window.
+    try:
+        live_status = "authorized" if active_auth else "unauthorized"
+        if not active_auth and authorizations:
+            live_status = "expired"
+        if asset.authorization_status != live_status:
+            repository.update_asset(asset_id, tenant_id=tenant_id, authorization_status=live_status)
+            asset.authorization_status = live_status
+    except Exception:
+        pass
     latest_scan = next((s for s in scans if (s.status.value if hasattr(s.status, "value") else str(s.status)) == "completed"), None)
     active_tab = request.args.get("tab", "overview")
     technologies = []
@@ -838,7 +1128,8 @@ def edit_asset_view(asset_id):
     asset = repository.get_asset(asset_id, tenant_id=tenant_id)
     if not asset:
         abort(404)
-    return render_template("asset_form.html", asset=asset)
+    business_units = repository.list_business_units(tenant_id)
+    return render_template("asset_form.html", asset=asset, business_units=business_units)
 
 
 @app.route("/asset/<asset_id>/edit", methods=["POST"])
@@ -849,6 +1140,10 @@ def edit_asset(asset_id):
     if not asset:
         abort(404)
 
+    business_unit_id = request.form.get("business_unit_id", "").strip() or None
+    if business_unit_id and not repository.get_business_unit(business_unit_id, tenant_id):
+        business_unit_id = None
+
     updates = {
         "display_name": request.form.get("display_name", "").strip() or asset.hostname,
         "business_owner": request.form.get("business_owner", "").strip(),
@@ -858,6 +1153,7 @@ def edit_asset(asset_id):
         "criticality": request.form.get("criticality", "medium").strip().lower(),
         "data_classification": request.form.get("data_classification", "confidential").strip().lower(),
         "tags": request.form.get("tags", "").strip(),
+        "business_unit_id": business_unit_id,
     }
     repository.update_asset(asset_id, tenant_id=tenant_id, **updates)
     repository.log_audit_event(
@@ -1014,7 +1310,11 @@ def new_scan():
             return render_template("new_scan.html")
 
         # Scan Authorization Guardrail Check
-        auto_auth = request.form.get("auto_authorize") == "1"
+        # Accept both dedicated auto_authorize and the Operations launcher confirmation checkbox.
+        auto_auth = (
+            request.form.get("auto_authorize") == "1"
+            or request.form.get("authorization_confirmed") in ("1", "yes", "on", "true")
+        )
         is_auth, reason, asset = verify_scan_authorization(tenant_id, target, scan_mode)
         if not is_auth and auto_auth and asset:
             future_iso = (datetime.now(timezone.utc) + timedelta(days=90)).isoformat()
@@ -1026,8 +1326,15 @@ def new_scan():
                 valid_from=datetime.now(timezone.utc).isoformat(),
                 valid_until=future_iso,
                 approved_by=session.get("username", "analyst"),
+                notes="Auto-authorized at scan submission",
             )
             repository.save_scan_authorization(new_auth)
+            repository.update_asset(
+                asset.id,
+                tenant_id=tenant_id,
+                authorization_status="authorized",
+                authorization_review_date=future_iso,
+            )
             is_auth, reason, asset = verify_scan_authorization(tenant_id, target, scan_mode)
 
         if not is_auth:
@@ -1129,7 +1436,10 @@ def batch_scan():
             return render_template("batch_scan.html")
 
         # Scan Authorization Guardrail for batch
-        auto_auth = request.form.get("auto_authorize") == "1"
+        auto_auth = (
+            request.form.get("auto_authorize") == "1"
+            or request.form.get("authorization_confirmed") in ("1", "yes", "on", "true")
+        )
         for t in targets:
             is_auth, reason, asset = verify_scan_authorization(tenant_id, t, scan_mode)
             if not is_auth and auto_auth and asset:
@@ -1142,8 +1452,15 @@ def batch_scan():
                     valid_from=datetime.now(timezone.utc).isoformat(),
                     valid_until=future_iso,
                     approved_by=session.get("username", "analyst"),
+                    notes="Auto-authorized at batch scan submission",
                 )
                 repository.save_scan_authorization(new_auth)
+                repository.update_asset(
+                    asset.id,
+                    tenant_id=tenant_id,
+                    authorization_status="authorized",
+                    authorization_review_date=future_iso,
+                )
                 is_auth, reason, asset = verify_scan_authorization(tenant_id, t, scan_mode)
 
             if not is_auth:
@@ -1367,6 +1684,47 @@ def create_schedule():
             target_assets[t] = asset
         except Exception:
             target_assets[t] = None
+
+    # SWP-08: Safe Active / Full schedules require the same authorization as immediate scans.
+    auto_auth = (
+        request.form.get("auto_authorize") == "1"
+        or request.form.get("authorization_confirmed") in ("1", "yes", "on", "true")
+    )
+    unauthorized_targets = []
+    for t in candidate_targets:
+        is_auth, reason, asset = verify_scan_authorization(tenant_id, t, scan_mode)
+        if not is_auth and auto_auth and asset:
+            future_iso = (datetime.now(timezone.utc) + timedelta(days=90)).isoformat()
+            new_auth = ScanAuthorization(
+                tenant_id=tenant_id,
+                asset_id=asset.id,
+                status="active",
+                allowed_profiles="safe_active,full,passive,*",
+                valid_from=datetime.now(timezone.utc).isoformat(),
+                valid_until=future_iso,
+                approved_by=session.get("username", "analyst"),
+                notes="Auto-authorized at schedule creation",
+            )
+            repository.save_scan_authorization(new_auth)
+            repository.update_asset(
+                asset.id,
+                tenant_id=tenant_id,
+                authorization_status="authorized",
+                authorization_review_date=future_iso,
+            )
+            is_auth, reason, asset = verify_scan_authorization(tenant_id, t, scan_mode)
+        if not is_auth:
+            unauthorized_targets.append(f"{t} ({reason})")
+        elif asset:
+            target_assets[t] = asset
+
+    if unauthorized_targets:
+        flash(
+            "Schedule not created. Authorization required for Safe Active/Full profiles: "
+            + "; ".join(unauthorized_targets[:5]),
+            "error",
+        )
+        return redirect(url_for("schedules"))
 
     # Duplicate prevention against existing schedules in database
     existing_schedules = repository.list_scheduled_scans(tenant_id=tenant_id)
@@ -1634,11 +1992,21 @@ def settings():
             pass
 
     audit_events = []
+    pending_access_requests = []
     if session.get("role") == "admin":
         try:
             audit_events = repository.list_audit_events(tenant_id=tenant_id, limit=50)
         except Exception:
             pass
+        try:
+            # Public forgot/access forms log under default-tenant; also include this workspace.
+            all_pending = repository.list_pending_access_requests(tenant_id=None, limit=100)
+            pending_access_requests = [
+                r for r in all_pending
+                if r.get("tenant_id") in (tenant_id, "default-tenant")
+            ][:50]
+        except Exception:
+            pending_access_requests = []
 
     update_info = check_for_updates(force=False)
     return render_template(
@@ -1648,8 +2016,38 @@ def settings():
         update_info=update_info,
         active_tab=active_tab,
         api_keys=api_keys,
-        audit_events=audit_events
+        audit_events=audit_events,
+        pending_access_requests=pending_access_requests,
     )
+
+
+@app.route("/admin/access-request/<event_id>/handle", methods=["POST"])
+@admin_required
+def handle_access_request(event_id):
+    """Mark a pending password-reset or account-access request as handled."""
+    tenant_id = session.get("tenant_id", "default-tenant")
+    events = repository.list_audit_events(tenant_id=None, limit=500)
+    target = next((e for e in events if e.id == event_id), None)
+    if not target or target.action not in ("password_reset_requested", "account_access_requested"):
+        flash("Access request not found.", "error")
+        return redirect(url_for("settings", tab="requests"))
+
+    handled_action = (
+        "password_reset_handled"
+        if target.action == "password_reset_requested"
+        else "account_access_handled"
+    )
+    repository.log_audit_event(
+        tenant_id=target.tenant_id or tenant_id,
+        actor_user_id=session.get("user_id", ""),
+        actor_username=session.get("username", ""),
+        action=handled_action,
+        resource_type="access_request",
+        resource_id=event_id,
+        metadata={"requester": target.actor_username, "original_action": target.action},
+    )
+    flash("Request marked as handled.", "success")
+    return redirect(url_for("settings", tab="requests"))
 
 
 @app.route("/api/check-update")
@@ -2165,8 +2563,9 @@ def findings_list():
         "search": request.args.get("search"),
         "kev": True if request.args.get("kev") == "1" else None,
     }
-    if active_tab == "critical" and not filters.get("severity") and not filters.get("priority_band"):
-        filters["priority_band"] = "P1"
+    # SWP-03: Critical Findings counter counts severity=critical — drill-down must match.
+    if active_tab == "critical" and not filters.get("severity"):
+        filters["severity"] = "critical"
 
     page = int(request.args.get("page", 1))
     page_size = int(request.args.get("page_size", 50))

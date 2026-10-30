@@ -88,10 +88,19 @@ def enrich_findings_with_cves(findings: List[Finding]) -> List[Finding]:
     """
     Enrich a list of findings with real CVE data from OSV.dev.
 
-    INTEL-GAP-004: severity is now derived from the CVE's CVSS score (if available)
-    rather than unconditionally set to HIGH. If CVSS data is absent from the OSV record,
-    the finding's existing severity is preserved (never inflated).
+    Enterprise policy: gated by OSV_LIVE_ENRICHMENT_ENABLED (default false).
+    Local Wordfence/CISA matching remains authoritative via scan_pipeline.
+    Uncorroborated OSV hits are advisory-only (confidence capped at 0.75).
+
+    INTEL-GAP-004: severity is derived from CVSS when present; otherwise preserved.
     """
+    try:
+        from config import OSV_LIVE_ENRICHMENT_ENABLED
+        if not OSV_LIVE_ENRICHMENT_ENABLED:
+            return findings
+    except Exception:
+        return findings
+
     for f in findings:
         is_core = "WordPress CMS Detected" in f.title or "WordPress Version Exposed" in f.title
         if f.category in ("plugins", "information_disclosure") or is_core:
@@ -105,11 +114,27 @@ def enrich_findings_with_cves(findings: List[Finding]) -> List[Finding]:
                 cves = lookup_osv_vulnerabilities(slug, version)
                 if cves:
                     cve_ids = [c["cve_id"] for c in cves]
+                    local_corroborated = False
+                    try:
+                        from core.vulnerability_intelligence import repository as vuln_repo
+
+                        sw_type = "core" if slug == "wordpress" else "plugin"
+                        local_rows = vuln_repo.get_vulnerabilities_for_slug(slug, sw_type)
+                        local_cves = {r.get("cve") for r in local_rows if r.get("cve")}
+                        local_corroborated = bool(local_cves.intersection(cve_ids))
+                    except Exception:
+                        local_corroborated = False
+
                     f.title += f" [CVE: {', '.join(cve_ids[:2])}]"
                     f.description += (
-                        f" Live Vulnerability Feed Match: Found {len(cves)} vulnerability "
-                        f"entry/entries ({', '.join(cve_ids[:3])})."
+                        f" Live OSV feed match: {len(cves)} record(s) ({', '.join(cve_ids[:3])})."
                     )
+                    if not local_corroborated:
+                        f.description += (
+                            " Not corroborated by the local Wordfence/CISA corpus — treat as advisory "
+                            "until validated against your pinned intelligence sync."
+                        )
+                        f.confidence = min(float(getattr(f, "confidence", 0.7) or 0.7), 0.75)
                     # INTEL-GAP-004: derive severity from CVSS score; never unconditionally HIGH
                     best_cvss = None
                     for cve_entry in cves:

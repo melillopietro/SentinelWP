@@ -372,7 +372,20 @@ function toggleTheme() {
 {% if session.get('user_id') %}
 <aside class="sidebar">
     <div class="sidebar-brand">
-        <h1>SentinelWP</h1>
+        <div style="display:flex; align-items:center; gap:10px; margin-bottom:6px;">
+            <svg width="32" height="32" viewBox="0 0 64 64" aria-hidden="true">
+                <defs>
+                    <linearGradient id="swpSideGrad" x1="0" y1="0" x2="1" y2="1">
+                        <stop offset="0%" stop-color="#6366f1"/>
+                        <stop offset="100%" stop-color="#22d3ee"/>
+                    </linearGradient>
+                </defs>
+                <rect width="64" height="64" rx="14" fill="url(#swpSideGrad)"/>
+                <path d="M32 12l16 6v12c0 12-7 20-16 24-9-4-16-12-16-24V18l16-6z" fill="none" stroke="#fff" stroke-width="3" stroke-linejoin="round"/>
+                <path d="M24 32l6 6 12-14" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            <h1 style="margin:0;">SentinelWP</h1>
+        </div>
         <p>Enterprise Edition v{{ app_version }}</p>
         <div style="margin-top:8px; display:inline-flex; align-items:center; gap:6px; padding:3px 8px; border-radius:4px; background:rgba(99,102,241,0.15); border:1px solid rgba(99,102,241,0.3); font-size:11px; color:var(--accent);">
             <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>

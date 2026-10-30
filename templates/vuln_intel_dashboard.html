@@ -157,8 +157,9 @@
         <div class="value">{{ stats.popular_plugin_vuln_count }}</div>
     </div>
     <div class="stat-card">
-        <div class="label">CISA KEV Matches</div>
+        <div class="label">CISA KEV Catalog Entries</div>
         <div class="value" style="color: var(--critical);">{{ stats.kev_count }}</div>
+        <div style="font-size:11px; color:var(--text-muted); margin-top:4px;">Asset matches: {{ stats.asset_kev_matches | default(0) }}</div>
     </div>
 </div>
 

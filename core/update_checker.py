@@ -11,7 +11,7 @@ from typing import Dict, Any
 
 logger = logging.getLogger(__name__)
 
-CURRENT_VERSION = "v4.1.0"
+CURRENT_VERSION = "v4.1.1"
 GITHUB_REPO_OWNER = "melillopietro"
 GITHUB_REPO_NAME = "SentinelWP"
 

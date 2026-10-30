@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}Request Access - SentinelWP{% endblock %}
+{% block content %}
+<div style="max-width:480px;margin:80px auto;">
+    <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:32px;">
+        <h2 style="font-size:22px;margin-bottom:8px;">Request account access</h2>
+        <p style="color:var(--text-muted);font-size:14px;margin-bottom:20px;">
+            Self-registration is disabled for enterprise deployments. Accounts are provisioned by administrators.
+            Use this form to record an access request in the security audit log.
+        </p>
+        <form method="POST">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div class="form-group">
+                <label>Requested username</label>
+                <input type="text" name="username" required>
+            </div>
+            <div class="form-group">
+                <label>Work email</label>
+                <input type="email" name="email" required>
+            </div>
+            <div class="form-group">
+                <label>Justification</label>
+                <textarea name="justification" rows="3" required placeholder="Role / business need"></textarea>
+            </div>
+            <button type="submit" class="btn btn-primary">Submit request</button>
+            <a href="{{ url_for('login') }}" class="btn btn-secondary" style="margin-left:8px;">Back to login</a>
+        </form>
+    </div>
+</div>
+{% endblock %}

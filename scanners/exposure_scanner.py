@@ -17,31 +17,9 @@ from core.models import Severity
 class ExposureScanner(BaseScanner):
     @staticmethod
     def _is_soft_404(resp) -> bool:
-        """
-        Verify if a 200 OK response is actually a custom Soft 404 HTML error page.
-        """
-        if not resp:
-            return True
-        content_type = resp.headers.get("content-type", "").lower()
-        body = resp.text.lower() if hasattr(resp, "text") else ""
-
-        # Obvious HTML error page markers
-        if "text/html" in content_type:
-            soft_404_markers = [
-                "<title>page not found",
-                "<title>404",
-                "<title>not found",
-                "<title>error 404",
-                "class=\"error404\"",
-                "class='error404'",
-                "not found on this server",
-                "the requested url was not found",
-                "it looks like nothing was found at this location",
-                "page cannot be found",
-            ]
-            if any(marker in body for marker in soft_404_markers):
-                return True
-        return False
+        """Delegate to shared soft-404 heuristics (enterprise FP control)."""
+        from scanners.soft404 import response_is_soft_404
+        return response_is_soft_404(resp)
 
     def scan(self) -> list:
         self._check_wp_admin()

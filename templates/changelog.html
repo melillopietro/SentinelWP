@@ -17,6 +17,17 @@
 
     <div style="display:flex;flex-direction:column;gap:24px;">
         <div>
+            <h4 style="font-size:15px;color:var(--accent);margin-bottom:10px;text-transform:uppercase;letter-spacing:0.5px;">v4.1.1 — Functional Remediation &amp; Enterprise Governance</h4>
+            <ul style="padding-left:20px;line-height:1.8;font-size:13px;color:var(--text-primary);">
+                <li><strong>Functional Audit Fixes (SWP-01 to SWP-14)</strong>: Resolved all 14 findings from the enterprise test report, including finding detail/triage rendering, drill-down alignment, and dynamic CISA KEV matching.</li>
+                <li><strong>Business Unit Governance</strong>: Added full UI workflow to create, edit, and safely delete Business Units, with assignment controls on asset registration and edit forms.</li>
+                <li><strong>Live Authorization Guardrails</strong>: Asset 360 and Inventory dynamically reflect live/expired authorization windows with database synchronization and schedule safety enforcement.</li>
+                <li><strong>Executive PDF Export</strong>: Comprehensive ReportLab PDF download with Portfolio Metrics, Business Unit Distribution, and prioritized Top Active Exposures.</li>
+                <li><strong>Admin Access Request Queue</strong>: Streamlined invite-only account access and password-reset handling directly from the Administration panel.</li>
+            </ul>
+        </div>
+
+        <div>
             <h4 style="font-size:15px;color:var(--accent);margin-bottom:10px;text-transform:uppercase;letter-spacing:0.5px;">v4.1.0 — Production Packaging &amp; Security Hardening</h4>
             <ul style="padding-left:20px;line-height:1.8;font-size:13px;color:var(--text-primary);">
                 <li><strong>Enterprise Docker deployment</strong> with hardened Nginx ingress, non-root containers, and pinned production dependencies.</li>

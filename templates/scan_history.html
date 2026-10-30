@@ -217,6 +217,10 @@
                     <input type="checkbox" name="authorization_confirmed" value="yes" required style="width:auto;"/>
                     I confirm that I am authorized to scan this target in accordance with platform security policies.
                 </label>
+                <label style="display:flex; align-items:center; gap:8px; font-size:13px; color:var(--text-secondary); cursor:pointer; margin-top:10px;">
+                    <input type="checkbox" name="auto_authorize" value="1" checked style="width:auto;"/>
+                    Register / renew an active Safe Active authorization window for this asset (90 days).
+                </label>
             </div>
             <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:20px;">
                 <button type="button" class="btn btn-secondary btn-sm" onclick="closeScanLauncher()">Cancel</button>
@@ -267,6 +271,12 @@
                         <option value="safe-active" selected>Safe Active</option>
                     </select>
                 </div>
+            </div>
+            <div class="form-group" style="margin-top:12px;">
+                <label style="display:flex; align-items:center; gap:8px; font-size:13px; color:var(--text-secondary); cursor:pointer;">
+                    <input type="checkbox" name="auto_authorize" value="1" checked style="width:auto;"/>
+                    Authorize Safe Active audits on this target before scheduling (required for non-passive modes).
+                </label>
             </div>
             <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:20px;">
                 <button type="button" class="btn btn-secondary btn-sm" onclick="closeScanLauncher()">Cancel</button>

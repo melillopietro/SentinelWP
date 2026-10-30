@@ -12,9 +12,14 @@
         <div>
             <div style="display:flex; align-items:center; gap:12px;">
                 <h2 style="margin:0;">{{ asset.display_name or asset.hostname }}</h2>
-                {% if asset.authorization_status == 'authorized' %}
+                {% if active_auth %}
                 <span style="font-size:12px; padding:3px 10px; border-radius:4px; background:rgba(16,185,129,0.15); color:var(--success); border:1px solid rgba(16,185,129,0.3); font-weight:600;">
                     ✓ Authorized for Active Scanning
+                    {% if active_auth.valid_until %} · until {{ active_auth.valid_until[:10] }}{% endif %}
+                </span>
+                {% elif asset.authorization_status == 'expired' %}
+                <span style="font-size:12px; padding:3px 10px; border-radius:4px; background:rgba(245,158,11,0.15); color:var(--warning, #f59e0b); border:1px solid rgba(245,158,11,0.35); font-weight:600;">
+                    Authorization Expired (Passive Only)
                 </span>
                 {% else %}
                 <span style="font-size:12px; padding:3px 10px; border-radius:4px; background:rgba(239,68,68,0.15); color:var(--danger); border:1px solid rgba(239,68,68,0.3); font-weight:600;">
