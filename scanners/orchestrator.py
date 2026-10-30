@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 from typing import Optional
 from core.models import ScanResult, ScanStatus
 from core import repository
+from core.risk_engine import compute_risk_score
 from scanners.base import BaseScanner
 from scanners.wp_detector import WordPressDetector
 from scanners.core_security_scanner import CoreSecurityScanner
@@ -265,9 +266,13 @@ def run_scan(
     if whois_findings:
         scan.whois_info = whois_findings[0].raw_data["whois_info"]
 
-    from core.scan_pipeline import finalize_and_score_scan
+    from core.scan_pipeline import finalize_scan_findings
 
-    finalize_and_score_scan(all_findings, scan)
+    all_findings = finalize_scan_findings(all_findings, scan)
+    score, grade = compute_risk_score(all_findings)
+    scan.score = score
+    scan.grade = grade
+    scan.findings = all_findings
     for f in scan.findings:
         f.tenant_id = scan.tenant_id
         f.asset_id = scan.asset_id

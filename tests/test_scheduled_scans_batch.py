@@ -31,6 +31,7 @@ class TestScheduledScansBatch(unittest.TestCase):
             "targets": "https://site1.example.org\nhttps://site2.example.org\nhttps://site3.example.org",
             "scan_mode": "safe-active",
             "interval_hours": "24",
+            "auto_authorize": "1",
         }
         resp = self.client.post("/schedule/create", data=payload, follow_redirects=True)
         self.assertEqual(resp.status_code, 200)
@@ -46,6 +47,7 @@ class TestScheduledScansBatch(unittest.TestCase):
             "targets": "site-no-scheme.example.org",
             "scan_mode": "safe-active",
             "interval_hours": "24",
+            "auto_authorize": "1",
         }
         resp = self.client.post("/schedule/create", data=payload, follow_redirects=True)
         self.assertEqual(resp.status_code, 200)
@@ -60,6 +62,7 @@ class TestScheduledScansBatch(unittest.TestCase):
             "targets": "https://dup.example.org\nhttps://dup.example.org/\ndup.example.org",
             "scan_mode": "safe-active",
             "interval_hours": "24",
+            "auto_authorize": "1",
         }
         resp = self.client.post("/schedule/create", data=payload, follow_redirects=True)
         self.assertEqual(resp.status_code, 200)
@@ -82,6 +85,7 @@ class TestScheduledScansBatch(unittest.TestCase):
             "targets": "https://existing.example.org\nhttps://brand-new.example.org",
             "scan_mode": "safe-active",
             "interval_hours": "24",
+            "auto_authorize": "1",
         }
         resp = self.client.post("/schedule/create", data=payload, follow_redirects=True)
         self.assertEqual(resp.status_code, 200)
@@ -90,6 +94,20 @@ class TestScheduledScansBatch(unittest.TestCase):
         self.assertEqual(len(schedules), 2)
         urls = {s.target_url for s in schedules}
         self.assertEqual(urls, {"https://existing.example.org", "https://brand-new.example.org"})
+
+    def test_safe_active_without_authorization_rejected(self):
+        """SWP-08: Safe Active schedule creation without auto_authorize or pre-existing auth is rejected."""
+        self._login(self.client)
+        payload = {
+            "targets": "https://unauthorized-target.example.org",
+            "scan_mode": "safe-active",
+            "interval_hours": "24",
+        }
+        resp = self.client.post("/schedule/create", data=payload, follow_redirects=True)
+        self.assertEqual(resp.status_code, 200)
+        self.assertIn(b"Authorization required for Safe Active/Full profiles", resp.data)
+        schedules = [s for s in repository.list_scheduled_scans() if s.target_url == "https://unauthorized-target.example.org"]
+        self.assertEqual(len(schedules), 0)
 
     # 5. localhost -> batch rifiutato (Fail-Closed)
     def test_localhost_target_rejects_entire_batch(self):
