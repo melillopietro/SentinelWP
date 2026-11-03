@@ -17,6 +17,7 @@ env/
 
 # Database & Runtime Data
 data/
+!data/vulnerability_finding_titles.json
 *.db
 *.db-shm
 *.db-wal
