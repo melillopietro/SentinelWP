@@ -186,6 +186,11 @@ def generate_html_report(scan) -> str:
             meta_items.append(f"Patched Ver: <strong>{patched_ver}</strong>")
         if cvss_vec:
             meta_items.append(f"Vector: <code>{cvss_vec}</code>")
+        usernames = rd.get("usernames") if isinstance(rd, dict) else None
+        if isinstance(usernames, list) and usernames:
+            shown = ", ".join(html.escape(str(u)) for u in usernames[:30] if u)
+            more = f" (+{len(usernames) - 30} more)" if len(usernames) > 30 else ""
+            meta_items.append(f"Disclosed usernames: <strong>{shown}{html.escape(more)}</strong>")
             
         meta_block = f'<div class="finding-meta">{" | ".join(meta_items)}</div>' if meta_items else ''
         
@@ -1035,8 +1040,19 @@ def generate_pdf_report(scan) -> bytes:
             ver_meta = ""
             if det_ver or patched_ver:
                 ver_meta = f"<br/><font color='#475569'><b>Detected:</b> {det_ver or 'N/A'} | <b>Patched:</b> {patched_ver or 'N/A'}</font>"
+
+            # Explicit username disclosure line for enumeration findings (PDF readability)
+            users_meta = ""
+            usernames = rd.get("usernames") if isinstance(rd, dict) else None
+            if isinstance(usernames, list) and usernames:
+                shown = [str(u) for u in usernames[:30] if u]
+                more = f" (+{len(usernames) - 30} more)" if len(usernames) > 30 else ""
+                users_meta = (
+                    "<br/><font color='#b45309'><b>Disclosed usernames:</b> "
+                    f"{html.escape(', '.join(shown))}{html.escape(more)}</font>"
+                )
                 
-            body_text = f"{desc_text}{ver_meta}<br/><font color='#0284c7'><b>Action:</b> {rem_text}</font>"
+            body_text = f"{desc_text}{users_meta}{ver_meta}<br/><font color='#0284c7'><b>Action:</b> {rem_text}</font>"
             body_p = Paragraph(body_text, cell_body_style)
             
             findings_table_data.append([sev_p, cat_p, title_p, body_p])
