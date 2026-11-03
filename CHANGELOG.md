@@ -2,6 +2,18 @@
 
 All notable changes to SentinelWP are documented in this file.
 
+## [5.0.0] — 2026-11-03
+
+### Added
+- **Composable Dashboard Widgets (v5 Horizon)**: Posture Overview widgets are catalog-driven (`core/dashboard_widgets.py`) with a **Customize Widgets** panel. Defaults preserve KPI strip, severity donut, top-risk assets, categories, monitoring health, and recent scans; optional widgets ship ready to enable (SLA/KEV spotlight, grade mix, portfolio coverage, authorization posture).
+- **Mobile-first widget layout**: Responsive KPI/analytics/monitoring grids collapse cleanly on tablet and phone viewports.
+- **Asset Favicons**: Tenant-safe favicon proxy (`/asset/<id>/favicon`) with CDN resolution + SSRF-gated origin fallback and disk cache (`core/favicon_proxy.py`). Favicons appear on Highest Risk Assets and Recent Scans.
+- **Theme-aware analytics**: Dashboard chart chrome follows Dark/Light theme tokens (no hard-coded dark panels).
+
+### Changed
+- Official release version aligned to **5.0.0** (`core/version.py`, update checker, UI changelog).
+- Highest Risk Assets widget presents favicon + score bars with a compact supporting chart.
+
 ## [4.2.0] — 2026-11-03
 
 ### Added

@@ -9,13 +9,23 @@
 <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:24px;margin-bottom:24px;">
     <div style="display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--border);padding-bottom:16px;margin-bottom:20px;">
         <div>
-            <h3 style="font-size:20px;color:var(--text-primary);">SentinelWP v{{ app_version }} (Enterprise)</h3>
-            <p style="font-size:12px;color:var(--text-muted);margin-top:4px;">Released: October 2026</p>
+            <h3 style="font-size:20px;color:var(--text-primary);">SentinelWP v{{ app_version }} ({{ release_codename | default('Enterprise') }})</h3>
+            <p style="font-size:12px;color:var(--text-muted);margin-top:4px;">Released: November 2026</p>
         </div>
         <span class="badge badge-success" style="padding:6px 12px;font-size:12px;">Active Version</span>
     </div>
 
     <div style="display:flex;flex-direction:column;gap:24px;">
+        <div>
+            <h4 style="font-size:15px;color:var(--accent);margin-bottom:10px;text-transform:uppercase;letter-spacing:0.5px;">v5.0.0 — Horizon · Composable Dashboard &amp; Favicons</h4>
+            <ul style="padding-left:20px;line-height:1.8;font-size:13px;color:var(--text-primary);">
+                <li><strong>Customize Widgets</strong>: Catalog-driven Posture Overview with defaults preserved and optional widgets (SLA/KEV, grade mix, coverage, authorization) ready to enable per browser.</li>
+                <li><strong>Mobile-responsive widgets</strong>: KPI, analytics, and monitoring grids adapt cleanly down to phone widths.</li>
+                <li><strong>WordPress site favicons</strong>: Safe favicon proxy with CDN + cached resolution on Highest Risk Assets and Recent Scans.</li>
+                <li><strong>Light/Dark analytics chrome</strong>: Chart panels follow theme tokens instead of hard-coded dark backgrounds.</li>
+            </ul>
+        </div>
+
         <div>
             <h4 style="font-size:15px;color:var(--accent);margin-bottom:10px;text-transform:uppercase;letter-spacing:0.5px;">v4.1.1 — Functional Remediation &amp; Enterprise Governance</h4>
             <ul style="padding-left:20px;line-height:1.8;font-size:13px;color:var(--text-primary);">

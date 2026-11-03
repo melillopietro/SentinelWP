@@ -1194,6 +1194,15 @@ def list_assets(
         if filters.get("business_unit_id"):
             query += " AND business_unit_id = ?"
             params.append(filters["business_unit_id"])
+        monitoring = (filters.get("monitoring") or "").strip().lower()
+        if monitoring == "enabled":
+            query += " AND monitoring_enabled = 1 AND monitoring_paused_at IS NULL"
+        elif monitoring == "paused":
+            query += " AND monitoring_paused_at IS NOT NULL"
+        elif monitoring in ("attention", "needs_attention"):
+            query += " AND (last_scan_status = 'failed' OR last_scan_id IS NULL)"
+        elif monitoring == "failed":
+            query += " AND last_scan_status = 'failed'"
 
     query += " ORDER BY created_at DESC"
     if limit is not None:
@@ -2042,6 +2051,12 @@ def list_findings(
         where.append("(title LIKE ? OR cve_id LIKE ? OR description LIKE ?)")
         s = f"%{filters['search']}%"
         params.extend([s, s, s])
+    if filters.get("created_after"):
+        where.append("created_at >= ?")
+        params.append(filters["created_after"])
+    if filters.get("category"):
+        where.append("LOWER(category) = ?")
+        params.append(str(filters["category"]).lower())
 
     where_sql = " WHERE " + " AND ".join(where)
     count_row = conn.execute(f"SELECT COUNT(*) FROM findings{where_sql}", params).fetchone()

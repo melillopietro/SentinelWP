@@ -360,6 +360,9 @@ function setTheme(theme) {
     if (typeof updateThemeUI === 'function') {
         updateThemeUI(theme);
     }
+    try {
+        window.dispatchEvent(new CustomEvent('sentinel-theme-change', { detail: { theme: theme } }));
+    } catch (e) {}
 }
 function toggleTheme() {
     var current = document.documentElement.getAttribute('data-theme') || 'dark';

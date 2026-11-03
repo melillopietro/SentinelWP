@@ -87,6 +87,20 @@ class TestDashboardChartsLogoDbMgmt(unittest.TestCase):
         self.assertIn(b"topSitesBarChart", resp.data)
         self.assertIn(b"topCategoriesChart", resp.data)
         self.assertIn(b"chart.js@4.4.1", resp.data)
+        self.assertIn(b"Continuous Monitoring Health", resp.data)
+        self.assertIn(b"swp-mcard", resp.data)
+        self.assertIn(b"monitoring=attention", resp.data)
+        self.assertIn(b"Customize Widgets", resp.data)
+        self.assertIn(b"data-widget-id=\"kpi_strip\"", resp.data)
+        self.assertIn(b"data-widget-id=\"sla_kev\"", resp.data)
+
+    def test_asset_favicon_route(self):
+        self._login()
+        assets = repository.list_assets(tenant_id=self.tenant_id, limit=1)
+        self.assertTrue(assets)
+        resp = self.client.get(f"/asset/{assets[0].id}/favicon")
+        self.assertEqual(resp.status_code, 200)
+        self.assertTrue(resp.content_type.startswith("image/"))
 
     def test_logo_shield_in_base_and_login(self):
         self._login()

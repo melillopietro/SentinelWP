@@ -28,7 +28,7 @@ from config import (
     SECRET_KEY, ADMIN_USERNAME, ADMIN_PASSWORD, SESSION_EXPIRY_HOURS,
     SESSION_COOKIE_SECURE, SESSION_COOKIE_HTTPONLY, SESSION_COOKIE_SAMESITE,
     WSA_MAX_SCHEDULE_TARGETS, SCAN_EXECUTION_BACKEND, REDIS_URL, ENVIRONMENT,
-    validate_admin_password, is_postgres_configured, __version__,
+    validate_admin_password, is_postgres_configured, __version__, RELEASE_CODENAME,
 )
 from core.db.session import verify_operational_persistence_guard
 from core import repository
@@ -141,6 +141,7 @@ def inject_workspace_context():
         "current_tenant_id": tenant_id,
         "current_user_role": session.get("role", "viewer"),
         "app_version": __version__,
+        "release_codename": RELEASE_CODENAME,
     }
 
 
@@ -551,6 +552,8 @@ def dashboard():
     severity_counts = {"critical": 0, "high": 0, "medium": 0, "low": 0, "info": 0}
     top_categories = []
     top_vulnerable_sites = []
+    grade_distribution = {"A": 0, "B": 0, "C": 0, "D": 0, "E": 0, "F": 0}
+    auth_posture = {"authorized": 0, "expired": 0, "unauthorized": 0, "pending": 0}
     try:
         closed = {"REMEDIATED", "VERIFIED", "CLOSED", "FALSE_POSITIVE", "RESOLVED"}
         active_findings, _ = repository.list_findings(tenant_id, filters=None, page=1, page_size=1000)
@@ -562,9 +565,14 @@ def dashboard():
             sev = (f.severity.value if hasattr(f.severity, "value") else str(f.severity)).lower()
             if sev in severity_counts:
                 severity_counts[sev] += 1
-            cat = (f.category or "general").replace("_", " ").title()
-            category_counts[cat] = category_counts.get(cat, 0) + 1
-        top_categories = sorted(category_counts.items(), key=lambda x: x[1], reverse=True)[:5]
+            slug = (f.category or "general").strip().lower() or "general"
+            label = slug.replace("_", " ").title()
+            entry = category_counts.get(slug)
+            if entry:
+                entry["count"] += 1
+            else:
+                category_counts[slug] = {"label": label, "slug": slug, "count": 1}
+        top_categories = sorted(category_counts.values(), key=lambda x: x["count"], reverse=True)[:5]
 
         tenant_assets = repository.list_assets(tenant_id=tenant_id, limit=100)
         vulnerable_sites = []
@@ -603,8 +611,55 @@ def dashboard():
                 })
         vulnerable_sites.sort(key=lambda x: x["score"], reverse=True)
         top_vulnerable_sites = vulnerable_sites[:5]
+
+        for s in all_scans:
+            st = s.status.value if hasattr(s.status, "value") else str(s.status)
+            if st != "completed":
+                continue
+            g = (s.grade or "").strip().upper()[:1]
+            if g in grade_distribution:
+                grade_distribution[g] += 1
+
+        for a in tenant_assets:
+            auth = (getattr(a, "authorization_status", None) or "unauthorized").lower()
+            if auth in auth_posture:
+                auth_posture[auth] += 1
+            else:
+                auth_posture["unauthorized"] += 1
     except Exception:
         pass
+
+    # Favicon map for recent scans (asset_id preferred, else hostname match)
+    asset_by_host = {}
+    try:
+        for a in repository.list_assets(tenant_id=tenant_id, limit=500):
+            host = (getattr(a, "hostname", None) or "").lower()
+            if host:
+                asset_by_host[host] = a.id
+            try:
+                from urllib.parse import urlparse
+                h = (urlparse(a.canonical_url).hostname or "").lower()
+                if h:
+                    asset_by_host[h] = a.id
+            except Exception:
+                pass
+    except Exception:
+        pass
+    scan_asset_ids = {}
+    for s in scans:
+        aid = getattr(s, "asset_id", None)
+        if aid:
+            scan_asset_ids[s.id] = aid
+            continue
+        try:
+            from urllib.parse import urlparse
+            h = (urlparse(s.target_url or "").hostname or "").lower()
+            if h and h in asset_by_host:
+                scan_asset_ids[s.id] = asset_by_host[h]
+        except Exception:
+            pass
+
+    from core.dashboard_widgets import widget_catalog_for_template, default_enabled_ids
 
     return render_template("dashboard.html",
                            scans=scans, total=total,
@@ -617,7 +672,12 @@ def dashboard():
                            active_tab=active_tab,
                            severity_counts=severity_counts,
                            top_categories=top_categories,
-                           top_vulnerable_sites=top_vulnerable_sites)
+                           top_vulnerable_sites=top_vulnerable_sites,
+                           grade_distribution=grade_distribution,
+                           auth_posture=auth_posture,
+                           scan_asset_ids=scan_asset_ids,
+                           widget_catalog=widget_catalog_for_template(),
+                           widget_defaults=default_enabled_ids())
 
 
 @app.route("/changelog")
@@ -950,6 +1010,7 @@ def assets():
         "environment": request.args.get("environment", "").strip(),
         "criticality": request.args.get("criticality", "").strip(),
         "authorization_status": request.args.get("authorization_status", "").strip(),
+        "monitoring": request.args.get("monitoring", "").strip(),
     }
     asset_list = repository.list_assets(tenant_id=tenant_id, filters=filters)
     # SWP-09: derive live authorization status from active windows (not stale column).
@@ -1135,6 +1196,27 @@ def create_asset():
 
     flash(f"Asset '{display_name}' registered successfully.", "success")
     return redirect(url_for("asset_detail", asset_id=asset.id))
+
+
+@app.route("/asset/<asset_id>/favicon")
+@login_required
+def asset_favicon(asset_id):
+    """Serve a cached favicon for a tenant-owned asset (safe CDN / SSRF-gated)."""
+    tenant_id = session.get("tenant_id", "default-tenant")
+    asset = repository.get_asset(asset_id, tenant_id=tenant_id)
+    if not asset:
+        abort(404)
+    try:
+        from core.favicon_proxy import resolve_favicon
+        data, ctype = resolve_favicon(
+            getattr(asset, "canonical_url", "") or "",
+            getattr(asset, "hostname", "") or "",
+        )
+    except Exception:
+        abort(404)
+    resp = app.response_class(data, mimetype=ctype or "image/png")
+    resp.headers["Cache-Control"] = "public, max-age=86400"
+    return resp
 
 
 @app.route("/asset/<asset_id>")
@@ -2787,10 +2869,15 @@ def findings_list():
         "asset_id": request.args.get("asset_id"),
         "search": request.args.get("search"),
         "kev": True if request.args.get("kev") == "1" else None,
+        "created_after": request.args.get("created_after"),
+        "category": request.args.get("category"),
     }
     # SWP-03: Critical Findings counter counts severity=critical — drill-down must match.
     if active_tab == "critical" and not filters.get("severity"):
         filters["severity"] = "critical"
+    # Convenience: ?window=24h → findings created in last 24 hours
+    if request.args.get("window") == "24h" and not filters.get("created_after"):
+        filters["created_after"] = (datetime.now(timezone.utc) - timedelta(hours=24)).isoformat()
 
     page = int(request.args.get("page", 1))
     page_size = int(request.args.get("page_size", 50))

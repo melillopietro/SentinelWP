@@ -218,6 +218,16 @@
                 <option value="expired" {% if filters.authorization_status == 'expired' %}selected{% endif %}>Expired</option>
             </select>
         </div>
+        <div style="flex:1; min-width:140px;">
+            <label style="display:block; font-size:12px; color:var(--text-muted); margin-bottom:4px;">Monitoring</label>
+            <select name="monitoring" style="width:100%; padding:8px 12px; background:var(--bg-primary); border:1px solid var(--border); border-radius:var(--radius); color:var(--text-primary); font-size:13px;">
+                <option value="">All Monitoring</option>
+                <option value="enabled" {% if filters.monitoring == 'enabled' %}selected{% endif %}>Actively Monitored</option>
+                <option value="paused" {% if filters.monitoring == 'paused' %}selected{% endif %}>Paused</option>
+                <option value="attention" {% if filters.monitoring == 'attention' %}selected{% endif %}>Needs Attention</option>
+                <option value="failed" {% if filters.monitoring == 'failed' %}selected{% endif %}>Last Scan Failed</option>
+            </select>
+        </div>
         <div style="display:flex; gap:8px;">
             <button type="submit" class="btn btn-secondary btn-sm" style="height:35px; align-self:flex-end;">Filter</button>
             <a href="{{ url_for('assets') }}" class="btn btn-secondary btn-sm" style="height:35px; align-self:flex-end;">Reset</a>

@@ -1,8 +1,23 @@
-# SentinelWP — WordPress Security Sentinel (v4.1.0 Enterprise)
+# SentinelWP — WordPress Security Sentinel (v5.0.0 Horizon)
 
 Enterprise-grade, non-destructive WordPress security assessment, posture management, and distributed vulnerability orchestration platform.
 
+**Version 5.0.0 (Horizon)** ships a composable Posture Overview dashboard: catalog-driven widgets (defaults preserved), optional executive widgets, WordPress site favicons, mobile-responsive cards, and full Dark/Light theme parity for analytics chrome.
+
 SentinelWP is an advanced enterprise security auditing platform designed to evaluate the security posture of WordPress websites and web applications at scale. Production deployments use a **stateless Flask/Gunicorn web tier**, **Celery workers**, **Redis**, and **PostgreSQL**; local development can run against **SQLite** with the same application code. SentinelWP provides deep attack surface reconnaissance, configuration audit, and vulnerability intelligence without performing destructive actions.
+
+---
+
+## SentinelWP v5.0.0 Horizon
+
+| Capability | What you get in v5.0 |
+|------------|----------------------|
+| **Composable dashboard widgets** | Customize Widgets panel; defaults = KPI strip, severity donut, top-risk assets, categories, monitoring health, recent scans. |
+| **Optional widgets (ready to enable)** | SLA & KEV spotlight, grade mix, portfolio coverage, authorization posture — extend via `core/dashboard_widgets.py`. |
+| **Asset favicons** | Safe proxy `/asset/<id>/favicon` (CDN + SSRF-gated fallback, disk cache) on Highest Risk Assets and Recent Scans. |
+| **Mobile-first layout** | Responsive KPI / analytics / monitoring grids for tablet and phone. |
+| **Theme-aware analytics** | Chart panels follow Dark/Light CSS tokens (no hard-coded dark cards). |
+| **Continuity from 4.x** | Enterprise Docker / Postgres / Celery / RBAC / SSRF / detection integrity unchanged; see v4.1.0 notes below. |
 
 ---
 
@@ -37,6 +52,11 @@ SentinelWP is an advanced enterprise security auditing platform designed to eval
 
 ## Key Features
 
+- **Composable Posture Dashboard (v5)**: Per-browser widget preferences with catalog defaults; optional SLA/KEV, grade mix, coverage, and authorization widgets.
+- **WordPress Favicon Resolution**: Tenant-scoped favicon proxy with public CDN lookup and SSRF-safe origin fallback.
+- **Mobile-Responsive Operations UI**: Dashboard widgets reflow for small screens without losing drill-downs.
+- **Real-Time Visual Analytics & Database Governance**: Chart.js exposure distribution donut, ranked top-risk assets, and category bars with full database export, import, purge, and reset controls in Settings.
+- **Automated REST API & Title Catalog**: Scoped REST API (`POST /api/v1/scans`, `GET /api/v1/scans/<id>`) and vulnerability finding title catalog (`GET /api/v1/finding-titles`) for integration with external dashboards and translation workflows.
 - **Modern Vulnerabilities & DevOps Exposure Auditing**: Active and passive detection for modern cloud/containerized WordPress threats:
   - **Git Repository Exposure**: Checks `/.git/HEAD` and `/.git/config` with commit hash validation to prevent full source code and commit history dumping.
   - **Environment Configuration Leaks**: Audits exposed dotenv files (`/.env`, `/.env.local`, `/.env.production`) across modern Docker, Bedrock, and Roots deployments with automatic secret redaction.
@@ -98,7 +118,7 @@ For enterprise-grade, high-availability deployments on Ubuntu Server LTS (22.04 
 - **Automated Migrations**: Ephemeral `migrate` container with PostgreSQL advisory locking (`85504753`).
 
 ```bash
-# 1. Clone repository (v4.1.0 on main)
+# 1. Clone repository (v5.0.0 on main)
 git clone https://github.com/melillopietro/SentinelWP.git
 cd SentinelWP
 
@@ -267,7 +287,7 @@ python app.py
 
 ## Architecture & Technology Stack
 
-**Production (v4.1.0 enterprise):**
+**Production (v5.0.0 enterprise):**
 
 - **Web**: Python 3.12, Flask, Gunicorn, Jinja2
 - **Data**: PostgreSQL 16+ (SQLAlchemy 2.x, Alembic migrations), Redis 7
@@ -301,9 +321,22 @@ python app.py
 
 ---
 
-## Recent Updates & Changelog (v4.1.0)
+## Recent Updates & Changelog (v5.0.0)
 
 See [CHANGELOG.md](CHANGELOG.md) for the authoritative release notes.
+
+### v5.0.0 — Horizon Release (Composable Dashboard & Posture UX)
+- **Composable Posture Overview**: Customizable widget grid (`core/dashboard_widgets.py`) with user toggle preferences and optional executive widgets (SLA/KEV, grade distribution, portfolio coverage, authorization posture).
+- **Asset Favicons**: Safe asset favicon resolution proxy (`/asset/<id>/favicon`) with public CDN and SSRF-hardened origin fallback.
+- **Mobile-Responsive UI**: Operations dashboard collapses seamlessly onto tablets and mobile devices.
+- **Theme Parity**: Native Dark and Light theme styling for analytics and dashboard elements.
+
+### v4.2.0 — Real-Time Visual Analytics & False Positive Hardening
+- **Real-Time Visual Analytics**: Interactive Chart.js widgets for active exposure distribution, top-risk assets, and category breakdown.
+- **Database & Maintenance Governance**: Settings panel controls for database export, import/restore, data retention purge, and confirmation-gated reset.
+- **REST API Scans v1**: Endpoints `POST /api/v1/scans` and `GET /api/v1/scans/<id>` for remote scan automation and integrations.
+- **Vulnerability Title Catalog**: Canonical titles exposed via `GET /api/v1/finding-titles` for translation and downstream tools.
+- **False-Positive Mitigation Suite**: Comprehensive hardening across 11 detection vectors.
 
 ### v4.1.0 — Enterprise Production Release (Sprint 11)
 - **Containerized production stack** with Nginx TLS gateway, Gunicorn, Celery workers, Redis, and PostgreSQL 16.
