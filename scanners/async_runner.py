@@ -82,6 +82,13 @@ def _execute_async_scan(scan_id: str, target_url: str, initiated_by: str, scan_m
                 scanner.ENABLE_ACTIVE_PROBE = True
             if scan_mode in ("safe-active", "full") and hasattr(scanner, "ENABLE_SUBDIR_PROBE"):
                 scanner.ENABLE_SUBDIR_PROBE = True
+            if getattr(scanner_cls, "__name__", "") == "CoreSecurityScanner":
+                for prior in all_findings:
+                    raw = prior.raw_data or {}
+                    ver = raw.get("version")
+                    if ver and raw.get("is_wordpress"):
+                        scanner.wp_version = str(ver).strip()
+                        break
             findings = scanner.scan()
             for f in findings:
                 f.scan_id = scan_id

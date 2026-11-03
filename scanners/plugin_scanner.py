@@ -111,6 +111,13 @@ class PluginScanner(BaseScanner):
         _soft404_checked = False
         _is_soft404_site = False
 
+        # 403 baseline: if a random canary plugin path also returns 403, a global
+        # deny-all rule is in effect — 403 must not count as plugin presence.
+        import uuid as _uuid
+        canary = f"sentinel_canary_{_uuid.uuid4().hex[:8]}"
+        canary_resp = self._head(f"{self.target_url}/wp-content/plugins/{canary}/")
+        global_403_block = bool(canary_resp and canary_resp.status_code == 403)
+
         for plugin in _ACTIVE_PROBE_PLUGINS:
             if plugin in exclude:
                 continue
@@ -120,8 +127,14 @@ class PluginScanner(BaseScanner):
                 continue
 
             if resp.status_code == 403:
-                # HTTP 403 = directory listing denied = plugin present; no soft-404 risk
-                version = self._get_plugin_version_from_readme(plugin)
+                if global_403_block:
+                    # Global /plugins/* deny — require readme corroboration
+                    version = self._get_plugin_version_from_readme(plugin)
+                    if not version:
+                        continue
+                else:
+                    # Isolated 403 → directory listing denied for real plugin path
+                    version = self._get_plugin_version_from_readme(plugin)
             elif resp.status_code == 200:
                 # HTTP 200 requires soft-404 verification (SCAN-GAP-001)
                 if not _soft404_checked:

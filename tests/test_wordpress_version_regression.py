@@ -184,7 +184,7 @@ class TestWordPressDetectorDirect(unittest.TestCase):
         detector = WordPressDetector("https://wp.example.com")
 
         home_resp = MagicMock()
-        home_resp.text = '<html><head><link rel="alternate" type="application/rss+xml" href="https://wp.example.com/feed/" /></head><body><div class="content">/wp-content/</div></body></html>'
+        home_resp.text = '<html><head><link rel="alternate" type="application/rss+xml" href="https://wp.example.com/feed/" /></head><body><img src="/wp-content/uploads/x.png"/></body></html>'
         home_resp.cookies = []
         home_resp.headers = {}
         home_resp.url = "https://wp.example.com"
@@ -219,7 +219,7 @@ class TestWordPressDetectorDirect(unittest.TestCase):
         detector = WordPressDetector("https://wp.example.com")
 
         home_resp = MagicMock()
-        home_resp.text = '<html><body>/wp-content/uploads/</body></html>'
+        home_resp.text = '<html><head><link rel="https://api.w.org/" href="https://wp.example.com/wp-json/"/></head><body><img src="/wp-content/uploads/x.png"/></body></html>'
         home_resp.cookies = []
         home_resp.headers = {}
         home_resp.url = "https://wp.example.com"

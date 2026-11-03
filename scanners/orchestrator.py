@@ -196,6 +196,14 @@ def run_scan(
             # Passive scans must not issue extra probes beyond the root GET.
             if scan_mode in ("safe-active", "full") and hasattr(scanner, "ENABLE_SUBDIR_PROBE"):
                 scanner.ENABLE_SUBDIR_PROBE = True
+            # Pass WP version resolved earlier in this scan to CoreSecurityScanner
+            if getattr(scanner_cls, "__name__", "") == "CoreSecurityScanner":
+                for prior in all_findings:
+                    raw = prior.raw_data or {}
+                    ver = raw.get("version")
+                    if ver and raw.get("is_wordpress"):
+                        scanner.wp_version = str(ver).strip()
+                        break
             findings = scanner.scan()
             for f in findings:
                 f.scan_id = scan.id

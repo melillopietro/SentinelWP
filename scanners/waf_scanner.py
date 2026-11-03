@@ -73,6 +73,13 @@ class WAFScanner(BaseScanner):
             if detected:
                 detected_wafs.append(waf_name)
 
+        # Active probe before finalizing "No WAF" (avoids contradictory findings)
+        actively_blocking = False
+        test_url = self.target_url + "/?s=<script>alert(1)</script>"
+        blocked_resp = self._get(test_url)
+        if blocked_resp and blocked_resp.status_code in (403, 406, 501):
+            actively_blocking = True
+
         if detected_wafs:
             self._add_finding(
                 category="configuration",
@@ -84,7 +91,7 @@ class WAFScanner(BaseScanner):
                 remediation="WAF presence is positive for security. Ensure rules are up to date.",
                 raw_data={"wafs": detected_wafs}
             )
-        else:
+        elif not actively_blocking:
             self._add_finding(
                 category="configuration",
                 title="No WAF Detected",
@@ -96,10 +103,7 @@ class WAFScanner(BaseScanner):
                 raw_data={"wafs": []}
             )
 
-        # Test with malicious-looking request to trigger WAF
-        test_url = self.target_url + "/?s=<script>alert(1)</script>"
-        blocked_resp = self._get(test_url)
-        if blocked_resp and blocked_resp.status_code in (403, 406, 501):
+        if actively_blocking:
             self._add_finding(
                 category="configuration",
                 title="WAF Actively Blocking Malicious Requests",
@@ -108,4 +112,5 @@ class WAFScanner(BaseScanner):
                 severity=Severity.INFO,
                 confidence=0.85,
                 remediation="No action needed - WAF is actively protecting.",
+                raw_data={"wafs": detected_wafs or ["unknown-active-block"]}
             )

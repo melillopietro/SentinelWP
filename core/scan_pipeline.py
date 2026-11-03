@@ -56,11 +56,56 @@ def apply_vulnerability_intelligence(all_findings: List[Finding], scan_id: str, 
         from core.vulnerability_intelligence.service import match_scan_findings
 
         vuln_matches = match_scan_findings(wp_version, detected_plugins)
+        # Consolidate version_unknown floods into one advisory per component (FP vector 11)
+        unknown_by_slug: dict = {}
+        confirmed_matches = []
         for vm in vuln_matches:
             cve = vm.get("cve")
             if cve and cve in existing_cves:
                 continue
+            match_status = vm.get("match_status", "affected")
+            slug = vm.get("plugin_slug") or vm.get("slug") or "unknown"
+            if vm.get("software_type") == "core":
+                slug = "wordpress"
+            if match_status == "version_unknown":
+                unknown_by_slug.setdefault(slug, []).append(vm)
+            else:
+                confirmed_matches.append(vm)
 
+        for slug, cve_list in unknown_by_slug.items():
+            kev_any = any(m.get("kev_listed") for m in cve_list)
+            sample_cves = [m.get("cve") for m in cve_list if m.get("cve")][:8]
+            title = f"Potential Exposure: Component Version Unverified — {slug} ({len(cve_list)} Potential CVEs)"
+            if kev_any:
+                title += " [Includes CISA KEV]"
+            desc = (
+                f"Plugin/component '{slug}' was detected without a reliable version. "
+                f"{len(cve_list)} historical CVE record(s) exist for this component"
+                + (f" (examples: {', '.join(sample_cves)})" if sample_cves else "")
+                + ". These are informational until the installed version is confirmed."
+            )
+            all_findings.append(
+                Finding(
+                    scan_id=scan_id,
+                    category="vulnerability_intelligence",
+                    title=title,
+                    description=desc,
+                    severity=Severity.LOW,
+                    confidence=0.4,
+                    remediation=f"Identify the installed version of '{slug}' and re-scan, or update to the latest release.",
+                    reference="",
+                    raw_data={
+                        "match_status": "version_unknown",
+                        "slug": slug,
+                        "potential_cve_count": len(cve_list),
+                        "sample_cves": sample_cves,
+                        "kev_listed": kev_any,
+                    },
+                )
+            )
+
+        for vm in confirmed_matches:
+            cve = vm.get("cve")
             cvss = float(vm.get("cvss_score") or 0)
             match_status = vm.get("match_status", "affected")
             sev = _severity_from_cvss(cvss, match_status)
@@ -69,19 +114,12 @@ def apply_vulnerability_intelligence(all_findings: List[Finding], scan_id: str, 
             if vm.get("software_type") == "core":
                 slug = "wordpress"
 
-            if match_status == "version_unknown":
-                title = f"Potential Exposure: {cve or 'Unknown CVE'} — {slug}"
-                desc = (
-                    f"Potential exposure — version not detected. {cve or ''} affects {slug} "
-                    f"({vm.get('affected_range', 'unknown range')})."
-                )
-            else:
-                title = f"Vulnerability: {cve or 'Unknown CVE'} — {slug} {vm.get('detected_version', '')}"
-                desc = (
-                    f"{cve or ''} affects {slug} version {vm.get('detected_version', 'unknown')} "
-                    f"(range: {vm.get('affected_range', 'N/A')}). "
-                    f"Patched in: {vm.get('patched_version', 'N/A')}."
-                )
+            title = f"Vulnerability: {cve or 'Unknown CVE'} — {slug} {vm.get('detected_version', '')}"
+            desc = (
+                f"{cve or ''} affects {slug} version {vm.get('detected_version', 'unknown')} "
+                f"(range: {vm.get('affected_range', 'N/A')}). "
+                f"Patched in: {vm.get('patched_version', 'N/A')}."
+            )
 
             if vm.get("kev_listed"):
                 title += " [Listed in CISA KEV]"

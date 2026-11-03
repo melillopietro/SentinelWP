@@ -80,16 +80,30 @@ class ThemeScanner(BaseScanner):
         now_iso = _dt.datetime.now(_dt.timezone.utc).isoformat()
         for theme in DEFAULT_THEMES:
             url = f"{self.target_url}/wp-content/themes/{theme}/style.css"
-            resp = self._head(url)
-            if not (resp and resp.status_code == 200):
-                continue
+            css_resp = self._get(url)
+            body = (css_resp.text or "") if css_resp else ""
+            has_theme_header = bool(re.search(r"(?:Theme Name|Theme URI)\s*:", body, re.IGNORECASE))
 
-            # Fetch version — best-effort; no version if GET fails
-            version = self._get_theme_version(theme)
-            version_confidence = "high" if version else "none"
+            if has_theme_header and css_resp and css_resp.status_code == 200:
+                if self._is_soft_404_css(css_resp):
+                    continue
+                version = ""
+                match = re.search(r"Version:\s*([\d.]+)", body, re.IGNORECASE)
+                if match:
+                    version = match.group(1)
+                version_confidence = "high" if version else "none"
+            else:
+                head_resp = self._head(url)
+                if not (head_resp and head_resp.status_code == 200):
+                    continue
+                if css_resp and self._is_soft_404_css(css_resp):
+                    continue
+                if body.strip() and not has_theme_header:
+                    continue
 
-            # Only populate CVE-matchable raw_data when version is known;
-            # do NOT attempt CVE match when version is unknown (DETECT-OPEN-003).
+                version = self._get_theme_version(theme)
+                version_confidence = "high" if version else "none"
+
             self._add_finding(
                 category="information_disclosure",
                 title=f"Default Theme Present: {theme}",
@@ -112,11 +126,21 @@ class ThemeScanner(BaseScanner):
                 }
             )
 
+    @staticmethod
+    def _is_soft_404_css(resp) -> bool:
+        from scanners.soft404 import response_is_soft_404
+        return response_is_soft_404(resp)
+
     def _get_theme_version(self, theme: str) -> str:
-        """Try to extract version from style.css"""
+        """Try to extract version from style.css (requires Theme Name/URI header)."""
         url = f"{self.target_url}/wp-content/themes/{theme}/style.css"
         resp = self._get(url)
         if not resp or resp.status_code != 200:
             return ""
-        match = re.search(r"Version:\s*([\d.]+)", resp.text, re.IGNORECASE)
+        body = resp.text or ""
+        if not re.search(r"(?:Theme Name|Theme URI)\s*:", body, re.IGNORECASE):
+            return ""
+        if self._is_soft_404_css(resp):
+            return ""
+        match = re.search(r"Version:\s*([\d.]+)", body, re.IGNORECASE)
         return match.group(1) if match else ""

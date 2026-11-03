@@ -50,39 +50,85 @@ class CookieSecurityScanner(BaseScanner):
         missing_httponly = [c for c in unique_cookies.values() if not c["httponly"]]
         missing_samesite = [c for c in unique_cookies.values() if not c["samesite"]]
 
+        def _is_session_cookie(name: str) -> bool:
+            n = (name or "").lower()
+            return any(
+                n.startswith(p) or p in n
+                for p in (
+                    "wordpress_logged_in",
+                    "wordpress_sec",
+                    "wp-postpass",
+                    "phpsessid",
+                    "jsessionid",
+                    "sessionid",
+                    "sess_",
+                    "auth",
+                )
+            ) or n in ("session", "sid", "ssid")
+
         # 4. Report findings (group insecure cookies per issue type)
 
-        # Issue 1: Cookie without Secure flag -> MEDIUM severity
+        # Issue 1: Cookie without Secure flag -> MEDIUM for session cookies, LOW otherwise
         if missing_secure:
-            cookie_names = ", ".join(sorted(set(c["name"] for c in missing_secure)))
-            self._add_finding(
-                category="configuration",
-                title="Cookies Missing Secure Flag",
-                description=f"The following cookie(s) are missing the 'Secure' flag: {cookie_names}. "
-                            "Cookies without the Secure flag can be transmitted over unencrypted HTTP connections, "
-                            "exposing sensitive data to interception via man-in-the-middle (MITM) attacks.",
-                severity=Severity.MEDIUM,
-                confidence=0.9,
-                remediation="Configure the server to include the 'Secure' attribute for all Set-Cookie headers.",
-                reference="https://owasp.org/www-community/controls/SecureCookieAttribute",
-                raw_data={"cookies": missing_secure, "cookie_names": [c["name"] for c in missing_secure]},
-            )
+            session_miss = [c for c in missing_secure if _is_session_cookie(c["name"])]
+            other_miss = [c for c in missing_secure if not _is_session_cookie(c["name"])]
+            if session_miss:
+                cookie_names = ", ".join(sorted(set(c["name"] for c in session_miss)))
+                self._add_finding(
+                    category="configuration",
+                    title="Session Cookies Missing Secure Flag",
+                    description=f"The following session/auth cookie(s) are missing the 'Secure' flag: {cookie_names}. "
+                                "Cookies without the Secure flag can be transmitted over unencrypted HTTP connections.",
+                    severity=Severity.MEDIUM,
+                    confidence=0.9,
+                    remediation="Configure the server to include the 'Secure' attribute for all Set-Cookie headers.",
+                    reference="https://owasp.org/www-community/controls/SecureCookieAttribute",
+                    raw_data={"cookies": session_miss, "cookie_names": [c["name"] for c in session_miss]},
+                )
+            if other_miss:
+                cookie_names = ", ".join(sorted(set(c["name"] for c in other_miss)))
+                self._add_finding(
+                    category="configuration",
+                    title="Cookies Missing Secure Flag",
+                    description=f"The following cookie(s) are missing the 'Secure' flag: {cookie_names}.",
+                    severity=Severity.LOW,
+                    confidence=0.85,
+                    remediation="Prefer the Secure attribute on all cookies set over HTTPS.",
+                    reference="https://owasp.org/www-community/controls/SecureCookieAttribute",
+                    raw_data={"cookies": other_miss, "cookie_names": [c["name"] for c in other_miss]},
+                )
 
-        # Issue 2: Cookie without HttpOnly flag -> MEDIUM severity
+        # Issue 2: Cookie without HttpOnly — HIGH/MEDIUM for session cookies; INFO for client-side functional cookies
         if missing_httponly:
-            cookie_names = ", ".join(sorted(set(c["name"] for c in missing_httponly)))
-            self._add_finding(
-                category="configuration",
-                title="Cookies Missing HttpOnly Flag",
-                description=f"The following cookie(s) are missing the 'HttpOnly' flag: {cookie_names}. "
-                            "Cookies without HttpOnly can be accessed by client-side JavaScript, "
-                            "making them vulnerable to theft via Cross-Site Scripting (XSS) attacks.",
-                severity=Severity.MEDIUM,
-                confidence=0.9,
-                remediation="Set the 'HttpOnly' attribute on all cookies, especially session cookies.",
-                reference="https://owasp.org/www-community/HttpOnly",
-                raw_data={"cookies": missing_httponly, "cookie_names": [c["name"] for c in missing_httponly]},
-            )
+            session_miss = [c for c in missing_httponly if _is_session_cookie(c["name"])]
+            other_miss = [c for c in missing_httponly if not _is_session_cookie(c["name"])]
+            if session_miss:
+                cookie_names = ", ".join(sorted(set(c["name"] for c in session_miss)))
+                self._add_finding(
+                    category="configuration",
+                    title="Session Cookies Missing HttpOnly Flag",
+                    description=f"The following session/auth cookie(s) are missing the 'HttpOnly' flag: {cookie_names}. "
+                                "Session cookies without HttpOnly can be stolen via XSS.",
+                    severity=Severity.HIGH,
+                    confidence=0.95,
+                    remediation="Set the 'HttpOnly' attribute on all session and authentication cookies.",
+                    reference="https://owasp.org/www-community/HttpOnly",
+                    raw_data={"cookies": session_miss, "cookie_names": [c["name"] for c in session_miss]},
+                )
+            if other_miss:
+                cookie_names = ", ".join(sorted(set(c["name"] for c in other_miss)))
+                self._add_finding(
+                    category="configuration",
+                    title="Non-Session Cookies Missing HttpOnly Flag",
+                    description=f"The following non-session cookie(s) lack HttpOnly: {cookie_names}. "
+                                "Many consent/analytics/CSRF cookies are intentionally JS-readable; "
+                                "treat as informational unless they hold sensitive data.",
+                    severity=Severity.INFO,
+                    confidence=0.7,
+                    remediation="Review whether these cookies store sensitive data; if so, set HttpOnly.",
+                    reference="https://owasp.org/www-community/HttpOnly",
+                    raw_data={"cookies": other_miss, "cookie_names": [c["name"] for c in other_miss]},
+                )
 
         # Issue 3: Cookie without SameSite -> LOW severity
         if missing_samesite:

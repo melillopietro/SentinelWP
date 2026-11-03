@@ -174,8 +174,8 @@ class TestScanPipelineAuthoritative(unittest.TestCase):
         intel = [f for f in out if f.category == "vulnerability_intelligence"]
         self.assertEqual(len(intel), 1)
         self.assertTrue(intel[0].title.startswith("Potential Exposure:"))
-        self.assertEqual(intel[0].confidence, 0.6)
-        self.assertEqual(intel[0].severity, Severity.MEDIUM)
+        self.assertEqual(intel[0].confidence, 0.4)
+        self.assertEqual(intel[0].severity, Severity.LOW)
 
 
 if __name__ == "__main__":

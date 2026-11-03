@@ -6,7 +6,7 @@ The curated intelligence pipeline emits the primary CVE finding; this scanner
 reports theme preconditions cited in public advisories.
 """
 import re
-from typing import Set
+from typing import Optional, Set
 
 from core.models import Severity
 from core.wordpress_version import is_version_less_than, normalize_wp_version_label
@@ -25,13 +25,20 @@ _ELEVATED_RCE_THEME_SLUGS = frozenset(
 
 class CoreSecurityScanner(BaseScanner):
     def scan(self) -> list:
+        # Prefer version resolved by WordPressDetector / orchestrator (avoids missing meta-only sites)
+        wp_version = getattr(self, "wp_version", None)
         resp = self._get(self.target_url)
         if not resp:
             return self.findings
 
         body = resp.text or ""
-        wp_version = self._extract_version(body)
-        if not wp_version or not is_version_less_than(wp_version, "7.1.2"):
+        if not wp_version:
+            wp_version = self._extract_version(body)
+        if not wp_version:
+            return self.findings
+
+        wp_version = normalize_wp_version_label(wp_version) or wp_version
+        if not is_version_less_than(wp_version, "7.1.2"):
             return self.findings
 
         themes = self._detect_theme_slugs(body)
@@ -63,7 +70,7 @@ class CoreSecurityScanner(BaseScanner):
         return self.findings
 
     @staticmethod
-    def _extract_version(body: str) -> str | None:
+    def _extract_version(body: str) -> Optional[str]:
         meta = re.search(
             r'<meta[^>]+content=["\']WordPress\s*([\d.]+)["\']',
             body,
@@ -71,6 +78,14 @@ class CoreSecurityScanner(BaseScanner):
         )
         if meta:
             return normalize_wp_version_label(meta.group(1))
+        # Fallback: core asset ?ver= on wp-includes (same signal family as detector)
+        asset = re.search(
+            r"/wp-includes/[^\"'\s?]+\.(?:js|css)\?ver=([\d.]+)",
+            body,
+            re.IGNORECASE,
+        )
+        if asset:
+            return normalize_wp_version_label(asset.group(1))
         return None
 
     @staticmethod

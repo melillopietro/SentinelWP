@@ -2999,6 +2999,239 @@ def risk_acceptance_list():
 # Phase 4: REST API v1 (Scoped API Keys & JSON API)
 # =====================================================================
 
+def _serialize_finding_for_api(f, include_raw: bool = True) -> dict:
+    sev = f.severity.value if hasattr(f.severity, "value") else str(f.severity)
+    payload = {
+        "id": f.id,
+        "title": f.title,
+        "description": f.description,
+        "severity": sev,
+        "category": getattr(f, "category", None),
+        "confidence": getattr(f, "confidence", None),
+        "remediation": getattr(f, "remediation", None),
+        "reference": getattr(f, "reference", None),
+        "cve_id": getattr(f, "cve_id", None),
+        "status": getattr(f, "status", None),
+        "priority_band": getattr(f, "priority_band", None),
+        "priority_score": getattr(f, "priority_score", None),
+        "asset_id": getattr(f, "asset_id", None),
+        "scan_id": getattr(f, "scan_id", None),
+        "created_at": getattr(f, "created_at", None),
+    }
+    if include_raw:
+        raw = f.raw_data if isinstance(getattr(f, "raw_data", None), dict) else (f.raw_data or {})
+        payload["raw_data"] = raw
+        # Convenience for user-enumeration consumers
+        if isinstance(raw, dict) and raw.get("usernames"):
+            payload["usernames"] = raw.get("usernames")
+    return payload
+
+
+def _serialize_scan_for_api(scan, findings=None) -> dict:
+    status = scan.status.value if hasattr(scan.status, "value") else str(scan.status)
+    out = {
+        "scan_id": scan.id,
+        "target_url": scan.target_url,
+        "scan_mode": scan.scan_mode,
+        "status": status,
+        "score": getattr(scan, "score", None),
+        "grade": getattr(scan, "grade", None),
+        "is_wordpress": getattr(scan, "is_wordpress", None),
+        "wp_version": getattr(scan, "wp_version", None),
+        "asset_id": getattr(scan, "asset_id", None),
+        "tenant_id": getattr(scan, "tenant_id", None),
+        "created_at": getattr(scan, "created_at", None),
+        "completed_at": getattr(scan, "completed_at", None),
+        "initiated_by": getattr(scan, "initiated_by", None),
+    }
+    if findings is not None:
+        out["findings_count"] = len(findings)
+        out["findings"] = [_serialize_finding_for_api(f) for f in findings]
+    return out
+
+
+@app.route("/api/v1/scans", methods=["POST"])
+@csrf.exempt
+@require_scope("scans:run")
+def api_v1_create_scan():
+    """
+    Create a passive (default) or safe-active scan for a target URL.
+
+    Body JSON:
+      target_url (required)
+      scan_mode: passive | safe-active (default: passive)
+      wait: bool — if true, poll until completed/failed (max wait_seconds)
+      wait_seconds: int (default 90, max 300)
+
+    Auth: Bearer API key with scope scans:run (or admin), or analyst/admin session.
+    Safe-active requires an active ScanAuthorization on the asset.
+    """
+    tenant_id = g.tenant_id
+    data = request.get_json(silent=True) or {}
+    target = (data.get("target_url") or data.get("url") or "").strip()
+    scan_mode = (data.get("scan_mode") or "passive").strip().lower().replace("_", "-")
+    if scan_mode not in ("passive", "safe-active"):
+        return jsonify({
+            "error": "scan_mode must be 'passive' or 'safe-active'",
+            "code": "INVALID_SCAN_MODE",
+        }), 400
+    if not target:
+        return jsonify({"error": "target_url required", "code": "MISSING_TARGET"}), 400
+
+    ip = request.remote_addr or "127.0.0.1"
+    allowed, retry_after = rate_limiter.is_allowed(f"api_v1_scan:{tenant_id}:{ip}", max_requests=20, window_seconds=3600)
+    if not allowed:
+        return jsonify({"error": f"Rate limit reached. Retry in {retry_after} seconds."}), 429
+
+    is_auth, reason, asset = verify_scan_authorization(tenant_id, target, scan_mode)
+    if not is_auth:
+        repository.log_audit_event(
+            tenant_id=tenant_id,
+            actor_user_id=getattr(g, "user_id", ""),
+            actor_username=str(getattr(g, "user_id", "api")),
+            action="scan_denied",
+            resource_type="asset",
+            resource_id=asset.id if asset else "",
+            result="denied",
+            metadata={"target_url": target, "scan_mode": scan_mode, "reason": reason, "via": "api_v1"},
+        )
+        return jsonify({"error": reason, "code": "SCAN_UNAUTHORIZED"}), 403
+
+    actor = str(getattr(g, "user_id", "api"))
+    block_msg = _reject_unsafe_scan_target_at_submission(
+        tenant_id,
+        target,
+        scan_mode,
+        asset_id=asset.id if asset else "",
+        actor_user_id=actor,
+        actor_username=actor,
+    )
+    if block_msg:
+        return jsonify({"error": block_msg, "code": "TARGET_BLOCKED"}), 400
+
+    try:
+        from core.models import ScanResult
+        scan = ScanResult(
+            tenant_id=tenant_id,
+            asset_id=asset.id if asset else None,
+            target_url=target,
+            scan_mode=scan_mode,
+            status=ScanStatus.PENDING,
+            initiated_by=actor,
+        )
+        repository.save_scan(scan)
+
+        job = ScanJob(
+            tenant_id=tenant_id,
+            asset_id=asset.id if asset else None,
+            scan_id=scan.id,
+            status=ScanJobStatus.QUEUED.value,
+            requested_by=actor,
+            profile=scan_mode,
+        )
+        repository.create_scan_job(job)
+
+        if SCAN_EXECUTION_BACKEND == "celery":
+            from core.tasks.scan_tasks import run_scan_task
+            task_res = run_scan_task.delay(job.id)
+            job.task_id = task_res.id
+            repository.update_scan_job(job)
+        else:
+            start_async_scan(
+                target,
+                initiated_by=actor,
+                scan_mode=scan_mode,
+                tenant_id=tenant_id,
+                asset_id=asset.id if asset else None,
+                scan_id=scan.id,
+            )
+
+        repository.log_audit_event(
+            tenant_id=tenant_id,
+            actor_user_id=actor,
+            actor_username=actor,
+            action="scan_job_queued",
+            resource_type="scan_job",
+            resource_id=job.id,
+            result="success",
+            metadata={"target_url": target, "scan_mode": scan_mode, "scan_id": scan.id, "via": "api_v1"},
+        )
+
+        wait = bool(data.get("wait"))
+        if wait:
+            import time
+            wait_seconds = min(int(data.get("wait_seconds") or 90), 300)
+            deadline = time.time() + wait_seconds
+            terminal = {
+                ScanStatus.COMPLETED.value if hasattr(ScanStatus.COMPLETED, "value") else "completed",
+                ScanStatus.FAILED.value if hasattr(ScanStatus.FAILED, "value") else "failed",
+                "completed", "failed", "CANCELLED", "cancelled",
+            }
+            while time.time() < deadline:
+                time.sleep(1.0)
+                current = repository.get_scan(scan.id, tenant_id=tenant_id)
+                if not current:
+                    break
+                st = current.status.value if hasattr(current.status, "value") else str(current.status)
+                if st.lower() in {t.lower() for t in terminal}:
+                    findings = repository.get_findings_for_scan(scan.id, tenant_id=tenant_id)
+                    payload = _serialize_scan_for_api(current, findings)
+                    payload["job_id"] = job.id
+                    payload["waited"] = True
+                    return jsonify(payload)
+
+        return jsonify({
+            "scan_id": scan.id,
+            "job_id": job.id,
+            "status": "queued",
+            "scan_mode": scan_mode,
+            "target_url": target,
+            "asset_id": asset.id if asset else None,
+            "status_url": f"/api/v1/scans/{scan.id}",
+        }), 202
+    except Exception as e:
+        logger.exception("api_v1_create_scan failed")
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/v1/scans/<scan_id>", methods=["GET"])
+@csrf.exempt
+@require_scope("findings:read")
+def api_v1_get_scan(scan_id):
+    """Return scan status and findings (including usernames in enumeration raw_data)."""
+    tenant_id = g.tenant_id
+    scan = repository.get_scan(scan_id, tenant_id=tenant_id)
+    if not scan:
+        return jsonify({"error": "Scan not found"}), 404
+    findings = repository.get_findings_for_scan(scan_id, tenant_id=tenant_id)
+    job = repository.get_scan_job_by_scan_id(scan_id, tenant_id=tenant_id)
+    payload = _serialize_scan_for_api(scan, findings)
+    if job:
+        payload["job"] = {
+            "id": job.id,
+            "status": job.status,
+            "progress": job.progress_percent,
+            "current_step": job.current_step,
+            "error_code": job.error_code,
+            "error_message": job.error_message,
+        }
+    return jsonify(payload)
+
+
+@app.route("/api/v1/finding-titles", methods=["GET"])
+@csrf.exempt
+@require_scope("findings:read")
+def api_v1_finding_titles():
+    """
+    Catalog of finding title templates for translation tooling.
+    Query: include_db=true to merge titles observed in this tenant's DB.
+    """
+    from core.finding_catalog import load_finding_title_catalog
+    include_db = request.args.get("include_db", "false").lower() in ("1", "true", "yes")
+    catalog = load_finding_title_catalog(include_db=include_db, tenant_id=g.tenant_id)
+    return jsonify(catalog)
+
+
 @app.route("/api/v1/assets", methods=["GET"])
 @csrf.exempt
 @require_scope("assets:read", "findings:read")

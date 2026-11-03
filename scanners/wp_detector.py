@@ -171,14 +171,17 @@ class WordPressDetector(BaseScanner):
         evidence = raw_detection["evidence"]
         version_info = raw_detection["version"]
         base_url = raw_detection.get("base_url", self.target_url.rstrip("/"))
+        signal_count = len(raw_detection.get("signals") or {})
 
         # If nothing found at root AND subdirectory probing is authorized,
         # try common subdirectory paths (DETECT-GAP-001, gated to safe-active+)
-        if confidence < 0.15 and self.ENABLE_SUBDIR_PROBE:
+        if confidence < 0.25 and self.ENABLE_SUBDIR_PROBE:
             for subdir in _get_subdir_hints():
                 candidate_url = self.target_url.rstrip("/") + subdir
                 sub_detection = self._detect_multi_signal(override_url=candidate_url)
-                if sub_detection["confidence"] >= 0.15:
+                if sub_detection["confidence"] >= 0.25 or (
+                    sub_detection["confidence"] >= 0.15 and len(sub_detection.get("signals") or {}) >= 2
+                ):
                     logger.info(
                         "WordPress detected in subdirectory '%s' (confidence %.0f%%) for %s",
                         subdir, sub_detection["confidence"] * 100, self.target_url
@@ -187,9 +190,11 @@ class WordPressDetector(BaseScanner):
                     evidence = sub_detection["evidence"] + [f"Detected in subdirectory: {subdir}"]
                     version_info = sub_detection["version"]
                     base_url = sub_detection.get("base_url", candidate_url.rstrip("/"))
+                    signal_count = len(sub_detection.get("signals") or {})
                     break  # First matching subdirectory wins; stop probing
 
-        is_detected = confidence >= 0.15
+        # Threshold 0.25, or ≥2 distinct signals at ≥0.15 (blocks single weak /wp-content/ prose FP)
+        is_detected = confidence >= 0.25 or (confidence >= 0.15 and signal_count >= 2)
         return WordPressDetectionResult(
             detected=is_detected,
             version=version_info["value"] if is_detected else None,
@@ -253,7 +258,7 @@ class WordPressDetector(BaseScanner):
         # --- Fetch homepage ---
         resp = self._get(probe_url)
         if not resp:
-            return {"confidence": 0.0, "evidence": [], "version": version, "base_url": base_url}
+            return {"confidence": 0.0, "evidence": [], "version": version, "base_url": base_url, "signals": {}}
 
         # Follow canonical redirect location if response URL changed
         if getattr(resp, "url", None) and resp.url:
@@ -323,15 +328,23 @@ class WordPressDetector(BaseScanner):
             most_common_inc = Counter(wp_inc_candidates).most_common(1)[0][0]
             versions_candidates.append((most_common_inc, "asset_ver_param", "medium"))
 
-        # 4. /wp-content/ in HTML
-        if "/wp-content/" in body:
+        # 4. /wp-content/ in HTML attributes only (not prose mentions → FP on non-WP docs)
+        if re.search(
+            r"""(?:href|src|content|action|data-src|data-url)\s*=\s*["'][^"']*/wp-content/""",
+            body,
+            re.IGNORECASE,
+        ) or re.search(r"""url\s*\(\s*['"]?[^)'"]*/wp-content/""", body, re.IGNORECASE):
             signals_found["wp_content"] = True
-            evidence.append("HTML references /wp-content/")
+            evidence.append("HTML attributes reference /wp-content/")
 
-        # 5. /wp-includes/ in HTML
-        if "/wp-includes/" in body:
+        # 5. /wp-includes/ in HTML attributes only
+        if re.search(
+            r"""(?:href|src|content|action|data-src)\s*=\s*["'][^"']*/wp-includes/""",
+            body,
+            re.IGNORECASE,
+        ):
             signals_found["wp_includes"] = True
-            evidence.append("HTML references /wp-includes/")
+            evidence.append("HTML attributes reference /wp-includes/")
 
         # 6. REST API discovery link in HTML or HTTP Link header
         link_header = headers.get("link", "")
@@ -431,4 +444,5 @@ class WordPressDetector(BaseScanner):
             "evidence": evidence,
             "version": version,
             "base_url": base_url,
+            "signals": dict(signals_found),
         }

@@ -83,40 +83,43 @@ class TestThemeScannerPassiveGate:
             scanner.scan()
             mock_probe.assert_called_once()
 
-    def test_active_mode_head_called_for_each_default_theme(self):
-        """HEAD requests are made for every default theme when active probing is on."""
+    def test_active_mode_get_called_for_each_default_theme_style_css(self):
+        """GET style.css is made for every default theme when active probing is on."""
         from scanners.theme_scanner import ThemeScanner, DEFAULT_THEMES
 
         scanner = ThemeScanner("https://example.com")
         scanner.ENABLE_ACTIVE_PROBE = True
 
-        head_404 = _make_response(404)
-        with patch.object(scanner, "_get", return_value=_make_response(200, "")), \
-             patch.object(scanner, "_head", return_value=head_404) as mock_head:
+        get_404 = _make_response(404)
+
+        def _get_side(url):
+            # Homepage for passive detect
+            if url.rstrip("/") == "https://example.com":
+                return _make_response(200, "")
+            return get_404
+
+        with patch.object(scanner, "_get", side_effect=_get_side) as mock_get:
             scanner.scan()
-            # One HEAD per default theme
-            assert mock_head.call_count == len(DEFAULT_THEMES)
+            style_calls = [c for c in mock_get.call_args_list if "style.css" in str(c)]
+            assert len(style_calls) == len(DEFAULT_THEMES)
 
     def test_active_probe_finding_emitted_when_theme_exists(self):
-        """A finding is emitted when a default theme returns HTTP 200 in active mode.
-
-        Sprint 3 DETECT-OPEN-003: one finding per confirmed theme, not aggregated.
-        """
+        """A finding is emitted when style.css contains Theme Name (not bare HTTP 200)."""
         from scanners.theme_scanner import ThemeScanner
 
         scanner = ThemeScanner("https://example.com")
         scanner.ENABLE_ACTIVE_PROBE = True
 
-        def _head_side_effect(url):
-            if "twentytwentyfour" in url:
-                return _make_response(200)
+        def _get_side_effect(url):
+            if url.rstrip("/") == "https://example.com":
+                return _make_response(200, "")
+            if "twentytwentyfour" in url and url.endswith("style.css"):
+                return _make_response(200, "Theme Name: Twenty Twenty-Four\nVersion: 1.0\n")
             return _make_response(404)
 
-        with patch.object(scanner, "_get", return_value=_make_response(200, "")), \
-             patch.object(scanner, "_head", side_effect=_head_side_effect):
+        with patch.object(scanner, "_get", side_effect=_get_side_effect):
             findings = scanner.scan()
 
-        # Sprint 3: per-theme finding title is "Default Theme Present: <slug>"
         default_theme_findings = [
             f for f in findings if "Default Theme Present" in f.title
         ]

@@ -287,29 +287,40 @@ class ExposureScanner(BaseScanner):
         """Check if install.php is accessible"""
         url = f"{self.target_url}/wp-admin/install.php"
         resp = self._get(url)
-        if not resp:
+        if not resp or resp.status_code != 200 or self._is_soft_404(resp):
             return
-        if resp.status_code == 200:
-            if "already installed" in resp.text.lower():
-                self._add_finding(
-                    category="exposure",
-                    title="install.php Accessible (Already Installed)",
-                    description="wp-admin/install.php is publicly accessible. While WordPress reports "
-                                "already installed, this endpoint should be blocked.",
-                    severity=Severity.LOW,
-                    confidence=0.7,
-                    remediation="Block access to install.php via .htaccess or server rules.",
-                )
-            elif "setup" in resp.text.lower() or "install" in resp.text.lower():
-                self._add_finding(
-                    category="exposure",
-                    title="WordPress Installation Page Exposed",
-                    description="The WordPress installation wizard is accessible. "
-                                "An attacker could potentially reinstall WordPress.",
-                    severity=Severity.CRITICAL,
-                    confidence=0.9,
-                    remediation="Complete the installation or block access to install.php immediately.",
-                )
+        text = resp.text or ""
+        text_lower = text.lower()
+        if "already installed" in text_lower:
+            self._add_finding(
+                category="exposure",
+                title="install.php Accessible (Already Installed)",
+                description="wp-admin/install.php is publicly accessible. While WordPress reports "
+                            "already installed, this endpoint should be blocked.",
+                severity=Severity.LOW,
+                confidence=0.7,
+                remediation="Block access to install.php via .htaccess or server rules.",
+            )
+            return
+        # Require WP install wizard markers — generic "setup"/"install" prose alone is not enough
+        is_real_setup = (
+            '<form id="setup"' in text_lower
+            or "name=\"weblog_title\"" in text_lower
+            or "name='weblog_title'" in text_lower
+            or "wp-admin/install.php?step=" in text_lower
+            or ("wordpress" in text_lower and "language" in text_lower and "install" in text_lower
+                and ("user_login" in text_lower or "admin_email" in text_lower or "weblog_title" in text_lower))
+        )
+        if is_real_setup:
+            self._add_finding(
+                category="exposure",
+                title="WordPress Installation Page Exposed",
+                description="The WordPress installation wizard is accessible. "
+                            "An attacker could potentially reinstall WordPress.",
+                severity=Severity.CRITICAL,
+                confidence=0.9,
+                remediation="Complete the installation or block access to install.php immediately.",
+            )
 
     def _check_readme_license(self):
         """Check for readme.html and license.txt which may reveal version"""
@@ -359,14 +370,24 @@ class ExposureScanner(BaseScanner):
         """Check if wp-cron.php is publicly accessible"""
         url = f"{self.target_url}/wp-cron.php"
         resp = self._get(url)
-        if resp and resp.status_code == 200:
-            self._add_finding(
-                category="exposure",
-                title="wp-cron.php Publicly Accessible",
-                description="wp-cron.php is accessible. On high-traffic sites this can be used for DoS. "
-                            "It also reveals that WordPress is installed.",
-                severity=Severity.LOW,
-                confidence=0.7,
-                remediation="Disable wp-cron via wp-config.php (define('DISABLE_WP_CRON', true)) "
-                            "and use a system cron job instead. Block public access via .htaccess.",
-            )
+        if not resp or resp.status_code != 200 or self._is_soft_404(resp):
+            return
+        body = resp.content or b""
+        content_type = (resp.headers.get("content-type") or "").lower()
+        text = (resp.text or "").lstrip()
+        # Genuine wp-cron.php typically returns empty body or minimal non-document output
+        looks_like_html_doc = text.lower().startswith("<!doctype") or text.lower().startswith("<html")
+        if looks_like_html_doc and len(body) > 200:
+            return
+        if "text/html" in content_type and looks_like_html_doc:
+            return
+        self._add_finding(
+            category="exposure",
+            title="wp-cron.php Publicly Accessible",
+            description="wp-cron.php is accessible. On high-traffic sites this can be used for DoS. "
+                        "It also reveals that WordPress is installed.",
+            severity=Severity.LOW,
+            confidence=0.7,
+            remediation="Disable wp-cron via wp-config.php (define('DISABLE_WP_CRON', true)) "
+                        "and use a system cron job instead. Block public access via .htaccess.",
+        )

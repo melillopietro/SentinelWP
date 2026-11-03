@@ -265,14 +265,19 @@ class TestP0CredentialAndPIISafety(unittest.TestCase):
         self.assertEqual(len(scanner.findings), 1)
         f = scanner.findings[0]
 
-        # Usernames must not be stored in cleartext in description or raw_data
-        self.assertNotIn("johndoe_confidential_login", f.description)
-        self.assertNotIn("ceo_admin_account", f.description)
-        self.assertNotIn("johndoe_confidential_login", str(f.raw_data))
-
+        # Enumeration findings intentionally surface public usernames (attack-surface truth).
+        # Pseudonymized hashes remain for correlation; no passwords/emails in this payload.
+        self.assertIn("johndoe_confidential_login", f.description)
+        self.assertIn("ceo_admin_account", f.description)
+        self.assertEqual(
+            f.raw_data.get("usernames"),
+            ["johndoe_confidential_login", "ceo_admin_account"],
+        )
         self.assertEqual(f.raw_data.get("user_count"), 2)
         self.assertTrue(f.raw_data.get("exposure_detected"))
-        self.assertTrue(len(f.raw_data.get("pseudonymized_user_hashes", [])) == 2)
+        self.assertEqual(len(f.raw_data.get("pseudonymized_user_hashes", [])), 2)
+        self.assertNotIn("password", str(f.raw_data).lower())
+        self.assertNotIn("@", str(f.raw_data))
 
 
 class TestP0RiskEngineAndReportMonotonicity(unittest.TestCase):

@@ -77,18 +77,14 @@ UNWANTED_HEADERS = {
     },
 }
 
-# Patterns that indicate PHP errors exposed in page content
+# Patterns that indicate PHP errors exposed in page content (require PHP context)
 _PHP_ERROR_PATTERNS = [
-    r"Fatal error:",
-    r"Warning:\s+\w+",
-    r"Notice:\s+\w+",
-    r"Parse error:",
-    r"Deprecated:\s+\w+",
-    r"Strict Standards:",
-    r"<b>Fatal error</b>:",
-    r"<b>Warning</b>:",
-    r"Stack trace:",
-    r"Uncaught exception",
+    r"(?:Fatal error|Parse error):\s+.*in\s+/.+\.php\s+on\s+line\s+\d+",
+    r"(?:Warning|Notice|Deprecated):\s+.*in\s+/.+\.php\s+on\s+line\s+\d+",
+    r"<b>(?:Fatal error|Warning|Notice|Parse error|Deprecated)</b>:\s+",
+    r"Strict Standards:\s+.*in\s+/.+\.php",
+    r"Stack trace:\s*#0\s+",
+    r"Uncaught (?:Exception|Error):",
 ]
 
 
@@ -108,18 +104,26 @@ class HeadersScanner(BaseScanner):
         headers = {k.lower(): v for k, v in resp.headers.items()}
 
         # Check missing security headers (reported as hardening recommendations)
+        has_csp = "content-security-policy" in headers
         for header, info in EXPECTED_HEADERS.items():
-            if header.lower() not in headers:
-                self._add_finding(
-                    category="headers",
-                    title=f"Missing Security Header: {header}",
-                    description=info["description"]
-                                + " (Note: this is a general hardening recommendation, not a WordPress-specific vulnerability.)",
-                    severity=info["severity"],
-                    confidence=0.9,
-                    remediation=info["remediation"],
-                    raw_data={"header": header, "present": False}
-                )
+            if header.lower() in headers:
+                continue
+            # X-XSS-Protection is deprecated when CSP is present (OWASP/MDN)
+            if header == "X-XSS-Protection" and has_csp:
+                continue
+            severity = info["severity"]
+            if header == "X-XSS-Protection":
+                severity = Severity.INFO
+            self._add_finding(
+                category="headers",
+                title=f"Missing Security Header: {header}",
+                description=info["description"]
+                            + " (Note: this is a general hardening recommendation, not a WordPress-specific vulnerability.)",
+                severity=severity,
+                confidence=0.9,
+                remediation=info["remediation"],
+                raw_data={"header": header, "present": False}
+            )
 
         # Check unwanted headers
         for header, info in UNWANTED_HEADERS.items():

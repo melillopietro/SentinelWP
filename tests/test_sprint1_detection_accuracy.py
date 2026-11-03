@@ -575,8 +575,8 @@ class TestWordPressDetectorBehaviour(unittest.TestCase):
         The scan() method must still produce a 'WordPress CMS Detected' finding."""
         body = (
             '<link rel="https://api.w.org/" href="https://example.com/wp-json/" />'
-            '/wp-content/themes/twentytwentythree/'
-            '/wp-includes/js/wp-embed.min.js'
+            '<link rel="stylesheet" href="/wp-content/themes/twentytwentythree/style.css" />'
+            '<script src="/wp-includes/js/wp-embed.min.js"></script>'
         )
         scanner = self._make_scanner(body)
         findings = scanner.scan()
@@ -589,14 +589,12 @@ class TestWordPressDetectorBehaviour(unittest.TestCase):
             "No 'Version Exposed' finding expected when version is unknown"
 
     def test_wp_content_signal_alone_is_not_sufficient_for_detection(self):
-        """A single /wp-content/ reference (weight 0.15) is below the 0.15 threshold."""
+        """A single /wp-content/ attribute signal (0.15) is below the 0.25 / 2-signal rule."""
         body = '<img src="/wp-content/uploads/2024/logo.png" />'
         scanner = self._make_scanner(body)
         result = scanner.detect()
-        # wp_content weight=0.15, threshold=0.15 → confidence==0.15 → detected=True
-        # This is expected behaviour (just at boundary); confirm no false TypeError/crash.
-        assert isinstance(result.detected, bool)
-        assert 0.0 <= result.confidence_score <= 1.0
+        assert result.detected is False
+        assert result.confidence_score == 0.15
 
 
 # =============================================================================
