@@ -2520,6 +2520,95 @@ def purge_all_scans_and_findings(tenant_id: Optional[str] = None) -> tuple[int, 
     return scans_count, findings_count
 
 
+def get_database_stats(tenant_id: Optional[str] = None) -> dict:
+    """Return lightweight DB file + row counts for Settings → Database tab."""
+    import os
+    path = DATABASE_PATH
+    size_bytes = os.path.getsize(path) if os.path.exists(path) else 0
+    conn = _get_conn()
+    if tenant_id:
+        scans = conn.execute("SELECT COUNT(*) FROM scans WHERE tenant_id = ?", (tenant_id,)).fetchone()[0]
+        findings = conn.execute("SELECT COUNT(*) FROM findings WHERE tenant_id = ?", (tenant_id,)).fetchone()[0]
+        assets = conn.execute("SELECT COUNT(*) FROM assets WHERE tenant_id = ?", (tenant_id,)).fetchone()[0]
+        jobs = conn.execute("SELECT COUNT(*) FROM scan_jobs WHERE tenant_id = ?", (tenant_id,)).fetchone()[0]
+    else:
+        scans = conn.execute("SELECT COUNT(*) FROM scans").fetchone()[0]
+        findings = conn.execute("SELECT COUNT(*) FROM findings").fetchone()[0]
+        assets = conn.execute("SELECT COUNT(*) FROM assets").fetchone()[0]
+        jobs = conn.execute("SELECT COUNT(*) FROM scan_jobs").fetchone()[0]
+    return {
+        "path": path,
+        "size_bytes": size_bytes,
+        "size_mb": round(size_bytes / (1024 * 1024), 2),
+        "scans": int(scans or 0),
+        "findings": int(findings or 0),
+        "assets": int(assets or 0),
+        "scan_jobs": int(jobs or 0),
+    }
+
+
+def purge_scans_older_than(days: int, tenant_id: Optional[str] = None) -> tuple[int, int]:
+    """Delete scans (and cascading findings by scan_id) older than N days."""
+    conn = _get_conn()
+    cutoff = (datetime.now(timezone.utc) - timedelta(days=max(1, int(days)))).isoformat()
+    if tenant_id:
+        scan_ids = [
+            r[0] for r in conn.execute(
+                "SELECT id FROM scans WHERE tenant_id = ? AND COALESCE(started_at, completed_at, '') < ?",
+                (tenant_id, cutoff),
+            ).fetchall()
+        ]
+    else:
+        scan_ids = [
+            r[0] for r in conn.execute(
+                "SELECT id FROM scans WHERE COALESCE(started_at, completed_at, '') < ?",
+                (cutoff,),
+            ).fetchall()
+        ]
+    if not scan_ids:
+        return 0, 0
+    findings_deleted = 0
+    for sid in scan_ids:
+        findings_deleted += conn.execute("SELECT COUNT(*) FROM findings WHERE scan_id = ?", (sid,)).fetchone()[0]
+        conn.execute("DELETE FROM findings WHERE scan_id = ?", (sid,))
+        conn.execute("DELETE FROM scan_jobs WHERE scan_id = ?", (sid,))
+        conn.execute("DELETE FROM scans WHERE id = ?", (sid,))
+    conn.commit()
+    return len(scan_ids), findings_deleted
+
+
+def reset_operational_tables(tenant_id: Optional[str] = None) -> dict:
+    """
+    Wipe operational/scan telemetry tables while preserving users, assets, API keys, settings.
+    Tenant-scoped when tenant_id is provided.
+    """
+    conn = _get_conn()
+    counts = {}
+    tables = [
+        "findings", "finding_history", "finding_observations", "finding_comments",
+        "scans", "scan_jobs", "scheduled_runs", "technology_observations",
+        "audit_events",
+    ]
+    for table in tables:
+        try:
+            if tenant_id:
+                # Some tables may lack tenant_id — best-effort
+                cols = [r[1] for r in conn.execute(f"PRAGMA table_info({table})").fetchall()]
+                if "tenant_id" in cols:
+                    n = conn.execute(f"SELECT COUNT(*) FROM {table} WHERE tenant_id = ?", (tenant_id,)).fetchone()[0]
+                    conn.execute(f"DELETE FROM {table} WHERE tenant_id = ?", (tenant_id,))
+                else:
+                    n = 0
+            else:
+                n = conn.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0]
+                conn.execute(f"DELETE FROM {table}")
+            counts[table] = int(n or 0)
+        except sqlite3.OperationalError:
+            counts[table] = 0
+    conn.commit()
+    return counts
+
+
 # =====================================================================
 # Phase 3: ScanJob Lifecycle & Persistence
 # =====================================================================

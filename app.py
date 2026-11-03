@@ -547,6 +547,65 @@ def dashboard():
     except Exception:
         pass
 
+    # Chart analytics for Posture Overview (fail-soft)
+    severity_counts = {"critical": 0, "high": 0, "medium": 0, "low": 0, "info": 0}
+    top_categories = []
+    top_vulnerable_sites = []
+    try:
+        closed = {"REMEDIATED", "VERIFIED", "CLOSED", "FALSE_POSITIVE", "RESOLVED"}
+        active_findings, _ = repository.list_findings(tenant_id, filters=None, page=1, page_size=1000)
+        category_counts = {}
+        for f in active_findings:
+            st = str(getattr(f, "status", "OPEN") or "OPEN").upper()
+            if st in closed:
+                continue
+            sev = (f.severity.value if hasattr(f.severity, "value") else str(f.severity)).lower()
+            if sev in severity_counts:
+                severity_counts[sev] += 1
+            cat = (f.category or "general").replace("_", " ").title()
+            category_counts[cat] = category_counts.get(cat, 0) + 1
+        top_categories = sorted(category_counts.items(), key=lambda x: x[1], reverse=True)[:5]
+
+        tenant_assets = repository.list_assets(tenant_id=tenant_id, limit=100)
+        vulnerable_sites = []
+        for a in tenant_assets:
+            score = getattr(a, "risk_score", None)
+            grade = "N/A"
+            if score is None:
+                latest = repository.list_scans(
+                    limit=1,
+                    filters={"tenant_id": tenant_id, "asset_id": a.id, "status": "completed"},
+                )
+                if latest:
+                    score = latest[0].score if latest[0].score is not None else 0.0
+                    grade = latest[0].grade or "N/A"
+                else:
+                    score = 0.0
+            else:
+                # Approximate grade band from stored risk_score
+                if score >= 85:
+                    grade = "F"
+                elif score >= 70:
+                    grade = "D"
+                elif score >= 55:
+                    grade = "C"
+                elif score >= 40:
+                    grade = "B"
+                else:
+                    grade = "A"
+            if score and float(score) > 0:
+                vulnerable_sites.append({
+                    "name": a.display_name or a.hostname or a.canonical_url,
+                    "url": a.canonical_url,
+                    "score": float(score),
+                    "grade": grade,
+                    "asset_id": a.id,
+                })
+        vulnerable_sites.sort(key=lambda x: x["score"], reverse=True)
+        top_vulnerable_sites = vulnerable_sites[:5]
+    except Exception:
+        pass
+
     return render_template("dashboard.html",
                            scans=scans, total=total,
                            completed=completed, avg_score=avg_score, filters=filters,
@@ -555,7 +614,10 @@ def dashboard():
                            business_units=business_units,
                            selected_bu_id=selected_bu_id,
                            dq_issues=dq_issues,
-                           active_tab=active_tab)
+                           active_tab=active_tab,
+                           severity_counts=severity_counts,
+                           top_categories=top_categories,
+                           top_vulnerable_sites=top_vulnerable_sites)
 
 
 @app.route("/changelog")
@@ -2008,6 +2070,13 @@ def settings():
         except Exception:
             pending_access_requests = []
 
+    db_stats = {}
+    if session.get("role") == "admin":
+        try:
+            db_stats = repository.get_database_stats(tenant_id=tenant_id)
+        except Exception:
+            db_stats = {}
+
     update_info = check_for_updates(force=False)
     return render_template(
         "settings.html",
@@ -2018,6 +2087,7 @@ def settings():
         api_keys=api_keys,
         audit_events=audit_events,
         pending_access_requests=pending_access_requests,
+        db_stats=db_stats,
     )
 
 
@@ -2159,7 +2229,7 @@ def admin_purge_db():
     confirm_text = (request.form.get("confirm_text", "") or request.form.get("confirm_purge", "")).strip().upper()
     if confirm_text != "PURGE":
         flash("Database purge cancelled: Type 'PURGE' to confirm deletion.", "error")
-        return redirect(url_for("settings"))
+        return redirect(url_for("settings", tab="database"))
     try:
         scans_count, findings_count = repository.purge_all_scans_and_findings(tenant_id=tenant_id)
         repository.log_audit_event(
@@ -2173,7 +2243,162 @@ def admin_purge_db():
         flash(f"Database archive purged! Successfully deleted {scans_count} scan record(s) and {findings_count} finding(s).", "success")
     except Exception as e:
         flash(f"Database purge failed: {str(e)}", "error")
-    return redirect(url_for("settings"))
+    return redirect(url_for("settings", tab="database"))
+
+
+@app.route("/admin/database/export", methods=["GET"])
+@admin_required
+def admin_database_export():
+    """Download live SQLite database backup snapshot (.db)."""
+    import shutil
+    import tempfile
+    from config import DATABASE_PATH
+
+    if not os.path.exists(DATABASE_PATH):
+        flash("Database file not found.", "error")
+        return redirect(url_for("settings", tab="database"))
+
+    ts = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+    tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".db")
+    tmp.close()
+    try:
+        try:
+            conn = repository._get_conn()
+            conn.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+        except Exception:
+            pass
+        shutil.copy2(DATABASE_PATH, tmp.name)
+        repository.log_audit_event(
+            tenant_id=session.get("tenant_id", "default-tenant"),
+            actor_user_id=session.get("user_id", ""),
+            actor_username=session.get("username", "admin"),
+            action="database_exported",
+            resource_type="database",
+            resource_id="wsa.db",
+            result="success",
+        )
+        return send_file(
+            tmp.name,
+            as_attachment=True,
+            download_name=f"sentinelwp_backup_{ts}.db",
+            mimetype="application/x-sqlite3",
+        )
+    except Exception as exc:
+        logger.exception("Database export failed: %s", exc)
+        flash(f"Export failed: {exc}", "error")
+        return redirect(url_for("settings", tab="database"))
+
+
+@app.route("/admin/database/import", methods=["POST"])
+@admin_required
+def admin_database_import():
+    """Upload and restore SQLite database snapshot with format validation."""
+    import shutil
+    from config import DATABASE_PATH
+
+    if not request.form.get("confirm_replace"):
+        flash("Restore cancelled: confirmation checkbox required.", "error")
+        return redirect(url_for("settings", tab="database"))
+
+    file = request.files.get("database_file")
+    if not file or not file.filename:
+        flash("No database file uploaded.", "error")
+        return redirect(url_for("settings", tab="database"))
+
+    header = file.read(16)
+    if not header.startswith(b"SQLite format 3\x00"):
+        flash("Invalid database format: file is not a valid SQLite 3 database.", "error")
+        return redirect(url_for("settings", tab="database"))
+    file.seek(0)
+
+    try:
+        backup_path = f"{DATABASE_PATH}.pre_import_{uuid.uuid4().hex[:6]}.bak"
+        if os.path.exists(DATABASE_PATH):
+            shutil.copy2(DATABASE_PATH, backup_path)
+        repository.reset_conn()
+        file.save(DATABASE_PATH)
+        repository.init_db()
+        repository.log_audit_event(
+            tenant_id=session.get("tenant_id", "default-tenant"),
+            actor_user_id=session.get("user_id", ""),
+            actor_username=session.get("username", "admin"),
+            action="database_imported",
+            resource_type="database",
+            resource_id="wsa.db",
+            result="success",
+            metadata={"pre_import_backup": backup_path, "format": "sqlite"},
+        )
+        flash("Database snapshot restored successfully.", "success")
+    except Exception as exc:
+        logger.exception("Database import failed: %s", exc)
+        flash(f"Database import failed: {exc}", "error")
+    return redirect(url_for("settings", tab="database"))
+
+
+@app.route("/admin/database/purge", methods=["POST"])
+@admin_required
+def admin_database_purge_retention():
+    """Retention purge: scans older than 30/90 days (tenant-scoped)."""
+    tenant_id = session.get("tenant_id", "default-tenant")
+    mode = (request.form.get("purge_mode") or "").strip()
+    try:
+        if mode == "30":
+            scans_n, findings_n = repository.purge_scans_older_than(30, tenant_id=tenant_id)
+            label = "older than 30 days"
+        elif mode == "90":
+            scans_n, findings_n = repository.purge_scans_older_than(90, tenant_id=tenant_id)
+            label = "older than 90 days"
+        elif mode == "all":
+            confirm = (request.form.get("confirm_text") or "").strip().upper()
+            if confirm != "PURGE":
+                flash("Full purge cancelled: type PURGE to confirm.", "error")
+                return redirect(url_for("settings", tab="database"))
+            scans_n, findings_n = repository.purge_all_scans_and_findings(tenant_id=tenant_id)
+            label = "(all scans/findings)"
+        else:
+            flash("Unknown purge mode.", "error")
+            return redirect(url_for("settings", tab="database"))
+
+        repository.log_audit_event(
+            tenant_id=tenant_id,
+            actor_user_id=session.get("user_id", ""),
+            actor_username=session.get("username", ""),
+            action="database_retention_purged",
+            resource_type="database",
+            metadata={"mode": mode, "scans": scans_n, "findings": findings_n},
+        )
+        flash(f"Purged {scans_n} scan(s) and {findings_n} finding(s) {label}.", "success")
+    except Exception as exc:
+        flash(f"Retention purge failed: {exc}", "error")
+    return redirect(url_for("settings", tab="database"))
+
+
+@app.route("/admin/database/reset", methods=["POST"])
+@admin_required
+def admin_database_reset():
+    """Reset operational tables; keep users, assets, API keys. Requires RESET-CONFIRM."""
+    tenant_id = session.get("tenant_id", "default-tenant")
+    confirm_text = (request.form.get("confirmation") or "").strip()
+    if confirm_text != "RESET-CONFIRM":
+        flash("Reset aborted: confirmation phrase did not match 'RESET-CONFIRM'.", "error")
+        return redirect(url_for("settings", tab="database"))
+    try:
+        counts = repository.reset_operational_tables(tenant_id=tenant_id)
+        repository.log_audit_event(
+            tenant_id=tenant_id,
+            actor_user_id=session.get("user_id", ""),
+            actor_username=session.get("username", "admin"),
+            action="database_reset",
+            resource_type="database",
+            resource_id="wsa.db",
+            result="success",
+            metadata={"cleared": counts},
+        )
+        flash("Operational data wiped successfully (users, assets, and settings preserved).", "success")
+    except Exception as exc:
+        logger.exception("Database reset failed: %s", exc)
+        flash(f"Database reset failed: {exc}", "error")
+    return redirect(url_for("settings", tab="database"))
 
 
 # --- API Endpoints ---

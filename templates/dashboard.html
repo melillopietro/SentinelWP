@@ -204,6 +204,122 @@
     </div>
 </div>
 
+<!-- Real-Time Analytics Grid -->
+<div class="swp-chart-grid" style="display:grid; grid-template-columns: 1fr 1.2fr 1fr; gap:20px; margin:24px 0;">
+    <div style="background:var(--bg-card); border:1px solid var(--border); border-radius:var(--radius); padding:20px;">
+        <h3 style="font-size:15px; font-weight:600; color:var(--text-primary); margin:0 0 16px 0;">Active Exposure Distribution</h3>
+        <div style="position:relative; height:200px;">
+            <canvas id="severityDonutChart" aria-label="Severity distribution chart"></canvas>
+        </div>
+    </div>
+    <div style="background:var(--bg-card); border:1px solid var(--border); border-radius:var(--radius); padding:20px;">
+        <h3 style="font-size:15px; font-weight:600; color:var(--text-primary); margin:0 0 16px 0;">Top Vulnerable Assets (Risk Score)</h3>
+        <div style="position:relative; height:200px;">
+            <canvas id="topSitesBarChart" aria-label="Top vulnerable assets chart"></canvas>
+        </div>
+    </div>
+    <div style="background:var(--bg-card); border:1px solid var(--border); border-radius:var(--radius); padding:20px;">
+        <h3 style="font-size:15px; font-weight:600; color:var(--text-primary); margin:0 0 16px 0;">Common Risk Categories</h3>
+        <div style="position:relative; height:200px;">
+            <canvas id="topCategoriesChart" aria-label="Top risk categories chart"></canvas>
+        </div>
+    </div>
+</div>
+<style>
+@media (max-width: 1100px) {
+  .swp-chart-grid { grid-template-columns: 1fr !important; }
+}
+</style>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+    if (typeof Chart === "undefined") return;
+    const tick = getComputedStyle(document.documentElement).getPropertyValue('--text-muted').trim() || '#64748b';
+    const grid = 'rgba(148,163,184,0.12)';
+    const border = getComputedStyle(document.documentElement).getPropertyValue('--bg-card').trim() || '#1e293b';
+
+    const sevEl = document.getElementById('severityDonutChart');
+    if (sevEl) {
+        new Chart(sevEl.getContext('2d'), {
+            type: 'doughnut',
+            data: {
+                labels: ['Critical', 'High', 'Medium', 'Low', 'Info'],
+                datasets: [{
+                    data: [
+                        {{ severity_counts.critical | default(0) }},
+                        {{ severity_counts.high | default(0) }},
+                        {{ severity_counts.medium | default(0) }},
+                        {{ severity_counts.low | default(0) }},
+                        {{ severity_counts.info | default(0) }}
+                    ],
+                    backgroundColor: ['#ef4444', '#f97316', '#eab308', '#3b82f6', '#64748b'],
+                    borderWidth: 2,
+                    borderColor: border
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { position: 'right', labels: { color: tick, font: { size: 11 } } } },
+                cutout: '68%'
+            }
+        });
+    }
+
+    const sitesEl = document.getElementById('topSitesBarChart');
+    if (sitesEl) {
+        const sitesData = {{ top_vulnerable_sites | default([]) | tojson }};
+        new Chart(sitesEl.getContext('2d'), {
+            type: 'bar',
+            data: {
+                labels: (sitesData.length ? sitesData : [{name:'No scored assets', score:0}]).map(s => String(s.name || '').replace(/^https?:\/\//, '').substring(0, 22)),
+                datasets: [{
+                    label: 'Risk Score (0-100)',
+                    data: (sitesData.length ? sitesData : [{score:0}]).map(s => s.score),
+                    backgroundColor: (sitesData.length ? sitesData : [{score:0}]).map(s => s.score >= 70 ? '#ef4444' : (s.score >= 40 ? '#f97316' : '#3b82f6')),
+                    borderRadius: 4
+                }]
+            },
+            options: {
+                indexAxis: 'y',
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    x: { max: 100, ticks: { color: tick }, grid: { color: grid } },
+                    y: { ticks: { color: tick, font: { size: 11 } }, grid: { display: false } }
+                },
+                plugins: { legend: { display: false } }
+            }
+        });
+    }
+
+    const catEl = document.getElementById('topCategoriesChart');
+    if (catEl) {
+        const catData = {{ top_categories | default([]) | tojson }};
+        new Chart(catEl.getContext('2d'), {
+            type: 'bar',
+            data: {
+                labels: (catData.length ? catData : [['None', 0]]).map(c => c[0]),
+                datasets: [{
+                    data: (catData.length ? catData : [['None', 0]]).map(c => c[1]),
+                    backgroundColor: '#2563eb',
+                    borderRadius: 4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: { ticks: { precision: 0, color: tick }, grid: { color: grid } },
+                    x: { ticks: { color: tick, font: { size: 10 } }, grid: { display: false } }
+                },
+                plugins: { legend: { display: false } }
+            }
+        });
+    }
+});
+</script>
+
 {% if monitoring %}
 <div class="page-header" style="margin-top:20px; margin-bottom:12px;">
     <h3 style="font-size:18px; font-weight:600; color:var(--text-primary);">Continuous Monitoring Health</h3>

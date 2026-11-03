@@ -5,6 +5,9 @@ All notable changes to SentinelWP are documented in this file.
 ## [4.2.0] — 2026-11-03
 
 ### Added
+- **Real-Time Dashboard Analytics (Chart.js)**: Integrated interactive visual widgets including a Donut chart for active exposure distribution, a ranked horizontal bar chart for top vulnerable assets by risk score, and a bar chart for common risk categories (`templates/dashboard.html`, `app.py`).
+- **Enterprise Brand Identity**: Replaced generic AI-style logo with clean, precision-crafted geometric Sentinel shield emblem across sidebar navigation and login portal (`templates/base.html`, `templates/login.html`).
+- **Database & Maintenance Governance**: Added dedicated Settings tab for database management including one-click SQLite snapshot export, validated import/restore with header verification, retention purging, and confirmation-gated reset (`templates/settings.html`, `app.py`, `core/repository.py`).
 - **REST API Scans v1**: Added endpoints `POST /api/v1/scans` (scoped to `scans:run`, supports passive and authorized safe-active scans with optional synchronous polling `wait=true`) and `GET /api/v1/scans/<id>` returning scan status, metrics, findings, and discovered usernames (`app.py`).
 - **Finding Titles Catalog**: Added catalog ingestion in `core/finding_catalog.py` backed by `data/vulnerability_finding_titles.json` (~86 vulnerability title templates for translation and downstream integrations) exposed via `GET /api/v1/finding-titles` (`app.py`).
 - **False-Positive & Detection Hardening Suite**: Added comprehensive test coverage in `tests/test_audit_fp_remediation.py` covering 11 false-positive vectors.
