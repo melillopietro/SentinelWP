@@ -4,7 +4,7 @@ WordPress core version parsing and comparison helpers.
 from __future__ import annotations
 
 import re
-from typing import List, Optional, Sequence
+from typing import Dict, List, Optional, Sequence
 
 from core.vulnerability_intelligence.version_matcher import compare_versions, parse_version
 
@@ -95,8 +95,8 @@ def extract_wordpress_version(findings: Sequence) -> Optional[str]:
 
 
 def collect_detected_plugins(findings: Sequence) -> List[dict]:
-    plugins: List[dict] = []
-    seen = set()
+    _rank = {"high": 3, "medium": 2, "low": 1, "none": 0}
+    merged: Dict[str, dict] = {}
     for f in findings:
         if getattr(f, "category", "") != "plugins":
             continue
@@ -105,9 +105,21 @@ def collect_detected_plugins(findings: Sequence) -> List[dict]:
         version = raw.get("version")
         if not slug:
             continue
-        key = (slug, version)
-        if key in seen:
-            continue
-        seen.add(key)
-        plugins.append({"slug": slug, "version": version})
-    return plugins
+        conf = str(raw.get("version_confidence") or "low").lower()
+        rank = _rank.get(conf, 1)
+        prev = merged.get(slug)
+        if not prev or rank > prev.get("_rank", 0) or (rank == prev.get("_rank", 0) and version and not prev.get("version")):
+            merged[slug] = {
+                "slug": slug,
+                "version": version,
+                "version_confidence": conf,
+                "_rank": rank,
+            }
+        elif version and not prev.get("version"):
+            prev["version"] = version
+            prev["version_confidence"] = conf
+    out: List[dict] = []
+    for item in merged.values():
+        item.pop("_rank", None)
+        out.append(item)
+    return out

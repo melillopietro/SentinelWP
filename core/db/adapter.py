@@ -42,7 +42,7 @@ from core.db.models import (
     DataQualityIssueModel, DiscoveredAssetModel, TechnologyObservationModel, SavedViewModel,
     IntelSyncStatusModel
 )
-from sqlalchemy import delete, text, select
+from sqlalchemy import delete, text, select, func
 
 logger = logging.getLogger("sentinelwp.db.adapter")
 
@@ -1412,7 +1412,8 @@ class PostgresqlOperationalAdapter(OperationalBackendAdapter):
             stmt = select(TechnologyObservationModel).where(
                 TechnologyObservationModel.tenant_id == obs.tenant_id,
                 TechnologyObservationModel.asset_id == obs.asset_id,
-                TechnologyObservationModel.name == obs.name
+                TechnologyObservationModel.name == obs.name,
+                TechnologyObservationModel.technology_type == obs.technology_type,
             )
             model = session.execute(stmt).scalar_one_or_none()
             now_iso = datetime.now(timezone.utc).isoformat()
@@ -1451,6 +1452,94 @@ class PostgresqlOperationalAdapter(OperationalBackendAdapter):
                     created_at=m.created_at, updated_at=m.updated_at
                 ) for m in models
             ]
+
+    def list_technologies_for_asset(self, asset_id: str, tenant_id: str) -> List[Dict[str, Any]]:
+        from core.repository import _technology_type_label
+
+        obs = self.list_technology_observations(tenant_id, asset_id=asset_id)
+        return [
+            {
+                "name": o.name,
+                "category": _technology_type_label(o.technology_type),
+                "technology_type": o.technology_type,
+                "version": o.version or "Unknown",
+                "confidence": o.confidence or "MEDIUM",
+                "source": o.source,
+                "last_seen": o.last_seen,
+            }
+            for o in obs
+        ]
+
+    def aggregate_technology_catalog(self, tenant_id: str, technology_type: Optional[str] = None) -> List[Any]:
+        from core.repository import TechnologyCatalogEntry, _technology_type_label
+
+        with session_scope() as session:
+            ver_col = func.coalesce(TechnologyObservationModel.version, "")
+            stmt = (
+                select(
+                    TechnologyObservationModel.technology_type,
+                    TechnologyObservationModel.name,
+                    ver_col.label("version"),
+                    func.count(func.distinct(TechnologyObservationModel.asset_id)).label("asset_count"),
+                )
+                .where(TechnologyObservationModel.tenant_id == tenant_id)
+                .group_by(
+                    TechnologyObservationModel.technology_type,
+                    TechnologyObservationModel.name,
+                    ver_col,
+                )
+                .order_by(
+                    func.count(func.distinct(TechnologyObservationModel.asset_id)).desc(),
+                    TechnologyObservationModel.name.asc(),
+                    ver_col.asc(),
+                )
+            )
+            if technology_type:
+                stmt = stmt.where(TechnologyObservationModel.technology_type == technology_type)
+            rows = session.execute(stmt).all()
+            return [
+                TechnologyCatalogEntry(
+                    technology_type=r.technology_type,
+                    name=r.name,
+                    version=r.version or None,
+                    asset_count=int(r.asset_count),
+                    type_label=_technology_type_label(r.technology_type),
+                )
+                for r in rows
+            ]
+
+    def list_assets_by_technology(
+        self,
+        tenant_id: str,
+        *,
+        technology_type: str,
+        name: str,
+        version: Optional[str] = None,
+    ) -> List[Asset]:
+        with session_scope() as session:
+            stmt = (
+                select(TechnologyObservationModel.asset_id)
+                .where(
+                    TechnologyObservationModel.tenant_id == tenant_id,
+                    TechnologyObservationModel.technology_type == technology_type,
+                    TechnologyObservationModel.name == name,
+                )
+                .distinct()
+            )
+            if version is None:
+                stmt = stmt.where(
+                    (TechnologyObservationModel.version.is_(None))
+                    | (TechnologyObservationModel.version == "")
+                )
+            else:
+                stmt = stmt.where(TechnologyObservationModel.version == version)
+            asset_ids = [r[0] for r in session.execute(stmt).all()]
+        assets: List[Asset] = []
+        for aid in asset_ids:
+            asset = self.get_asset(aid, tenant_id=tenant_id)
+            if asset:
+                assets.append(asset)
+        return assets
 
     def list_saved_views(self, tenant_id: str, user_id: Optional[str] = None) -> List[Any]:
         with session_scope() as session:

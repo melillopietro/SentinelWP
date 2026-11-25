@@ -125,6 +125,22 @@ def _execute_async_scan(scan_id: str, target_url: str, initiated_by: str, scan_m
         repository.save_scan(scan)
         repository.save_findings_bulk(scan.findings)
 
+        if scan.asset_id:
+            try:
+                from core.technology_inventory import sync_asset_technology_inventory
+
+                sync_asset_technology_inventory(
+                    scan.tenant_id,
+                    scan.asset_id,
+                    scan.findings or [],
+                    is_wordpress=bool(scan.wordpress_detected or scan.is_wordpress),
+                    wp_version=scan.wordpress_version or scan.wp_version,
+                    wp_version_source=getattr(scan, "wordpress_version_source", None) or getattr(scan, "wp_version_source", None),
+                    wp_version_confidence=getattr(scan, "wordpress_version_confidence", None) or getattr(scan, "wp_version_confidence", None),
+                )
+            except Exception:
+                pass
+
         try:
             from core.notifications import dispatch_scan_notifications
             dispatch_scan_notifications(scan)

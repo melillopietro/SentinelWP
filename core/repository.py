@@ -4,6 +4,7 @@ SQLite repository layer - full CRUD for users, scans, findings, tenants, assets,
 import json
 import logging
 import sqlite3
+from dataclasses import dataclass
 import threading
 import time
 import uuid
@@ -4886,18 +4887,160 @@ def save_technology_observation(obs: TechnologyObservation) -> TechnologyObserva
     now_iso = datetime.now(timezone.utc).isoformat()
     if not obs.updated_at:
         obs.updated_at = now_iso
-    conn.execute("""
-        INSERT OR REPLACE INTO technology_observations (
-            id, tenant_id, asset_id, technology_type, name, version,
-            source, confidence, eol_status, first_seen, last_seen, created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    """, (
-        obs.id, obs.tenant_id, obs.asset_id, obs.technology_type, obs.name,
-        obs.version, obs.source, obs.confidence, obs.eol_status,
-        obs.first_seen, obs.last_seen, obs.created_at, obs.updated_at
-    ))
+    existing = conn.execute(
+        """
+        SELECT id, first_seen FROM technology_observations
+        WHERE tenant_id = ? AND asset_id = ? AND name = ? AND technology_type = ?
+        """,
+        (obs.tenant_id, obs.asset_id, obs.name, obs.technology_type),
+    ).fetchone()
+    if existing:
+        obs.id = existing["id"]
+        obs.first_seen = existing["first_seen"] or obs.first_seen
+        conn.execute(
+            """
+            UPDATE technology_observations SET
+                version = ?, source = ?, confidence = ?,
+                eol_status = ?, last_seen = ?, updated_at = ?
+            WHERE id = ?
+            """,
+            (
+                obs.version,
+                obs.source,
+                obs.confidence,
+                obs.eol_status,
+                obs.last_seen or now_iso,
+                now_iso,
+                obs.id,
+            ),
+        )
+    else:
+        if not obs.created_at:
+            obs.created_at = now_iso
+        if not obs.first_seen:
+            obs.first_seen = now_iso
+        if not obs.last_seen:
+            obs.last_seen = now_iso
+        conn.execute(
+            """
+            INSERT INTO technology_observations (
+                id, tenant_id, asset_id, technology_type, name, version,
+                source, confidence, eol_status, first_seen, last_seen, created_at, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                obs.id,
+                obs.tenant_id,
+                obs.asset_id,
+                obs.technology_type,
+                obs.name,
+                obs.version,
+                obs.source,
+                obs.confidence,
+                obs.eol_status,
+                obs.first_seen,
+                obs.last_seen,
+                obs.created_at,
+                obs.updated_at,
+            ),
+        )
     conn.commit()
     return obs
+
+
+def _technology_type_label(technology_type: str) -> str:
+    mapping = {
+        "CMS": "WordPress Core",
+        "WORDPRESS_PLUGIN": "Plugin",
+        "WORDPRESS_THEME": "Theme",
+        "plugin": "Plugin",
+        "theme": "Theme",
+    }
+    return mapping.get(technology_type, technology_type.replace("_", " ").title())
+
+
+@adapter_dispatch("list_technologies_for_asset")
+def list_technologies_for_asset(asset_id: str, tenant_id: str) -> list:
+    obs = list_technology_observations(tenant_id, asset_id=asset_id)
+    return [
+        {
+            "name": o.name,
+            "category": _technology_type_label(o.technology_type),
+            "technology_type": o.technology_type,
+            "version": o.version or "Unknown",
+            "confidence": o.confidence or "MEDIUM",
+            "source": o.source,
+            "last_seen": o.last_seen,
+        }
+        for o in obs
+    ]
+
+
+@dataclass
+class TechnologyCatalogEntry:
+    technology_type: str
+    name: str
+    version: Optional[str]
+    asset_count: int
+    type_label: str
+
+
+@adapter_dispatch("aggregate_technology_catalog")
+def aggregate_technology_catalog(tenant_id: str, technology_type: Optional[str] = None) -> list:
+    conn = _get_conn()
+    query = """
+        SELECT technology_type, name, COALESCE(version, '') AS version, COUNT(DISTINCT asset_id) AS asset_count
+        FROM technology_observations
+        WHERE tenant_id = ?
+    """
+    params: list = [tenant_id]
+    if technology_type:
+        query += " AND technology_type = ?"
+        params.append(technology_type)
+    query += """
+        GROUP BY technology_type, name, COALESCE(version, '')
+        ORDER BY asset_count DESC, name ASC, version ASC
+    """
+    rows = conn.execute(query, params).fetchall()
+    return [
+        TechnologyCatalogEntry(
+            technology_type=r["technology_type"],
+            name=r["name"],
+            version=r["version"] or None,
+            asset_count=int(r["asset_count"]),
+            type_label=_technology_type_label(r["technology_type"]),
+        )
+        for r in rows
+    ]
+
+
+@adapter_dispatch("list_assets_by_technology")
+def list_assets_by_technology(
+    tenant_id: str,
+    *,
+    technology_type: str,
+    name: str,
+    version: Optional[str] = None,
+) -> list:
+    conn = _get_conn()
+    query = """
+        SELECT DISTINCT o.asset_id
+        FROM technology_observations o
+        WHERE o.tenant_id = ? AND o.technology_type = ? AND o.name = ?
+    """
+    params: list = [tenant_id, technology_type, name]
+    if version is None:
+        query += " AND (o.version IS NULL OR o.version = '')"
+    else:
+        query += " AND o.version = ?"
+        params.append(version)
+    rows = conn.execute(query, params).fetchall()
+    assets = []
+    for row in rows:
+        asset = get_asset(row["asset_id"], tenant_id=tenant_id)
+        if asset:
+            assets.append(asset)
+    return assets
 
 
 @adapter_dispatch("list_technology_observations")

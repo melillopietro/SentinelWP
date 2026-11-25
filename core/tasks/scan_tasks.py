@@ -338,29 +338,18 @@ def run_scan_task(self, scan_job_id: str):
 
                     update_asset(asset.id, tenant_id=job.tenant_id, **posture_updates)
 
-                if completed_scan.wordpress_detected or completed_scan.is_wordpress:
-                    # Feed Phase 6 TechnologyObservation inventory
-                    from core.models import TechnologyObservation
-                    from core.repository import save_technology_observation
-                    wp_ver = completed_scan.wordpress_version or completed_scan.wp_version
-                    wp_src = completed_scan.wordpress_version_source or completed_scan.wp_version_source or "meta_generator"
-                    wp_conf = completed_scan.wordpress_version_confidence or completed_scan.wp_version_confidence or "HIGH"
-                    if wp_ver and wp_ver in ("Unknown", "Not WordPress"):
-                        wp_ver = None
+                if job.asset_id:
+                    from core.technology_inventory import sync_asset_technology_inventory
 
-                    now_iso = datetime.now(timezone.utc).isoformat()
-                    save_technology_observation(TechnologyObservation(
-                        tenant_id=job.tenant_id,
-                        asset_id=job.asset_id,
-                        technology_type="CMS",
-                        name="WordPress",
-                        version=wp_ver,
-                        source=wp_src,
-                        confidence=str(wp_conf).upper(),
-                        first_seen=now_iso,
-                        last_seen=now_iso,
-                        created_at=now_iso
-                    ))
+                    sync_asset_technology_inventory(
+                        job.tenant_id,
+                        job.asset_id,
+                        completed_scan.findings or [],
+                        is_wordpress=bool(completed_scan.wordpress_detected or completed_scan.is_wordpress),
+                        wp_version=completed_scan.wordpress_version or completed_scan.wp_version,
+                        wp_version_source=completed_scan.wordpress_version_source or completed_scan.wp_version_source,
+                        wp_version_confidence=completed_scan.wordpress_version_confidence or completed_scan.wp_version_confidence,
+                    )
             except Exception as e:
                 logger.warning(f"[{scan_job_id}] Could not update asset metadata or technology inventory: {e}")
 

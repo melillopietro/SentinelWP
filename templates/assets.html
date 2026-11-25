@@ -28,6 +28,11 @@
         Business Units
         <span class="tab-badge">{{ business_units | length }}</span>
     </a>
+    <a href="{{ url_for('assets', tab='technologies') }}" class="workspace-tab {% if active_tab == 'technologies' %}active{% endif %}">
+        <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h10M4 18h10"/></svg>
+        Technologies
+        {% if technology_catalog %}<span class="tab-badge">{{ technology_catalog | length }}</span>{% endif %}
+    </a>
     <a href="{{ url_for('assets', tab='quality') }}" class="workspace-tab {% if active_tab == 'quality' %}active{% endif %}">
         <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
         Data Quality &amp; Confidence
@@ -35,7 +40,99 @@
     </a>
 </div>
 
-{% if active_tab in ('bu', 'units') %}
+{% if active_tab == 'technologies' %}
+<!-- TAB: TECHNOLOGY INVENTORY (portfolio-wide, canonical per asset) -->
+{% if technology_drill %}
+<div style="margin-bottom:20px;">
+    <a href="{{ url_for('assets', tab='technologies', type_filter=tech_type_filter, tech_q=tech_q) }}" class="btn btn-secondary btn-sm">&larr; Back to technology catalog</a>
+</div>
+<div style="background:var(--bg-card); border:1px solid var(--border); border-radius:var(--radius); padding:20px; margin-bottom:24px;">
+    <h3 style="font-size:18px; font-weight:600; margin-bottom:6px;">{{ technology_drill.name }}{% if technology_drill.version %} <span style="color:var(--text-muted); font-weight:500;">v{{ technology_drill.version }}</span>{% else %} <span class="badge badge-warning">Version unknown</span>{% endif %}</h3>
+    <p style="font-size:13px; color:var(--text-muted);">{{ technology_drill.type_label }} &middot; {{ technology_assets | length }} asset(s)</p>
+</div>
+{% if technology_assets %}
+<div class="table-wrap">
+    <table>
+        <thead>
+            <tr>
+                <th>Asset</th>
+                <th>Hostname</th>
+                <th>Environment</th>
+                <th>Criticality</th>
+                <th>WP Tag</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for a in technology_assets %}
+            <tr>
+                <td><a href="{{ url_for('asset_detail', asset_id=a.id, tab='tech') }}"><strong>{{ a.display_name or a.hostname }}</strong></a></td>
+                <td style="font-family:monospace; font-size:12px;">{{ a.hostname }}</td>
+                <td><span class="badge badge-info">{{ a.environment }}</span></td>
+                <td>{{ a.criticality }}</td>
+                <td style="font-size:12px; color:var(--text-muted);">{{ a.wp_version or '—' }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% else %}
+<p style="font-size:13px; color:var(--text-muted);">No assets linked to this technology entry.</p>
+{% endif %}
+
+{% else %}
+<div style="background:var(--bg-card); border:1px solid var(--border); border-radius:var(--radius); padding:16px; margin-bottom:24px;">
+    <p style="font-size:13px; color:var(--text-secondary); margin-bottom:12px;">
+        Canonical inventory per asset (one row per component). Each completed scan refreshes versions — rescanning will not leave duplicate version rows on the same site.
+    </p>
+    <form method="GET" action="{{ url_for('assets') }}" style="display:flex; flex-wrap:wrap; gap:12px; align-items:flex-end;">
+        <input type="hidden" name="tab" value="technologies"/>
+        <div style="flex:2; min-width:220px;">
+            <label style="font-size:12px; color:var(--text-muted);">Search name / version</label>
+            <input type="text" name="tech_q" value="{{ tech_q or '' }}" placeholder="woocommerce, 6.8.2, elementor…" style="width:100%; padding:8px 12px; background:var(--bg-primary); border:1px solid var(--border); border-radius:var(--radius); color:var(--text-primary); font-size:13px;">
+        </div>
+        <div style="flex:1; min-width:160px;">
+            <label style="font-size:12px; color:var(--text-muted);">Type</label>
+            <select name="type_filter" style="width:100%; padding:8px 12px; background:var(--bg-primary); border:1px solid var(--border); border-radius:var(--radius); color:var(--text-primary); font-size:13px;">
+                <option value="">All types</option>
+                <option value="CMS" {% if tech_type_filter == 'CMS' %}selected{% endif %}>WordPress Core</option>
+                <option value="WORDPRESS_PLUGIN" {% if tech_type_filter == 'WORDPRESS_PLUGIN' %}selected{% endif %}>Plugins</option>
+                <option value="WORDPRESS_THEME" {% if tech_type_filter == 'WORDPRESS_THEME' %}selected{% endif %}>Themes</option>
+            </select>
+        </div>
+        <button type="submit" class="btn btn-primary btn-sm">Filter</button>
+    </form>
+</div>
+{% if technology_catalog %}
+<div class="table-wrap">
+    <table>
+        <thead>
+            <tr>
+                <th>Component</th>
+                <th>Type</th>
+                <th>Version</th>
+                <th>Assets</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for t in technology_catalog %}
+            <tr style="cursor:pointer;" onclick="window.location='{{ url_for('assets', tab='technologies', name=t.name, component_type=t.technology_type, version=t.version or '', type_filter=tech_type_filter, tech_q=tech_q) }}'">
+                <td><strong>{{ t.name }}</strong></td>
+                <td><span class="badge badge-info">{{ t.type_label }}</span></td>
+                <td>{{ t.version or 'Unknown' }}</td>
+                <td><span class="badge">{{ t.asset_count }}</span></td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% else %}
+<p style="font-size:13px; color:var(--text-muted); padding:24px; background:var(--bg-card); border:1px solid var(--border); border-radius:var(--radius);">
+    Nessuna tecnologia registrata. Esegui scansioni passive o safe-active sugli asset WordPress per popolare l'inventario (core, plugin e temi).
+</p>
+{% endif %}
+{% endif %}
+
+{% elif active_tab in ('bu', 'units') %}
 <!-- TAB 2: BUSINESS UNITS -->
 <div style="background:var(--bg-card); border:1px solid var(--border); border-radius:var(--radius); padding:20px; margin-bottom:24px;">
     <h3 style="font-size:16px; font-weight:600; margin-bottom:16px;">Organizational Business Units</h3>

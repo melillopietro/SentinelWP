@@ -1035,6 +1035,9 @@ def assets():
     business_units = []
     open_dq_issues = []
     resolved_dq_issues = []
+    technology_catalog = []
+    technology_assets = []
+    technology_drill = None
     try:
         business_units = repository.list_business_units(tenant_id)
         dq_issues = repository.list_data_quality_issues(tenant_id, unresolved_only=False)
@@ -1042,6 +1045,41 @@ def assets():
         resolved_dq_issues = [i for i in dq_issues if i.resolved_at]
     except Exception:
         pass
+
+    tech_type_filter = request.args.get("type_filter", "").strip()
+    tech_q = request.args.get("tech_q", "").strip().lower()
+    drill_name = request.args.get("name", "").strip()
+    drill_type = request.args.get("component_type", "").strip()
+    drill_version = request.args.get("version", "").strip()
+    if active_tab == "technologies":
+        try:
+            technology_catalog = repository.aggregate_technology_catalog(
+                tenant_id,
+                technology_type=tech_type_filter or None,
+            )
+            if tech_q:
+                technology_catalog = [
+                    t
+                    for t in technology_catalog
+                    if tech_q in t.name.lower()
+                    or tech_q in (t.version or "").lower()
+                    or tech_q in t.type_label.lower()
+                ]
+            if drill_name and drill_type:
+                technology_drill = {
+                    "name": drill_name,
+                    "technology_type": drill_type,
+                    "version": drill_version or None,
+                    "type_label": repository._technology_type_label(drill_type),
+                }
+                technology_assets = repository.list_assets_by_technology(
+                    tenant_id,
+                    technology_type=drill_type,
+                    name=drill_name,
+                    version=drill_version if drill_version != "" else None,
+                )
+        except Exception:
+            pass
 
     return render_template(
         "assets.html",
@@ -1051,6 +1089,11 @@ def assets():
         business_units=business_units,
         open_dq_issues=open_dq_issues,
         resolved_dq_issues=resolved_dq_issues,
+        technology_catalog=technology_catalog,
+        technology_assets=technology_assets,
+        technology_drill=technology_drill,
+        tech_type_filter=tech_type_filter,
+        tech_q=tech_q,
     )
 
 
